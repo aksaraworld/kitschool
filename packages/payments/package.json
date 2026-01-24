@@ -1,0 +1,20 @@
+{
+  "name": "@aksara/payments",
+  "version": "1.0.0",
+  "description": "Payment calculation system for Aksara Framework with tax, admin fees, and gateway fees",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["aksara", "framework", "payments", "calculation", "fees"],
+  "author": "Panji Tianda (panjitianda@gmail.com) - In behalf of Aksara Nirwana Tianda",
+  "license": "Proprietary",
+  "dependencies": {
+    "@aksara/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}

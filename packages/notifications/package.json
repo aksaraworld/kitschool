@@ -1,0 +1,23 @@
+{
+  "name": "@aksara/notifications",
+  "version": "1.0.0",
+  "description": "Notification system for Aksara Framework with multi-channel support",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["aksara", "framework", "notifications", "push", "email"],
+  "author": "Panji Tianda (panjitianda@gmail.com) - In behalf of Aksara Nirwana Tianda",
+  "license": "Proprietary",
+  "dependencies": {
+    "@aksara/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@aksara/qr-scanner",
+  "version": "1.0.0",
+  "description": "QR code scanner module for Aksara Framework",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["aksara", "framework", "qr", "scanner", "barcode"],
+  "author": "Panji Tianda (panjitianda@gmail.com) - In behalf of Aksara Nirwana Tianda",
+  "license": "Proprietary",
+  "peerDependencies": {
+    "react": "^18.0.0"
+  },
+  "dependencies": {
+    "html5-qrcode": "^2.3.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/react": "^18.0.0"
+  }
+}
+
+

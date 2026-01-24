@@ -1,0 +1,32 @@
+{
+  "name": "cognifa",
+  "version": "1.0.0",
+  "description": "Cognifa - School Management System SaaS",
+  "private": true,
+  "workspaces": [
+    "packages/api",
+    "packages/core",
+    "packages/context",
+    "packages/hooks",
+    "packages/ui",
+    "packages/formatters",
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "build": "npm run build:packages && cd frontend && npm run build",
+    "build:packages": "powershell -ExecutionPolicy Bypass -File ./build-packages.ps1",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "seed": "cd backend && npm run seed"
+  },
+  "keywords": ["school", "management", "saas"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
+

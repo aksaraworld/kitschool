@@ -1,0 +1,26 @@
+{
+  "name": "@aksara/ui",
+  "version": "1.0.0",
+  "description": "UI components for Aksara Framework",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["aksara", "framework", "ui", "components"],
+  "author": "Panji Tianda (panjitianda@gmail.com) - In behalf of Aksara Nirwana Tianda",
+  "license": "Proprietary",
+  "peerDependencies": {
+    "react": "^18.0.0"
+  },
+  "dependencies": {
+    "@aksara/core": "file:../core"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/react": "^18.0.0"
+  }
+}
+
+

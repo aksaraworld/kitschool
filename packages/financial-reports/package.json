@@ -1,0 +1,21 @@
+{
+  "name": "@aksara/financial-reports",
+  "version": "1.0.0",
+  "description": "Financial reporting system for Aksara Framework with per-item visibility and auto-publish",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["aksara", "framework", "financial", "reports", "accounting"],
+  "author": "Panji Tianda (panjitianda@gmail.com) - In behalf of Aksara Nirwana Tianda",
+  "license": "Proprietary",
+  "dependencies": {
+    "@aksara/core": "workspace:*",
+    "@aksara/notifications": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}

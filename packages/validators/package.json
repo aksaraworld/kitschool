@@ -1,0 +1,20 @@
+{
+  "name": "@aksara/validators",
+  "version": "1.0.0",
+  "description": "Validation utilities for email, phone, password, etc. for Aksara Framework",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["aksara", "framework", "validation", "email", "phone", "password"],
+  "author": "Panji Tianda (panjitianda@gmail.com) - In behalf of Aksara Nirwana Tianda",
+  "license": "Proprietary",
+  "dependencies": {
+    "@aksara/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@aksara/formatters",
+  "version": "1.0.0",
+  "description": "Formatting utilities for currency, dates, and numbers for Aksara Framework",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["aksara", "framework", "format", "currency", "date", "number"],
+  "author": "Panji Tianda (panjitianda@gmail.com) - In behalf of Aksara Nirwana Tianda",
+  "license": "Proprietary",
+  "dependencies": {
+    "@aksara/core": "file:../core"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}

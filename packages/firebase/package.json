@@ -1,0 +1,25 @@
+{
+  "name": "@aksara/firebase",
+  "version": "1.0.0",
+  "description": "Firebase integration utilities for Aksara Framework",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["aksara", "framework", "firebase", "firestore", "auth", "storage"],
+  "author": "Panji Tianda (panjitianda@gmail.com) - In behalf of Aksara Nirwana Tianda",
+  "license": "Proprietary",
+  "dependencies": {
+    "@aksara/core": "workspace:*",
+    "firebase": "^10.7.0",
+    "firebase-admin": "^12.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "next": "^14.0.0"
+  }
+}
