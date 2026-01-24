@@ -57,22 +57,23 @@ export const SchoolProvider = ({ children }: { children: React.ReactNode }) => {
         removeSelectedSchoolId();
         setSelectedSchoolId(null);
       } else {
-        const currentId = selectedSchoolId;
-        if (currentId && schoolList.some((school) => school._id === currentId)) {
-          // Keep current selection
-          setSelectedSchoolId(currentId);
-        } else {
-          // Select first school as fallback
-          const fallbackId = schoolList[0]._id;
-          setSelectedSchoolId(fallbackId);
-        }
+        // Use functional update to get current value
+        setSelectedSchoolId((currentId) => {
+          if (currentId && schoolList.some((school) => school._id === currentId)) {
+            // Keep current selection
+            return currentId;
+          } else {
+            // Select first school as fallback
+            return schoolList[0]._id;
+          }
+        });
       }
     } catch (error) {
       console.error('Error fetching schools:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [isSaasAdmin]);
+  }, [isSaasAdmin, removeSelectedSchoolId, setSelectedSchoolId]);
 
   useEffect(() => {
     if (!isSaasAdmin) {
@@ -82,7 +83,8 @@ export const SchoolProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
     fetchSchools();
-  }, [isSaasAdmin, fetchSchools, removeSelectedSchoolId, setSelectedSchoolId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSaasAdmin]);
 
   const selectSchool = useCallback((schoolId: string | null) => {
     if (schoolId) {

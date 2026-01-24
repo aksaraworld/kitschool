@@ -21,6 +21,8 @@ export default function DashboardPage() {
   useEffect(() => {
     // Fetch dashboard stats based on user role
     const fetchStats = async () => {
+      if (!user) return;
+      
       try {
         // This would be replaced with actual API calls
         setStats({
@@ -35,7 +37,7 @@ export default function DashboardPage() {
     };
 
     fetchStats();
-  }, []);
+  }, [user]);
 
   const getRoleSpecificStats = () => {
     if (!user) return [];

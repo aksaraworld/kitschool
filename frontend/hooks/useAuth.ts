@@ -1,28 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useMounted } from '@aksara/hooks';
+import { useState, useEffect, useRef } from 'react';
 import { authService, AUTH_CHANGE_EVENT } from '@/lib/auth';
 import { User } from '@/lib/types';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const isMounted = useMounted();
+  const mountedRef = useRef(true);
 
   useEffect(() => {
+    mountedRef.current = true;
+    
     // Get user on client side only
     const currentUser = authService.getCurrentUser();
-    if (isMounted()) {
+    if (mountedRef.current) {
       setUser(currentUser);
       setIsLoading(false);
     }
-  }, [isMounted]);
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Listen for auth changes
   useEffect(() => {
     const handleAuthChange = () => {
-      if (isMounted()) {
+      if (mountedRef.current) {
         const currentUser = authService.getCurrentUser();
         setUser(currentUser);
       }
@@ -34,7 +39,7 @@ export function useAuth() {
         window.removeEventListener(AUTH_CHANGE_EVENT, handleAuthChange);
       };
     }
-  }, [isMounted]);
+  }, []);
 
   return { user, isLoading, isAuthenticated: !!user };
 }
