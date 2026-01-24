@@ -2,13 +2,14 @@
  * Copyright (c) 2025 Panji Tianda (panjitianda@gmail.com) - In behalf of Aksara Nirwana Tianda. All rights reserved.
  */
 
-import admin, { App } from 'firebase-admin';
+import admin from 'firebase-admin';
+import type { app } from 'firebase-admin';
 import path from 'path';
 import fs from 'fs';
 import { FirebaseAdminOptions, FirebaseAdminInitResult } from './types';
 
 let isInitialized = false;
-let adminApp: App | null = null;
+let adminApp: app.App | null = null;
 let authAvailable = false;
 
 /**
@@ -30,12 +31,21 @@ export function initializeFirebaseAdmin(options: FirebaseAdminOptions): Firebase
         : path.join(process.cwd(), options.serviceAccountPath);
 
       if (fs.existsSync(serviceAccountPath)) {
-        const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+        const serviceAccountJson = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+        
+        // Convert to firebase-admin format if needed
+        const serviceAccount = serviceAccountJson.projectId 
+          ? serviceAccountJson 
+          : {
+              projectId: serviceAccountJson.project_id,
+              clientEmail: serviceAccountJson.client_email,
+              privateKey: serviceAccountJson.private_key?.replace(/\\n/g, '\n') || serviceAccountJson.private_key
+            };
         
         adminApp = admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
-          projectId: serviceAccount.project_id || options.projectId,
-          storageBucket: options.storageBucket || `${serviceAccount.project_id || options.projectId}.firebasestorage.app`
+          projectId: serviceAccount.projectId || serviceAccountJson.project_id || options.projectId,
+          storageBucket: options.storageBucket || `${serviceAccount.projectId || serviceAccountJson.project_id || options.projectId}.firebasestorage.app`
         });
         
         authAvailable = true;
@@ -51,7 +61,11 @@ export function initializeFirebaseAdmin(options: FirebaseAdminOptions): Firebase
     // Try service account object
     if (options.serviceAccount) {
       adminApp = admin.initializeApp({
-        credential: admin.credential.cert(options.serviceAccount),
+        credential: admin.credential.cert({
+          projectId: options.serviceAccount.project_id,
+          clientEmail: options.serviceAccount.client_email,
+          privateKey: options.serviceAccount.private_key?.replace(/\\n/g, '\n') || options.serviceAccount.private_key
+        }),
         projectId: options.serviceAccount.project_id || options.projectId,
         storageBucket: options.storageBucket || `${options.serviceAccount.project_id || options.projectId}.firebasestorage.app`
       });
@@ -130,7 +144,7 @@ export function initializeFirebaseAdminFromEnv(projectId?: string): FirebaseAdmi
 /**
  * Get initialized Firebase Admin app
  */
-export function getFirebaseAdminApp(): App {
+export function getFirebaseAdminApp(): app.App {
   if (!adminApp) {
     throw new Error('Firebase Admin not initialized. Call initializeFirebaseAdmin first.');
   }

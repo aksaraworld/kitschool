@@ -54,19 +54,22 @@ You should see: `True`
 6. Click **"Register app"**
 7. **Copy the `firebaseConfig` object** - you'll need this for Vercel!
 
-It looks like:
+Your Firebase config:
 ```javascript
 const firebaseConfig = {
-  apiKey: "AIza...",
+  apiKey: "AIzaSyBWzyPLXe9w9QEjtPoB293WRJe9ty2o6z8",
   authDomain: "cognifa-16209.firebaseapp.com",
   projectId: "cognifa-16209",
-  storageBucket: "cognifa-16209.appspot.com",
+  storageBucket: "cognifa-16209.firebasestorage.app",
   messagingSenderId: "760299044391",
-  appId: "1:760299044391:web:..."
+  appId: "1:760299044391:web:adf809d8c2563f8444d802",
+  measurementId: "G-PHDZJYNX2H"
 };
 ```
 
 ### Step 4: Deploy Security Rules
+
+The `firebase.json` file is already created. Now deploy the rules:
 
 ```powershell
 # Install Firebase CLI (if not installed)
@@ -75,22 +78,17 @@ npm install -g firebase-tools
 # Login to Firebase
 firebase login
 
-# Initialize Firebase (from project root)
-firebase init
-```
+# Set the Firebase project
+firebase use cognifa-16209
 
-**Select:**
-- ✅ Firestore
-- ✅ Storage
-- Use existing project → Select `cognifa-16209`
-- Firestore rules file: `firestore.rules` (already exists)
-- Firestore indexes: `firestore.indexes.json` (create if needed)
-- Storage rules file: `storage.rules` (already exists)
-
-**Deploy rules:**
-```powershell
+# Deploy rules
 firebase deploy --only firestore:rules,storage:rules
 ```
+
+**Note:** The `firebase.json` file is already configured with:
+- Firestore rules: `firestore.rules`
+- Storage rules: `storage.rules`
+- Firestore indexes: `firestore.indexes.json`
 
 ### Step 5: Test Local Setup
 
@@ -154,34 +152,34 @@ NEXT_PUBLIC_API_URL=https://your-backend-url.vercel.app
 *(We'll get this after deploying backend)*
 
 ```
-NEXT_PUBLIC_FIREBASE_API_KEY=AIza...
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBWzyPLXe9w9QEjtPoB293WRJe9ty2o6z8
 ```
-*(From Step 3 - firebaseConfig.apiKey)*
+*(From firebaseConfig.apiKey)*
 
 ```
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=cognifa-16209.firebaseapp.com
 ```
-*(From Step 3 - firebaseConfig.authDomain)*
+*(From firebaseConfig.authDomain)*
 
 ```
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=cognifa-16209
 ```
-*(From Step 3 - firebaseConfig.projectId)*
+*(From firebaseConfig.projectId)*
 
 ```
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=cognifa-16209.appspot.com
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=cognifa-16209.firebasestorage.app
 ```
-*(From Step 3 - firebaseConfig.storageBucket)*
+*(From firebaseConfig.storageBucket)*
 
 ```
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=760299044391
 ```
-*(From Step 3 - firebaseConfig.messagingSenderId)*
+*(From firebaseConfig.messagingSenderId)*
 
 ```
-NEXT_PUBLIC_FIREBASE_APP_ID=1:760299044391:web:...
+NEXT_PUBLIC_FIREBASE_APP_ID=1:760299044391:web:adf809d8c2563f8444d802
 ```
-*(From Step 3 - firebaseConfig.appId)*
+*(From firebaseConfig.appId)*
 
 **Important:** 
 - ✅ Check "Production", "Preview", and "Development" for all variables
@@ -299,7 +297,7 @@ npm run dev
 firebase deploy --only firestore:rules,storage:rules
 ```
 
- ### Verify Service Account Key
+  ### Verify Service Account Key
 
 ```powershell
 # Check if service account file exists
