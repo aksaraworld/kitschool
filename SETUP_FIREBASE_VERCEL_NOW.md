@@ -1,15 +1,15 @@
 # 🚀 Complete Firebase + Vercel Setup Guide
 
 ## Your Firebase Project Info
-- **Project Name:** cognifa-app
-- **Project ID:** cognifa-app
-- **Project Number:** 402405414048
-- **Organization:** cognifa-id-org
+- **Project Name:** cognifa
+- **Project ID:** cognifa-16209
+- **Project Number:** 760299044391
+- **Service Account Key:** Available ✅
 
 ✅ Firestore: Done  
 ✅ Storage: Done  
 ✅ Auth: Done  
-⚠️ Service Account Key: Restricted (we'll use ADC instead)
+✅ Service Account Key: Available
 
 ---
 
@@ -27,27 +27,24 @@
 gcloud --version
 ```
 
-### Step 2: Set Up Application Default Credentials (ADC)
+### Step 2: Verify Service Account Key
 
+The service account key file is already in place:
+- **Location:** `backend/cognifa-16209-firebase-adminsdk-fbsvc-a28e32f3ab.json`
+- **Project ID:** `cognifa-16209`
+- **Client Email:** `firebase-adminsdk-fbsvc@cognifa-16209.iam.gserviceaccount.com`
+
+**Verify the file exists:**
 ```powershell
-# Login to Google Cloud
-gcloud auth login
-
-# Set up Application Default Credentials (this replaces service account key)
-gcloud auth application-default login
-
-# Set your Firebase project
-gcloud config set project cognifa-app
-
-# Verify
-gcloud config get-value project
+# Check if file exists
+Test-Path "backend\cognifa-16209-firebase-adminsdk-fbsvc-a28e32f3ab.json"
 ```
 
-You should see: `cognifa-app`
+You should see: `True`
 
 ### Step 3: Get Firebase Client Config
 
-1. Go to: https://console.firebase.google.com/project/cognifa-app
+1. Go to: https://console.firebase.google.com/project/cognifa-16209
 2. Click **⚙️ Project Settings** (gear icon)
 3. Scroll to **"Your apps"** section
 4. Click **Web icon** (`</>`)
@@ -61,11 +58,11 @@ It looks like:
 ```javascript
 const firebaseConfig = {
   apiKey: "AIza...",
-  authDomain: "cognifa-app.firebaseapp.com",
-  projectId: "cognifa-app",
-  storageBucket: "cognifa-app.appspot.com",
-  messagingSenderId: "402405414048",
-  appId: "1:402405414048:web:..."
+  authDomain: "cognifa-16209.firebaseapp.com",
+  projectId: "cognifa-16209",
+  storageBucket: "cognifa-16209.appspot.com",
+  messagingSenderId: "760299044391",
+  appId: "1:760299044391:web:..."
 };
 ```
 
@@ -85,7 +82,7 @@ firebase init
 **Select:**
 - ✅ Firestore
 - ✅ Storage
-- Use existing project → Select `cognifa-app`
+- Use existing project → Select `cognifa-16209`
 - Firestore rules file: `firestore.rules` (already exists)
 - Firestore indexes: `firestore.indexes.json` (create if needed)
 - Storage rules file: `storage.rules` (already exists)
@@ -105,7 +102,7 @@ npm run dev
 
 You should see:
 ```
-✅ Firebase Admin initialized with Application Default Credentials
+✅ Firebase Admin initialized successfully
 ```
 
 **Frontend:**
@@ -141,7 +138,7 @@ Open http://localhost:3000 - should see login page with no errors.
 - **Framework Preset:** Next.js (auto-detected)
 - **Build Command:** `cd frontend && npm run build`
 - **Output Directory:** `frontend/.next`
-- **Install Command:** `bash vercel-install.sh`
+- **Install Command:** `node build-packages.js && cd frontend && npm install`
 
 ### Step 4: Add Environment Variables
 
@@ -162,27 +159,27 @@ NEXT_PUBLIC_FIREBASE_API_KEY=AIza...
 *(From Step 3 - firebaseConfig.apiKey)*
 
 ```
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=cognifa-app.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=cognifa-16209.firebaseapp.com
 ```
 *(From Step 3 - firebaseConfig.authDomain)*
 
 ```
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=cognifa-app
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=cognifa-16209
 ```
 *(From Step 3 - firebaseConfig.projectId)*
 
 ```
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=cognifa-app.appspot.com
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=cognifa-16209.appspot.com
 ```
 *(From Step 3 - firebaseConfig.storageBucket)*
 
 ```
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=402405414048
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=760299044391
 ```
 *(From Step 3 - firebaseConfig.messagingSenderId)*
 
 ```
-NEXT_PUBLIC_FIREBASE_APP_ID=1:402405414048:web:...
+NEXT_PUBLIC_FIREBASE_APP_ID=1:760299044391:web:...
 ```
 *(From Step 3 - firebaseConfig.appId)*
 
@@ -211,27 +208,22 @@ NEXT_PUBLIC_FIREBASE_APP_ID=1:402405414048:web:...
 
 **Backend Environment Variables:**
 ```
-FIREBASE_PROJECT_ID=cognifa-app
+FIREBASE_PROJECT_ID=cognifa-16209
+FIREBASE_SERVICE_ACCOUNT_PATH=./cognifa-16209-firebase-adminsdk-fbsvc-a28e32f3ab.json
 FRONTEND_URL=https://your-frontend-url.vercel.app
 PORT=5000
 ```
 
 **For Vercel Serverless:**
-Since service account keys are restricted, you have two options:
+You can use environment variables instead of the file:
 
-**Option 1: Use Environment Variables (if you can get them)**
-Ask your organization admin for:
-- Service account email
-- Private key
-
-Then add:
 ```
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@cognifa-app.iam.gserviceaccount.com
+FIREBASE_PROJECT_ID=cognifa-16209
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk-fbsvc@cognifa-16209.iam.gserviceaccount.com
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
-**Option 2: Use Vercel's Service Account (if available)**
-Some organizations allow creating service accounts through Vercel's integration.
+**Note:** Upload the service account JSON file to Vercel and reference it, or use the environment variables method above.
 
 ### Option B: Deploy Backend to Railway/Render
 
@@ -307,22 +299,24 @@ npm run dev
 firebase deploy --only firestore:rules,storage:rules
 ```
 
-### Check ADC Status
+ ### Verify Service Account Key
 
 ```powershell
-gcloud auth application-default print-access-token
+# Check if service account file exists
+Test-Path "backend\cognifa-16209-firebase-adminsdk-fbsvc-a28e32f3ab.json"
 ```
 
-If this works, ADC is set up correctly!
+Should return: `True`
 
 ---
 
 ## Troubleshooting
 
 ### "Firebase Admin not initialized"
-- Run: `gcloud auth application-default login`
-- Verify: `gcloud config get-value project` shows `cognifa-app`
-- Check: `backend/.env` has `FIREBASE_PROJECT_ID=cognifa-app`
+- Check: `backend/.env` has `FIREBASE_PROJECT_ID=cognifa-16209`
+- Verify: Service account key file exists at path in `FIREBASE_SERVICE_ACCOUNT_PATH`
+- For local: Ensure service account JSON is in `backend/` directory
+- For Vercel: Use environment variables method (see Part 3)
 
 ### "Permission denied" in Firestore
 - Deploy rules: `firebase deploy --only firestore:rules`
@@ -366,7 +360,8 @@ If this works, ADC is set up correctly!
 - ✅ Configured backend for deployment
 
 **Key files:**
-- `backend/.env` - Has `FIREBASE_PROJECT_ID=cognifa-app`
+- `backend/.env` - Has `FIREBASE_PROJECT_ID=cognifa-16209` and service account path
+- `backend/cognifa-16209-firebase-adminsdk-fbsvc-a28e32f3ab.json` - Service account key
 - `firestore.rules` - Security rules (already deployed)
 - `storage.rules` - Storage rules (already deployed)
 - `vercel.json` - Vercel configuration

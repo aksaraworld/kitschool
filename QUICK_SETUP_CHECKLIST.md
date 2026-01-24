@@ -5,7 +5,7 @@
 - [ ] Install Google Cloud SDK
 - [ ] Run: `gcloud auth login`
 - [ ] Run: `gcloud auth application-default login`
-- [ ] Run: `gcloud config set project cognifa-app`
+- [ ] Run: `gcloud config set project cognifa-16209`
 - [ ] Get Firebase client config from console
 - [ ] Deploy security rules: `firebase deploy --only firestore:rules,storage:rules`
 - [ ] Test backend: `cd backend && npm run dev` (should see ✅ Firebase Admin initialized)
@@ -35,7 +35,8 @@
 - [ ] Set build command: `npm run build`
 - [ ] Set output directory: `dist`
 - [ ] Add environment variables:
-  - [ ] `FIREBASE_PROJECT_ID=cognifa-app`
+  - [ ] `FIREBASE_PROJECT_ID=cognifa-16209`
+  - [ ] `FIREBASE_SERVICE_ACCOUNT_PATH=./cognifa-16209-firebase-adminsdk-fbsvc-a28e32f3ab.json`
   - [ ] `FRONTEND_URL` (your frontend Vercel URL)
 - [ ] Deploy backend
 - [ ] Copy backend URL
@@ -50,7 +51,8 @@
 
 ## Your Project Info
 
-- **Firebase Project ID:** `cognifa-app`
+- **Firebase Project ID:** `cognifa-16209`
+- **Project Number:** `760299044391`
 - **Project Number:** `402405414048`
 - **Organization:** `cognifa-id-org`
 
@@ -59,7 +61,7 @@
 ```powershell
 # Setup ADC
 gcloud auth application-default login
-gcloud config set project cognifa-app
+gcloud config set project cognifa-16209
 
 # Deploy rules
 firebase deploy --only firestore:rules,storage:rules

@@ -2,6 +2,6 @@
   "version": 2,
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/.next",
-  "installCommand": "bash vercel-install.sh",
+  "installCommand": "node build-packages.js && cd frontend && npm install",
   "framework": "nextjs"
 }
