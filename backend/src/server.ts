@@ -2,7 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+// Initialize Firebase Admin (must be before routes)
+import './config/firebase';
 import authRoutes from './routes/auth';
+import firebaseAuthRoutes from './routes/firebaseAuth';
 import userRoutes from './routes/users';
 import classRoutes from './routes/classes';
 import attendanceRoutes from './routes/attendance';
@@ -72,7 +75,15 @@ mongoose.connect(mongoUri)
   });
 
 // Routes
-app.use('/api/auth', authRoutes);
+// Use Firebase Auth routes (comment out old JWT routes when ready)
+app.use('/api/auth', firebaseAuthRoutes);
+// app.use('/api/auth', authRoutes); // Old JWT routes - can be removed after migration
+
+// Use Firestore routes (comment out old MongoDB routes when ready)
+// app.use('/api/users', userRoutes); // Old MongoDB routes
+// Uncomment when ready to use Firestore:
+// import usersFirestoreRoutes from './routes/usersFirestore';
+// app.use('/api/users', usersFirestoreRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/attendance', attendanceRoutes);

@@ -1,22 +1,22 @@
 /**
  * Aksara API Client Adapter for Cognifa
- * Adapts @aksara/api to work with JWT authentication and school context
+ * Adapts @aksara/api to work with Firebase Auth and school context
  */
 
 import { APIClient } from '@aksara/api';
-import { authService } from './auth';
+import { firebaseAuthService } from './firebaseAuth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
-// Create API client instance with JWT authentication
+// Create API client instance with Firebase Auth
 export const aksaraApi = new APIClient({
   baseUrl: API_URL,
   apiPrefix: '/api',
-  getAuthHeaders: () => {
+  getAuthHeaders: async () => {
     const headers: Record<string, string> = {};
     
-    // Add JWT token
-    const token = authService.getToken();
+    // Add Firebase ID token
+    const token = await firebaseAuthService.getToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -39,7 +39,7 @@ export async function handleApiResponse<T>(response: Response): Promise<T> {
     // Handle 401 Unauthorized - redirect to login
     if (response.status === 401) {
       if (typeof window !== 'undefined') {
-        authService.logout();
+        firebaseAuthService.logout();
         if (window.location.pathname !== '/login') {
           window.location.href = '/login';
         }

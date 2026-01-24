@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Input } from '@aksara/ui';
-import { authService } from '@/lib/auth';
+import { firebaseAuthService } from '@/lib/firebaseAuth';
 import { UserRole } from '@/lib/types';
 import { GraduationCap } from 'lucide-react';
 
@@ -20,7 +20,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await authService.login({ email, password });
+      const response = await firebaseAuthService.login({ email, password });
       const targetRoute =
         response.user.role === UserRole.SAAS_ADMIN ? '/saas/dashboard' : '/dashboard';
       router.push(targetRoute);

@@ -1,0 +1,106 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to get user role
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() in ['saas_admin', 'principal'];
+    }
+    
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (
+        isOwner(userId) || 
+        getUserRole() in ['saas_admin', 'principal', 'staff']
+      );
+      allow create: if isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if getUserRole() == 'saas_admin';
+    }
+    
+    // Schools collection
+    match /schools/{schoolId} {
+      allow read: if isAuthenticated();
+      allow create: if getUserRole() == 'saas_admin';
+      allow update: if isAdmin();
+      allow delete: if getUserRole() == 'saas_admin';
+    }
+    
+    // Classes collection
+    match /classes/{classId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Students collection (if separate from users)
+    match /students/{studentId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Attendance collection
+    match /attendance/{attendanceId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated(); // Students can create their own attendance
+      allow update, delete: if isAdmin();
+    }
+    
+    // Payments collection
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if getUserRole() in ['saas_admin', 'principal', 'finance'];
+    }
+    
+    // Invoices collection
+    match /invoices/{invoiceId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if getUserRole() in ['saas_admin', 'principal', 'finance'];
+    }
+    
+    // Schedules collection
+    match /schedules/{scheduleId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Communications collection
+    match /communications/{communicationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isOwner(resource.data.senderId) || isAdmin();
+    }
+    
+    // Years collection
+    match /years/{yearId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Majors collection
+    match /majors/{majorId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Config collection
+    match /config/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if getUserRole() == 'saas_admin';
+    }
+  }
+}

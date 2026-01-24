@@ -22,7 +22,8 @@
     "@aksara/context": "file:../packages/context",
     "@aksara/hooks": "file:../packages/hooks",
     "@aksara/ui": "file:../packages/ui",
-    "@aksara/formatters": "file:../packages/formatters"
+    "@aksara/formatters": "file:../packages/formatters",
+    "@aksara/firebase": "file:../packages/firebase"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
