@@ -6,7 +6,7 @@ const nextConfig = {
   webpack: (config, { isServer }) => {
     // Exclude firebase-admin and Node.js modules from client-side bundle
     if (!isServer) {
-      // Set fallbacks for Node.js modules
+      // Set fallbacks for Node.js modules (prevents webpack from trying to bundle them)
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
@@ -26,17 +26,17 @@ const nextConfig = {
         'worker_threads': false,
       };
       
-      // Completely ignore firebase-admin in client bundle
+      // Ignore firebase-admin completely
       config.plugins.push(
         new webpack.IgnorePlugin({
           resourceRegExp: /^firebase-admin$/,
         })
       );
       
-      // Ignore admin.js file from @aksara/firebase package
+      // Ignore admin.js/ts files from @aksara/firebase
       config.plugins.push(
         new webpack.IgnorePlugin({
-          resourceRegExp: /\/admin\.(js|ts)$/,
+          resourceRegExp: /admin\.(js|ts)$/,
           contextRegExp: /@aksara\/firebase/,
         })
       );

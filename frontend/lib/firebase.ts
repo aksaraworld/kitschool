@@ -6,8 +6,8 @@
 'use client';
 
 // Import only client-side Firebase (not admin)
-// Using direct import to avoid bundling firebase-admin
-import { initializeFirebaseClient, getFirebaseConfigFromEnv } from '@aksara/firebase';
+// Using package.json exports to import only client code
+import { initializeFirebaseClient, getFirebaseConfigFromEnv } from '@aksara/firebase/client';
 
 // Get Firebase config from environment variables
 const firebaseConfig = getFirebaseConfigFromEnv();

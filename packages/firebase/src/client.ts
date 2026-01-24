@@ -8,6 +8,9 @@ import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { FirebaseClientConfig } from './types';
 
+// Re-export types for convenience
+export type { FirebaseClientConfig } from './types';
+
 /**
  * Initialize Firebase client
  */
