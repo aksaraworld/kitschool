@@ -7,7 +7,7 @@ const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-const packages = ['core', 'api', 'context', 'hooks', 'ui', 'formatters'];
+const packages = ['core', 'api', 'context', 'hooks', 'ui', 'formatters', 'firebase'];
 
 console.log('Building Aksara Framework packages...\n');
 

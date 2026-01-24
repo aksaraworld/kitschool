@@ -141,7 +141,7 @@ Open http://localhost:3000 - should see login page with no errors.
 - **Framework Preset:** Next.js (auto-detected)
 - **Build Command:** `cd frontend && npm run build`
 - **Output Directory:** `frontend/.next`
-- **Install Command:** `cd .. && npm install && cd frontend && npm install`
+- **Install Command:** `bash vercel-install.sh`
 
 ### Step 4: Add Environment Variables
 
