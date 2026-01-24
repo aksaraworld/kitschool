@@ -18,13 +18,18 @@ for package in "${packages[@]}"; do
     if [ $? -eq 0 ]; then
         # Build package
         echo "Building package..."
-        npx tsc
+        npx tsc --project tsconfig.json
         
         if [ $? -eq 0 ]; then
             echo "✓ @aksara/$package built successfully"
         else
             echo "✗ Failed to build @aksara/$package"
+            exit 1
         fi
+    else
+        echo "✗ Failed to install dependencies for @aksara/$package"
+        exit 1
+    fi
     else
         echo "✗ Failed to install dependencies for @aksara/$package"
     fi

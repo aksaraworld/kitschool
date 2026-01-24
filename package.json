@@ -18,7 +18,9 @@
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && npm run dev",
     "build": "npm run build:packages && cd frontend && npm run build",
-    "build:packages": "powershell -ExecutionPolicy Bypass -File ./build-packages.ps1",
+    "build:packages": "node build-packages.js",
+    "build:packages:win": "powershell -ExecutionPolicy Bypass -File ./build-packages.ps1",
+    "build:packages:bash": "bash ./build-packages.sh",
     "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
     "seed": "cd backend && npm run seed"
   },

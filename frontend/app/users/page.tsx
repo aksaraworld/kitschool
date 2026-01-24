@@ -5,6 +5,7 @@ import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import { UserRole, User } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
+import { Button } from '@aksara/ui';
 import { Users, Plus, Edit, Trash2, UserCheck } from 'lucide-react';
 
 export default function UsersPage() {
@@ -79,7 +80,7 @@ export default function UsersPage() {
       fetchUsers();
       alert('User deactivated successfully!');
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to deactivate user');
+      alert(error.message || 'Failed to deactivate user');
     }
   };
 
