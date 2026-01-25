@@ -11,7 +11,10 @@
     "drop-db": "tsx src/scripts/drop-database.ts",
     "reset-db": "npm run drop-db && npm run seed",
     "check-db": "node check-mongodb.js",
-    "migrate:firebase": "tsx src/scripts/migrate-to-firebase.ts"
+    "migrate:firebase": "tsx src/scripts/migrate-to-firebase.ts",
+    "bootstrap:firebase": "tsx src/scripts/bootstrap-firestore.ts",
+    "migrate:firebase:all": "tsx src/scripts/migrate-all-to-firebase.ts",
+    "demo:auth": "tsx src/scripts/set-demo-auth-passwords.ts"
   },
   "dependencies": {
     "express": "^4.18.2",

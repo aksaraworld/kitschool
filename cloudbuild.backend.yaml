@@ -1,0 +1,12 @@
+substitutions:
+  _IMAGE: "asia-southeast2-docker.pkg.dev/cognifa-16209/cognifa/cognifa-backend:latest"
+
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args: ["build", "-f", "Dockerfile.backend", "-t", "${_IMAGE}", "."]
+  - name: "gcr.io/cloud-builders/docker"
+    args: ["push", "${_IMAGE}"]
+
+images:
+  - "${_IMAGE}"
+

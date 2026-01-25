@@ -1,23 +1,46 @@
 import express from 'express';
-import Class from '../models/Class';
-import Year from '../models/Year';
-import Major from '../models/Major';
-import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { FieldValue } from 'firebase-admin/firestore';
+import { firestore } from '../config/firebase';
+import { authenticate, authorize } from '../middleware/firebaseAuth';
 import { setSchoolContext, SchoolContextRequest, requireSchoolContext, getSchoolQuery } from '../middleware/schoolContext';
-import { UserRole } from '../models/User';
+import { UserRole } from '../types';
+import { USERS_COLLECTION } from '../models/firestore/User';
+import { docToJson, getDocsByIds } from '../utils/firestoreUtils';
 
 const router = express.Router();
 
 // Get all classes
 router.get('/', authenticate, setSchoolContext, requireSchoolContext, async (req: SchoolContextRequest, res) => {
   try {
-    const query: any = getSchoolQuery(req);
-    const classes = await Class.find(query)
-      .populate('yearId', 'name')
-      .populate('majorId', 'name code')
-      .populate('homeroomTeacherId', 'name email')
-      .populate('studentIds', 'name studentId');
-    res.json(classes);
+    const q = getSchoolQuery(req);
+    let ref: FirebaseFirestore.Query = firestore.collection('classes');
+    if (q.schoolId) ref = ref.where('schoolId', '==', q.schoolId);
+    const snap = await ref.get();
+    const classes = snap.docs.map((d) => docToJson(d));
+
+    // Best-effort "populate" for UI compatibility
+    const yearIds = classes.map((c) => c.yearId).filter(Boolean);
+    const majorIds = classes.map((c) => c.majorId).filter(Boolean);
+    const teacherIds = classes.map((c) => c.homeroomTeacherId).filter(Boolean);
+    const studentIds = classes.flatMap((c) => Array.isArray(c.studentIds) ? c.studentIds : []).filter(Boolean);
+
+    const [yearsMap, majorsMap, usersMap] = await Promise.all([
+      getDocsByIds('years', yearIds),
+      getDocsByIds('majors', majorIds),
+      getDocsByIds(USERS_COLLECTION, [...teacherIds, ...studentIds]),
+    ]);
+
+    const hydrated = classes.map((c) => ({
+      ...c,
+      yearId: yearsMap.get(String(c.yearId)) || c.yearId,
+      majorId: majorsMap.get(String(c.majorId)) || c.majorId,
+      homeroomTeacherId: usersMap.get(String(c.homeroomTeacherId)) || c.homeroomTeacherId,
+      studentIds: Array.isArray(c.studentIds)
+        ? c.studentIds.map((id: string) => usersMap.get(String(id)) || id)
+        : [],
+    }));
+
+    res.json(hydrated);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -26,20 +49,26 @@ router.get('/', authenticate, setSchoolContext, requireSchoolContext, async (req
 // Create class (Staff, Principal only)
 router.post('/', authenticate, setSchoolContext, requireSchoolContext, authorize(UserRole.STAFF, UserRole.PRINCIPAL), async (req: SchoolContextRequest, res) => {
   try {
-    const classData = new Class({
-      ...req.body,
-      schoolId: req.schoolId
-    });
-    await classData.save();
-    const populated = await Class.findById(classData._id)
-      .populate('yearId', 'name')
-      .populate('majorId', 'name code')
-      .populate('homeroomTeacherId', 'name email');
-    res.status(201).json(populated);
-  } catch (error: any) {
-    if (error.code === 11000) {
+    const data = { ...(req.body || {}), schoolId: req.schoolId, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() };
+
+    // Best-effort uniqueness check: (schoolId, name, yearId, majorId)
+    const dupSnap = await firestore
+      .collection('classes')
+      .where('schoolId', '==', req.schoolId)
+      .where('name', '==', data.name)
+      .where('yearId', '==', data.yearId)
+      .where('majorId', '==', data.majorId)
+      .limit(1)
+      .get();
+    if (!dupSnap.empty) {
       return res.status(400).json({ message: 'Class already exists' });
     }
+
+    const docRef = firestore.collection('classes').doc();
+    await docRef.set(data);
+    const created = await docRef.get();
+    res.status(201).json(docToJson(created));
+  } catch (error: any) {
     res.status(500).json({ message: 'Server error', error });
   }
 });
@@ -47,8 +76,12 @@ router.post('/', authenticate, setSchoolContext, requireSchoolContext, authorize
 // Get years
 router.get('/years', authenticate, setSchoolContext, requireSchoolContext, async (req: SchoolContextRequest, res) => {
   try {
-    const query: any = getSchoolQuery(req);
-    const years = await Year.find(query).sort({ startDate: -1 });
+    const q = getSchoolQuery(req);
+    let ref: FirebaseFirestore.Query = firestore.collection('years');
+    if (q.schoolId) ref = ref.where('schoolId', '==', q.schoolId);
+    const snap = await ref.get();
+    const years = snap.docs.map((d) => docToJson(d));
+    years.sort((a, b) => String(b.startDate || '').localeCompare(String(a.startDate || '')));
     res.json(years);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
@@ -58,12 +91,14 @@ router.get('/years', authenticate, setSchoolContext, requireSchoolContext, async
 // Create year (Staff, Principal only)
 router.post('/years', authenticate, setSchoolContext, requireSchoolContext, authorize(UserRole.STAFF, UserRole.PRINCIPAL), async (req: SchoolContextRequest, res) => {
   try {
-    const year = new Year({
-      ...req.body,
-      schoolId: req.schoolId
-    });
-    await year.save();
-    res.status(201).json(year);
+    const data = { ...(req.body || {}), schoolId: req.schoolId, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() };
+    // Best-effort unique name per school
+    const dup = await firestore.collection('years').where('schoolId', '==', req.schoolId).where('name', '==', data.name).limit(1).get();
+    if (!dup.empty) return res.status(400).json({ message: 'Year name already exists' });
+
+    const docRef = firestore.collection('years').doc();
+    await docRef.set(data);
+    res.status(201).json(docToJson(await docRef.get()));
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -72,9 +107,12 @@ router.post('/years', authenticate, setSchoolContext, requireSchoolContext, auth
 // Get majors
 router.get('/majors', authenticate, setSchoolContext, requireSchoolContext, async (req: SchoolContextRequest, res) => {
   try {
-    const query: any = { ...getSchoolQuery(req), isActive: true };
-    const majors = await Major.find(query);
-    res.json(majors);
+    const q = getSchoolQuery(req);
+    let ref: FirebaseFirestore.Query = firestore.collection('majors');
+    if (q.schoolId) ref = ref.where('schoolId', '==', q.schoolId);
+    ref = ref.where('isActive', '==', true);
+    const snap = await ref.get();
+    res.json(snap.docs.map((d) => docToJson(d)));
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -83,12 +121,16 @@ router.get('/majors', authenticate, setSchoolContext, requireSchoolContext, asyn
 // Create major (Staff, Principal only)
 router.post('/majors', authenticate, setSchoolContext, requireSchoolContext, authorize(UserRole.STAFF, UserRole.PRINCIPAL), async (req: SchoolContextRequest, res) => {
   try {
-    const major = new Major({
-      ...req.body,
-      schoolId: req.schoolId
-    });
-    await major.save();
-    res.status(201).json(major);
+    const body = req.body || {};
+    const code = String(body.code || '').toUpperCase();
+    const data = { ...body, code, schoolId: req.schoolId, isActive: body.isActive ?? true, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() };
+
+    const dup = await firestore.collection('majors').where('schoolId', '==', req.schoolId).where('code', '==', code).limit(1).get();
+    if (!dup.empty) return res.status(400).json({ message: 'Major code already exists' });
+
+    const docRef = firestore.collection('majors').doc();
+    await docRef.set(data);
+    res.status(201).json(docToJson(await docRef.get()));
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -97,19 +139,20 @@ router.post('/majors', authenticate, setSchoolContext, requireSchoolContext, aut
 // Update major (Staff, Principal only)
 router.put('/majors/:id', authenticate, setSchoolContext, requireSchoolContext, authorize(UserRole.STAFF, UserRole.PRINCIPAL), async (req: SchoolContextRequest, res) => {
   try {
-    const major = await Major.findById(req.params.id);
-    if (!major) {
+    const docRef = firestore.collection('majors').doc(req.params.id);
+    const snap = await docRef.get();
+    if (!snap.exists) {
       return res.status(404).json({ message: 'Major not found' });
     }
-    if (major.schoolId.toString() !== req.schoolId) {
+    const major = docToJson(snap);
+    if (String(major.schoolId) !== String(req.schoolId)) {
       return res.status(403).json({ message: 'Forbidden' });
     }
-    const updated = await Major.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-    res.json(updated);
+    const next: any = { ...(req.body || {}), updatedAt: FieldValue.serverTimestamp() };
+    if (next.code) next.code = String(next.code).toUpperCase();
+    await docRef.set(next, { merge: true });
+    res.json(docToJson(await docRef.get()));
   } catch (error: any) {
-    if (error.code === 11000) {
-      return res.status(400).json({ message: 'Major code already exists' });
-    }
     res.status(500).json({ message: 'Server error', error });
   }
 });
@@ -117,14 +160,16 @@ router.put('/majors/:id', authenticate, setSchoolContext, requireSchoolContext, 
 // Delete major (Staff, Principal only)
 router.delete('/majors/:id', authenticate, setSchoolContext, requireSchoolContext, authorize(UserRole.STAFF, UserRole.PRINCIPAL), async (req: SchoolContextRequest, res) => {
   try {
-    const major = await Major.findById(req.params.id);
-    if (!major) {
+    const docRef = firestore.collection('majors').doc(req.params.id);
+    const snap = await docRef.get();
+    if (!snap.exists) {
       return res.status(404).json({ message: 'Major not found' });
     }
-    if (major.schoolId.toString() !== req.schoolId) {
+    const major = docToJson(snap);
+    if (String(major.schoolId) !== String(req.schoolId)) {
       return res.status(403).json({ message: 'Forbidden' });
     }
-    await Major.findByIdAndDelete(req.params.id);
+    await docRef.delete();
     res.json({ message: 'Major deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
@@ -134,19 +179,18 @@ router.delete('/majors/:id', authenticate, setSchoolContext, requireSchoolContex
 // Update year (Staff, Principal only)
 router.put('/years/:id', authenticate, setSchoolContext, requireSchoolContext, authorize(UserRole.STAFF, UserRole.PRINCIPAL), async (req: SchoolContextRequest, res) => {
   try {
-    const year = await Year.findById(req.params.id);
-    if (!year) {
+    const docRef = firestore.collection('years').doc(req.params.id);
+    const snap = await docRef.get();
+    if (!snap.exists) {
       return res.status(404).json({ message: 'Year not found' });
     }
-    if (year.schoolId.toString() !== req.schoolId) {
+    const year = docToJson(snap);
+    if (String(year.schoolId) !== String(req.schoolId)) {
       return res.status(403).json({ message: 'Forbidden' });
     }
-    const updated = await Year.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-    res.json(updated);
+    await docRef.set({ ...(req.body || {}), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    res.json(docToJson(await docRef.get()));
   } catch (error: any) {
-    if (error.code === 11000) {
-      return res.status(400).json({ message: 'Year name already exists' });
-    }
     res.status(500).json({ message: 'Server error', error });
   }
 });
@@ -154,14 +198,16 @@ router.put('/years/:id', authenticate, setSchoolContext, requireSchoolContext, a
 // Delete year (Staff, Principal only)
 router.delete('/years/:id', authenticate, setSchoolContext, requireSchoolContext, authorize(UserRole.STAFF, UserRole.PRINCIPAL), async (req: SchoolContextRequest, res) => {
   try {
-    const year = await Year.findById(req.params.id);
-    if (!year) {
+    const docRef = firestore.collection('years').doc(req.params.id);
+    const snap = await docRef.get();
+    if (!snap.exists) {
       return res.status(404).json({ message: 'Year not found' });
     }
-    if (year.schoolId.toString() !== req.schoolId) {
+    const year = docToJson(snap);
+    if (String(year.schoolId) !== String(req.schoolId)) {
       return res.status(403).json({ message: 'Forbidden' });
     }
-    await Year.findByIdAndDelete(req.params.id);
+    await docRef.delete();
     res.json({ message: 'Year deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });

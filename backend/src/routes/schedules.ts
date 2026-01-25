@@ -1,8 +1,11 @@
 import express from 'express';
-import Schedule from '../models/Schedule';
-import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { FieldValue } from 'firebase-admin/firestore';
+import { firestore } from '../config/firebase';
+import { authenticate, authorize } from '../middleware/firebaseAuth';
 import { setSchoolContext, SchoolContextRequest, requireSchoolContext, getSchoolQuery } from '../middleware/schoolContext';
-import { UserRole } from '../models/User';
+import { UserRole } from '../types';
+import { USERS_COLLECTION } from '../models/firestore/User';
+import { docToJson, getDocsByIds } from '../utils/firestoreUtils';
 
 const router = express.Router();
 
@@ -12,24 +15,32 @@ router.get('/', authenticate, setSchoolContext, requireSchoolContext, async (req
     const { classId, startDate, endDate, type } = req.query;
     const query: any = getSchoolQuery(req);
 
-    if (classId) {
-      query.classId = classId;
-    }
-
+    let ref: FirebaseFirestore.Query = firestore.collection('schedules');
+    if (query.schoolId) ref = ref.where('schoolId', '==', query.schoolId);
+    if (classId) ref = ref.where('classId', '==', String(classId));
+    if (type) ref = ref.where('type', '==', String(type));
     if (startDate && endDate) {
-      query.startDate = { $gte: new Date(startDate as string), $lte: new Date(endDate as string) };
+      ref = ref.where('startDate', '>=', new Date(String(startDate))).where('startDate', '<=', new Date(String(endDate)));
     }
 
-    if (type) {
-      query.type = type;
-    }
+    const snap = await ref.get();
+    const rows = snap.docs.map((d) => docToJson(d));
+    rows.sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')));
 
-    const schedules = await Schedule.find(query)
-      .populate('classId', 'name')
-      .populate('createdBy', 'name email')
-      .sort({ startDate: 1 });
+    const classIds = rows.map((r) => r.classId).filter(Boolean);
+    const createdByIds = rows.map((r) => r.createdBy).filter(Boolean);
+    const [classesMap, usersMap] = await Promise.all([
+      getDocsByIds('classes', classIds),
+      getDocsByIds(USERS_COLLECTION, createdByIds),
+    ]);
 
-    res.json(schedules);
+    res.json(
+      rows.map((r) => ({
+        ...r,
+        classId: r.classId ? (classesMap.get(String(r.classId)) || r.classId) : r.classId,
+        createdBy: r.createdBy ? (usersMap.get(String(r.createdBy)) || r.createdBy) : r.createdBy,
+      }))
+    );
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -38,16 +49,15 @@ router.get('/', authenticate, setSchoolContext, requireSchoolContext, async (req
 // Create schedule (Teachers, Homeroom, Staff, Principal only)
 router.post('/', authenticate, setSchoolContext, requireSchoolContext, authorize(UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.STAFF, UserRole.PRINCIPAL), async (req: SchoolContextRequest, res) => {
   try {
-    const schedule = new Schedule({
-      ...req.body,
+    const docRef = firestore.collection('schedules').doc();
+    await docRef.set({
+      ...(req.body || {}),
       schoolId: req.schoolId,
-      createdBy: req.user?.id
+      createdBy: req.user?.uid,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
-    await schedule.save();
-    const populated = await Schedule.findById(schedule._id)
-      .populate('classId', 'name')
-      .populate('createdBy', 'name email');
-    res.status(201).json(populated);
+    res.status(201).json(docToJson(await docRef.get()));
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -56,25 +66,20 @@ router.post('/', authenticate, setSchoolContext, requireSchoolContext, authorize
 // Update schedule
 router.put('/:id', authenticate, setSchoolContext, requireSchoolContext, authorize(UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.STAFF, UserRole.PRINCIPAL), async (req: SchoolContextRequest, res) => {
   try {
-    const schedule = await Schedule.findById(req.params.id);
-    if (!schedule) {
+    const docRef = firestore.collection('schedules').doc(req.params.id);
+    const snap = await docRef.get();
+    if (!snap.exists) {
       return res.status(404).json({ message: 'Schedule not found' });
     }
+    const schedule = docToJson(snap);
 
     // Check school access
-    if (schedule.schoolId.toString() !== req.schoolId) {
+    if (String(schedule.schoolId) !== String(req.schoolId)) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const updated = await Schedule.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    )
-      .populate('classId', 'name')
-      .populate('createdBy', 'name email');
-
-    res.json(updated);
+    await docRef.set({ ...(req.body || {}), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    res.json(docToJson(await docRef.get()));
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -83,17 +88,19 @@ router.put('/:id', authenticate, setSchoolContext, requireSchoolContext, authori
 // Delete schedule
 router.delete('/:id', authenticate, setSchoolContext, requireSchoolContext, authorize(UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.STAFF, UserRole.PRINCIPAL), async (req: SchoolContextRequest, res) => {
   try {
-    const schedule = await Schedule.findById(req.params.id);
-    if (!schedule) {
+    const docRef = firestore.collection('schedules').doc(req.params.id);
+    const snap = await docRef.get();
+    if (!snap.exists) {
       return res.status(404).json({ message: 'Schedule not found' });
     }
+    const schedule = docToJson(snap);
 
     // Check school access
-    if (schedule.schoolId.toString() !== req.schoolId) {
+    if (String(schedule.schoolId) !== String(req.schoolId)) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    await Schedule.findByIdAndDelete(req.params.id);
+    await docRef.delete();
     res.json({ message: 'Schedule deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });

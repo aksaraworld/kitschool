@@ -8,7 +8,30 @@
  * 3. Application Default Credentials (gcloud auth application-default login)
  */
 
-import { initializeFirebaseAdminFromEnv, getFirebaseAdminAuth, getFirebaseAdminDb } from '@aksara/firebase';
+// Ensure env vars are loaded BEFORE initializing Firebase Admin.
+// (In ESM/tsx, imports are evaluated before module body in importers,
+// so relying on `dotenv.config()` in server.ts is fragile.)
+import fs from 'fs';
+import path from 'path';
+import dotenv from 'dotenv';
+
+// Try a few common locations so running from repo root or /backend both work.
+const envCandidates = [
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), 'backend', '.env'),
+  path.resolve(__dirname, '../../.env'),
+];
+for (const p of envCandidates) {
+  if (fs.existsSync(p)) {
+    dotenv.config({ path: p });
+    break;
+  }
+}
+
+// IMPORTANT: import admin helpers from the server-only entrypoint.
+// `@aksara/firebase` default export is client-only to keep Next.js from bundling firebase-admin.
+// Import from the exported admin entrypoint (works with Node package exports at runtime).
+import { initializeFirebaseAdminFromEnv, getFirebaseAdminAuth, getFirebaseAdminDb } from '@aksara/firebase/admin';
 import admin from 'firebase-admin';
 
 // Initialize Firebase Admin

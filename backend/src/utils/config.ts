@@ -1,5 +1,5 @@
-import Configuration from '../models/Configuration';
-import { UserRole } from '../models/User';
+import { FieldValue } from 'firebase-admin/firestore';
+import { firestore } from '../config/firebase';
 
 // Configuration keys
 export const CONFIG_KEYS = {
@@ -19,13 +19,13 @@ export const DEFAULT_CONFIG = {
   [CONFIG_KEYS.TAX_PERCENTAGE]: 3 // 3% of admin fee
 } as const;
 
+const CONFIG_COLLECTION = 'config';
+
 // Get configuration value
 export async function getConfig(key: string, defaultValue?: any): Promise<any> {
   try {
-    const config = await Configuration.findOne({ key });
-    if (config) {
-      return config.value;
-    }
+    const snap = await firestore.collection(CONFIG_COLLECTION).doc(key).get();
+    if (snap.exists) return snap.data()?.value;
     return defaultValue !== undefined ? defaultValue : DEFAULT_CONFIG[key as keyof typeof DEFAULT_CONFIG];
   } catch (error) {
     console.error(`Error getting config ${key}:`, error);
@@ -36,15 +36,23 @@ export async function getConfig(key: string, defaultValue?: any): Promise<any> {
 // Set configuration value
 export async function setConfig(key: string, value: any, updatedBy?: string): Promise<void> {
   try {
-    await Configuration.findOneAndUpdate(
-      { key },
+    await firestore.collection(CONFIG_COLLECTION).doc(key).set(
       {
         key,
         value,
-        type: typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'boolean' : typeof value === 'object' ? 'object' : 'string',
-        updatedBy
+        type:
+          typeof value === 'number'
+            ? 'number'
+            : typeof value === 'boolean'
+              ? 'boolean'
+              : typeof value === 'object'
+                ? 'object'
+                : 'string',
+        updatedBy: updatedBy || null,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       },
-      { upsert: true, new: true }
+      { merge: true }
     );
   } catch (error) {
     console.error(`Error setting config ${key}:`, error);
@@ -105,16 +113,24 @@ export async function calculateAdminFee(transactionAmount: number): Promise<{
 export async function initializeDefaultConfig(): Promise<void> {
   try {
     for (const [key, value] of Object.entries(DEFAULT_CONFIG)) {
-      const existing = await Configuration.findOne({ key });
-      if (!existing) {
-        await Configuration.create({
-          key,
-          value,
-          type: typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'boolean' : typeof value === 'object' ? 'object' : 'string',
-          description: getConfigDescription(key)
-        });
-        console.log(`✅ Initialized config: ${key} = ${value}`);
-      }
+      const snap = await firestore.collection(CONFIG_COLLECTION).doc(key).get();
+      if (snap.exists) continue;
+      await firestore.collection(CONFIG_COLLECTION).doc(key).set({
+        key,
+        value,
+        type:
+          typeof value === 'number'
+            ? 'number'
+            : typeof value === 'boolean'
+              ? 'boolean'
+              : typeof value === 'object'
+                ? 'object'
+                : 'string',
+        description: getConfigDescription(key),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      console.log(`✅ Initialized config: ${key} = ${value}`);
     }
   } catch (error) {
     console.error('Error initializing default config:', error);

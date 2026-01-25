@@ -21,7 +21,7 @@ npm install @aksara/firebase firebase firebase-admin
 ### Client-Side Firebase
 
 ```typescript
-import { initializeFirebaseClient, getFirebaseConfigFromEnv } from '@aksara/firebase';
+import { initializeFirebaseClient, getFirebaseConfigFromEnv } from '@aksara/firebase/client';
 
 // From environment variables
 const config = getFirebaseConfigFromEnv();
@@ -46,7 +46,7 @@ import {
   getFirebaseAdminDb, 
   getFirebaseAdminAuth,
   verifyIdToken 
-} from '@aksara/firebase';
+} from '@aksara/firebase/admin';
 
 // Initialize with service account file
 const result = initializeFirebaseAdmin({
@@ -67,6 +67,20 @@ const result = initializeFirebaseAdminFromEnv('your-project-id');
 // Verify ID token
 const decodedToken = await verifyIdToken(idToken);
 ```
+
+## Serverless / Next.js note (important)
+
+- **Never import `firebase-admin` from client code** (it pulls Node-only modules like `fs`, `net`, `tls`).
+- Use explicit subpath imports:
+  - **Client**: `@aksara/firebase/client`
+  - **Admin**: `@aksara/firebase/admin`
+
+This makes the package safe for **Next.js + Vercel (serverless)** and avoids bundling admin SDK into the browser.
+
+## Firebase-only backend (no Mongo required)
+
+The Aksara + Firebase stack works with **Firestore as the primary database** and **Firebase Auth as identity**.
+If you’re migrating from Mongo/Mongoose, treat that as a legacy persistence layer—your runtime backend can be entirely Firebase-admin powered.
 
 ### Environment Variables
 

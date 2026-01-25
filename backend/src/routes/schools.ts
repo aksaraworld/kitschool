@@ -1,10 +1,12 @@
 import express from 'express';
-import School, { SubscriptionStatus } from '../models/School';
-import User from '../models/User';
-import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { FieldValue } from 'firebase-admin/firestore';
+import { firebaseAuth, firestore, setUserRole } from '../config/firebase';
+import { authenticate, authorize } from '../middleware/firebaseAuth';
 import { setSchoolContext, SchoolContextRequest } from '../middleware/schoolContext';
-import { UserRole } from '../models/User';
+import { UserRole } from '../types';
 import { getSubscriptionFeePerStudent } from '../utils/config';
+import { USERS_COLLECTION } from '../models/firestore/User';
+import { docToJson, getDocsByIds } from '../utils/firestoreUtils';
 
 const router = express.Router();
 
@@ -12,21 +14,23 @@ const router = express.Router();
 router.get('/', authenticate, authorize(UserRole.SAAS_ADMIN), async (req, res) => {
   try {
     const { status, isActive } = req.query;
-    const query: any = {};
+    let ref: FirebaseFirestore.Query = firestore.collection('schools');
+    if (status) ref = ref.where('subscriptionStatus', '==', String(status));
+    if (isActive !== undefined) ref = ref.where('isActive', '==', isActive === 'true');
 
-    if (status) {
-      query.subscriptionStatus = status;
-    }
+    const snap = await ref.get();
+    const rows = snap.docs.map((d) => docToJson(d));
+    rows.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 
-    if (isActive !== undefined) {
-      query.isActive = isActive === 'true';
-    }
+    const createdByIds = rows.map((r) => r.createdBy).filter(Boolean).map(String);
+    const usersMap = await getDocsByIds(USERS_COLLECTION, createdByIds);
 
-    const schools = await School.find(query)
-      .populate('createdBy', 'name email')
-      .sort({ createdAt: -1 });
-
-    res.json(schools);
+    res.json(
+      rows.map((r) => ({
+        ...r,
+        createdBy: r.createdBy ? usersMap.get(String(r.createdBy)) || r.createdBy : r.createdBy,
+      }))
+    );
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -37,74 +41,63 @@ router.get('/:id', authenticate, setSchoolContext, async (req: SchoolContextRequ
   try {
     const schoolId = req.params.id;
 
-    // SaaS Admin can access any school
-    if (req.user?.role === UserRole.SAAS_ADMIN) {
-      const school = await School.findById(schoolId);
-      if (!school) {
-        return res.status(404).json({ message: 'School not found' });
-      }
-      return res.json(school);
-    }
-
-    // Other users can only access their own school
-    if (req.schoolId !== schoolId) {
+    if (req.user?.role !== UserRole.SAAS_ADMIN && req.schoolId !== schoolId) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const school = await School.findById(schoolId);
-    if (!school) {
-      return res.status(404).json({ message: 'School not found' });
-    }
-
-    res.json(school);
+    const snap = await firestore.collection('schools').doc(schoolId).get();
+    if (!snap.exists) return res.status(404).json({ message: 'School not found' });
+    res.json(docToJson(snap));
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
 });
 
 // Create school (SaaS Admin only)
-router.post('/', authenticate, authorize(UserRole.SAAS_ADMIN), async (req: AuthRequest, res) => {
+router.post('/', authenticate, authorize(UserRole.SAAS_ADMIN), async (req: SchoolContextRequest, res) => {
   try {
     // Get default subscription fee per student from config
     const defaultSubscriptionFee = await getSubscriptionFeePerStudent();
+    const body = req.body || {};
 
-    const schoolData = {
-      ...req.body,
-      createdBy: req.user?.id,
-      subscriptionStatus: req.body.subscriptionStatus || SubscriptionStatus.TRIAL,
-      subscriptionFeePerStudent: req.body.subscriptionFeePerStudent !== undefined 
-        ? req.body.subscriptionFeePerStudent 
-        : defaultSubscriptionFee
-    };
+    const schoolRef = firestore.collection('schools').doc();
+    await schoolRef.set({
+      ...body,
+      createdBy: req.user?.uid,
+      subscriptionStatus: body.subscriptionStatus || 'trial',
+      subscriptionFeePerStudent:
+        body.subscriptionFeePerStudent !== undefined ? body.subscriptionFeePerStudent : defaultSubscriptionFee,
+      isActive: body.isActive ?? true,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
 
-    const school = new School(schoolData);
-    await school.save();
-
-    // Create principal user if provided
-    if (req.body.principalEmail && req.body.principalPassword) {
-      const bcrypt = require('bcryptjs');
-      const hashedPassword = await bcrypt.hash(req.body.principalPassword, 10);
-      
-      const principal = new User({
-        email: req.body.principalEmail,
-        password: hashedPassword,
-        name: req.body.principalName || 'Principal',
-        role: UserRole.PRINCIPAL,
-        schoolId: school._id,
-        employeeId: `PRIN-${school._id.toString().slice(0, 6)}`,
-        isActive: true
+    // Optional: create principal user in Firebase Auth + Firestore
+    if (body.principalEmail && body.principalPassword) {
+      const userRecord = await firebaseAuth.createUser({
+        email: body.principalEmail,
+        password: body.principalPassword,
+        displayName: body.principalName || 'Principal',
+        disabled: false,
       });
-      await principal.save();
+      await setUserRole(userRecord.uid, UserRole.PRINCIPAL, schoolRef.id);
+      await firestore.collection(USERS_COLLECTION).doc(userRecord.uid).set(
+        {
+          email: body.principalEmail,
+          name: body.principalName || 'Principal',
+          role: UserRole.PRINCIPAL,
+          schoolId: schoolRef.id,
+          phone: body.principalPhone || null,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        { merge: true }
+      );
     }
 
-    const populated = await School.findById(school._id)
-      .populate('createdBy', 'name email');
-
-    res.status(201).json(populated);
+    res.status(201).json(docToJson(await schoolRef.get()));
   } catch (error: any) {
-    if (error.code === 11000) {
-      return res.status(400).json({ message: 'School email already exists' });
-    }
     res.status(500).json({ message: 'Server error', error });
   }
 });
@@ -113,18 +106,16 @@ router.post('/', authenticate, authorize(UserRole.SAAS_ADMIN), async (req: AuthR
 router.put('/:id', authenticate, setSchoolContext, async (req: SchoolContextRequest, res) => {
   try {
     const schoolId = req.params.id;
+    const docRef = firestore.collection('schools').doc(schoolId);
+    const snap = await docRef.get();
+    if (!snap.exists) {
+      return res.status(404).json({ message: 'School not found' });
+    }
 
     // SaaS Admin can update any school
     if (req.user?.role === UserRole.SAAS_ADMIN) {
-      const school = await School.findByIdAndUpdate(
-        schoolId,
-        req.body,
-        { new: true, runValidators: true }
-      );
-      if (!school) {
-        return res.status(404).json({ message: 'School not found' });
-      }
-      return res.json(school);
+      await docRef.set({ ...(req.body || {}), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      return res.json(docToJson(await docRef.get()));
     }
 
     // Principal/Staff can only update their own school profile (not subscription)
@@ -141,17 +132,8 @@ router.put('/:id', authenticate, setSchoolContext, async (req: SchoolContextRequ
     delete updateData.settlementAccount;
     delete updateData.createdBy;
 
-    const school = await School.findByIdAndUpdate(
-      schoolId,
-      updateData,
-      { new: true, runValidators: true }
-    );
-
-    if (!school) {
-      return res.status(404).json({ message: 'School not found' });
-    }
-
-    res.json(school);
+    await docRef.set({ ...updateData, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    res.json(docToJson(await docRef.get()));
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -161,22 +143,21 @@ router.put('/:id', authenticate, setSchoolContext, async (req: SchoolContextRequ
 router.put('/:id/subscription', authenticate, authorize(UserRole.SAAS_ADMIN), async (req, res) => {
   try {
     const { subscriptionStatus, subscriptionEndDate, subscriptionFeePerStudent } = req.body;
-    
-    const school = await School.findByIdAndUpdate(
-      req.params.id,
+    const docRef = firestore.collection('schools').doc(req.params.id);
+    const snap = await docRef.get();
+    if (!snap.exists) return res.status(404).json({ message: 'School not found' });
+
+    await docRef.set(
       {
         subscriptionStatus,
-        subscriptionEndDate,
-        subscriptionFeePerStudent: subscriptionFeePerStudent !== undefined ? subscriptionFeePerStudent : null
+        subscriptionEndDate: subscriptionEndDate ? new Date(subscriptionEndDate) : null,
+        subscriptionFeePerStudent: subscriptionFeePerStudent !== undefined ? subscriptionFeePerStudent : null,
+        updatedAt: FieldValue.serverTimestamp(),
       },
-      { new: true, runValidators: true }
+      { merge: true }
     );
 
-    if (!school) {
-      return res.status(404).json({ message: 'School not found' });
-    }
-
-    res.json(school);
+    res.json(docToJson(await docRef.get()));
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }

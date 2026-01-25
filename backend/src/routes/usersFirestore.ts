@@ -28,7 +28,7 @@ router.get('/', authenticate, async (req: FirebaseAuthRequest, res) => {
     }
     
     const snapshot = await query.get();
-    const users = snapshot.docs.map(doc => firestoreUserFromDoc(doc));
+    const users = snapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => firestoreUserFromDoc(doc));
     
     res.json(users);
   } catch (error) {

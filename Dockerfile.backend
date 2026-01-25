@@ -1,0 +1,24 @@
+FROM node:20-slim
+
+WORKDIR /app
+
+# Install deps for all workspaces
+COPY package.json package-lock.json ./
+COPY build-packages.js ./
+COPY packages ./packages
+COPY backend ./backend
+
+RUN npm ci
+
+# Build shared Aksara packages (creates packages/*/dist)
+RUN node build-packages.js
+
+# Build backend (creates backend/dist)
+RUN npm -w cognifa-backend run build
+
+ENV NODE_ENV=production
+EXPOSE 8080
+
+# Run backend
+CMD ["node", "backend/dist/server.js"]
+

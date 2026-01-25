@@ -4,7 +4,7 @@
  */
 
 import express from 'express';
-import { firebaseAuth, firestore, setUserRole } from '../config/firebase';
+import { firebaseAuth, firestore, setUserRole, verifyFirebaseToken } from '../config/firebase';
 import { USERS_COLLECTION, firestoreUserFromDoc, FirestoreUser } from '../models/firestore/User';
 import { UserRole } from '../types';
 
@@ -113,7 +113,6 @@ router.get('/me', async (req, res) => {
     }
 
     const idToken = authHeader.replace('Bearer ', '');
-    const { verifyFirebaseToken } = await import('../config/firebase');
     const decodedToken = await verifyFirebaseToken(idToken);
 
     if (!decodedToken) {
@@ -172,7 +171,6 @@ router.put('/me', async (req, res) => {
     }
 
     const idToken = authHeader.replace('Bearer ', '');
-    const { verifyFirebaseToken } = await import('../config/firebase');
     const decodedToken = await verifyFirebaseToken(idToken);
 
     if (!decodedToken) {

@@ -1,15 +1,25 @@
 import { Request, Response, NextFunction } from 'express';
-import User from '../models/User';
-import School from '../models/School';
-import { AuthRequest } from './auth';
-import { UserRole } from '../models/User';
+import { firestore } from '../config/firebase';
+import { FirebaseAuthRequest } from './firebaseAuth';
+import { UserRole } from '../types';
 
-export interface SchoolContextRequest extends AuthRequest {
+export interface SchoolContextRequest extends FirebaseAuthRequest {
   schoolId?: string;
   school?: any;
 }
 
-// Middleware to set school context from user's schoolId
+function normalizeHeaderSchoolId(v: any): string | undefined {
+  if (!v) return undefined;
+  return Array.isArray(v) ? v[0] : String(v);
+}
+
+async function getSchoolDoc(schoolId: string) {
+  const doc = await firestore.collection('schools').doc(schoolId).get();
+  if (!doc.exists) return null;
+  return { id: doc.id, ...doc.data() };
+}
+
+// Middleware to set school context from Firebase custom claims or x-school-id
 export const setSchoolContext = async (
   req: SchoolContextRequest,
   res: Response,
@@ -23,35 +33,32 @@ export const setSchoolContext = async (
     // SaaS Admin can access all schools (no schoolId required)
     if (req.user.role === UserRole.SAAS_ADMIN) {
       // Allow SaaS Admin to pass school context via query/params/body/header
-      const headerSchoolId = req.headers['x-school-id'];
-      const normalizedHeaderSchoolId = Array.isArray(headerSchoolId) ? headerSchoolId[0] : headerSchoolId;
+      const headerSchoolId = normalizeHeaderSchoolId(req.headers['x-school-id']);
       const schoolId =
         req.query.schoolId ||
         req.params.schoolId ||
         req.body.schoolId ||
-        normalizedHeaderSchoolId;
+        headerSchoolId;
       if (schoolId) {
         req.schoolId = schoolId as string;
-        const school = await School.findById(schoolId);
-        if (school) {
-          req.school = school;
-        }
+        const school = await getSchoolDoc(req.schoolId);
+        if (school) req.school = school;
       }
       return next();
     }
 
-    // All other users must have schoolId
-    if (!req.user.id) {
+    // All other users must have schoolId from custom claims
+    if (!req.user.uid) {
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    const user = await User.findById(req.user.id);
-    if (!user || !user.schoolId) {
+    const schoolId = req.user.schoolId;
+    if (!schoolId) {
       return res.status(403).json({ message: 'User must be associated with a school' });
     }
 
     // Check if school is active
-    const school = await School.findById(user.schoolId);
+    const school = await getSchoolDoc(schoolId);
     if (!school || !school.isActive) {
       return res.status(403).json({ message: 'School is not active' });
     }
@@ -61,7 +68,7 @@ export const setSchoolContext = async (
       return res.status(403).json({ message: 'School subscription is not active' });
     }
 
-    req.schoolId = user.schoolId.toString();
+    req.schoolId = schoolId;
     req.school = school;
 
     next();

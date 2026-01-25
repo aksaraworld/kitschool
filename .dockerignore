@@ -1,0 +1,16 @@
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/.cache
+**/.vercel
+**/.firebase
+**/*.log
+**/.DS_Store
+**/coverage
+**/.env
+**/.env.*
+**/*firebase-adminsdk*.json
+**/firebase-service-account.json
+frontend/.next
+frontend/out

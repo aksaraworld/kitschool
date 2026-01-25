@@ -6,11 +6,13 @@
 import { APIClient } from '@aksara/api';
 import { firebaseAuthService } from './firebaseAuth';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+// In production, default to same-origin to avoid accidentally calling localhost.
+// If your backend is deployed elsewhere, set NEXT_PUBLIC_API_URL to its origin (no trailing /api).
+const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL || '';
 
 // Create API client instance with Firebase Auth
 export const aksaraApi = new APIClient({
-  baseUrl: API_URL,
+  baseUrl: API_ORIGIN,
   apiPrefix: '/api',
   getAuthHeaders: async () => {
     const headers: Record<string, string> = {};

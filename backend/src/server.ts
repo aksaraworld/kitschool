@@ -1,28 +1,33 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import mongoose from 'mongoose';
 // Initialize Firebase Admin (must be before routes)
 import './config/firebase';
-import authRoutes from './routes/auth';
 import firebaseAuthRoutes from './routes/firebaseAuth';
-import userRoutes from './routes/users';
+import usersFirestoreRoutes from './routes/usersFirestore';
 import classRoutes from './routes/classes';
 import attendanceRoutes from './routes/attendance';
 import paymentRoutes from './routes/payments';
 import scheduleRoutes from './routes/schedules';
 import communicationRoutes from './routes/communication';
-import invoiceRoutes from './routes/invoices';
+import invoiceRoutes from './routes/invoicesFirestore';
 import schoolRoutes from './routes/school';
 import schoolsRoutes from './routes/schools';
-import configRoutes from './routes/config';
-import transactionFeeRoutes from './routes/transaction-fees';
-import reportsRoutes from './routes/reports';
+import configRoutes from './routes/configFirestore';
+import transactionFeeRoutes from './routes/transactionFeesFirestore';
+import reportsRoutes from './routes/reportsFirestore';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT || 8080);
+
+process.on('unhandledRejection', (err) => {
+  console.error('❌ Unhandled promise rejection:', err);
+});
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught exception:', err);
+});
 
 // Middleware - CORS configuration
 const allowedOrigins = [
@@ -56,35 +61,15 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Database connection
-const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/sekolahkita';
-
-mongoose.connect(mongoUri)
-  .then(() => {
-    console.log('✅ MongoDB connected successfully');
-    console.log(`📊 Database: ${mongoUri.split('/').pop()?.split('?')[0]}`);
-  })
-  .catch((err) => {
-    console.error('❌ MongoDB connection error:', err.message);
-    console.error('\n💡 Troubleshooting:');
-    console.error('1. Pastikan MongoDB berjalan (local) atau connection string benar (Atlas)');
-    console.error('2. Check MONGODB_URI di backend/.env');
-    console.error('3. Untuk Atlas: pastikan IP whitelist sudah di-set');
-    console.error('4. Lihat MONGODB_SETUP.md untuk panduan lengkap\n');
-    process.exit(1);
-  });
+// Firebase-only backend: MongoDB is disabled.
+// (Mongo migration scripts can still live in /src/scripts, but runtime API should not require Mongo.)
 
 // Routes
-// Use Firebase Auth routes (comment out old JWT routes when ready)
+// Use Firebase Auth routes
 app.use('/api/auth', firebaseAuthRoutes);
-// app.use('/api/auth', authRoutes); // Old JWT routes - can be removed after migration
 
-// Use Firestore routes (comment out old MongoDB routes when ready)
-// app.use('/api/users', userRoutes); // Old MongoDB routes
-// Uncomment when ready to use Firestore:
-// import usersFirestoreRoutes from './routes/usersFirestore';
-// app.use('/api/users', usersFirestoreRoutes);
-app.use('/api/users', userRoutes);
+// Use Firestore routes by default
+app.use('/api/users', usersFirestoreRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/payments', paymentRoutes);
@@ -102,7 +87,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Cognifa API is running' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Cognifa backend listening on 0.0.0.0:${PORT}`);
 });
 

@@ -19,6 +19,15 @@ import api from './aksara-api';
 
 export const AUTH_CHANGE_EVENT = 'cognifa-auth-changed';
 
+function requireFirebaseAuth() {
+  if (!auth) {
+    throw new Error(
+      'Firebase is not configured in this environment. Set NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_PROJECT_ID, etc. in your deployment env vars and reload.'
+    );
+  }
+  return auth;
+}
+
 const emitAuthChange = () => {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
@@ -41,8 +50,9 @@ export const firebaseAuthService = {
    */
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     try {
+      const firebaseAuth = requireFirebaseAuth();
       const userCredential = await signInWithEmailAndPassword(
-        auth,
+        firebaseAuth,
         credentials.email,
         credentials.password
       );
@@ -76,9 +86,10 @@ export const firebaseAuthService = {
    */
   register: async (credentials: LoginCredentials & { name: string; role: string; schoolId?: string }): Promise<AuthResponse> => {
     try {
+      const firebaseAuth = requireFirebaseAuth();
       // Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(
-        auth,
+        firebaseAuth,
         credentials.email,
         credentials.password
       );
@@ -113,7 +124,8 @@ export const firebaseAuthService = {
    */
   logout: async () => {
     try {
-      await signOut(auth);
+      const firebaseAuth = requireFirebaseAuth();
+      await signOut(firebaseAuth);
       
       if (typeof window !== 'undefined') {
         localStorage.removeItem('idToken');
@@ -144,7 +156,8 @@ export const firebaseAuthService = {
    */
   getToken: async (): Promise<string | null> => {
     try {
-      const currentUser = auth.currentUser;
+      const firebaseAuth = requireFirebaseAuth();
+      const currentUser = firebaseAuth.currentUser;
       if (currentUser) {
         return await currentUser.getIdToken();
       }
@@ -177,7 +190,8 @@ export const firebaseAuthService = {
    * Listen to auth state changes
    */
   onAuthStateChanged: (callback: (user: FirebaseUser | null) => void) => {
-    return onAuthStateChanged(auth, callback);
+    const firebaseAuth = requireFirebaseAuth();
+    return onAuthStateChanged(firebaseAuth, callback);
   },
 
   /**
@@ -185,7 +199,8 @@ export const firebaseAuthService = {
    */
   refreshToken: async (): Promise<string | null> => {
     try {
-      const currentUser = auth.currentUser;
+      const firebaseAuth = requireFirebaseAuth();
+      const currentUser = firebaseAuth.currentUser;
       if (currentUser) {
         const newToken = await currentUser.getIdToken(true); // Force refresh
         if (typeof window !== 'undefined') {

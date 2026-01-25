@@ -1,19 +1,22 @@
 import express from 'express';
-import School from '../models/School';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { FieldValue } from 'firebase-admin/firestore';
+import { firestore } from '../config/firebase';
+import { authenticate } from '../middleware/firebaseAuth';
 import { setSchoolContext, SchoolContextRequest, requireSchoolContext } from '../middleware/schoolContext';
-import { UserRole } from '../models/User';
+import { UserRole } from '../types';
+import { docToJson } from '../utils/firestoreUtils';
 
 const router = express.Router();
 
 // Get current user's school profile
 router.get('/', authenticate, setSchoolContext, requireSchoolContext, async (req: SchoolContextRequest, res) => {
   try {
-    const school = await School.findById(req.schoolId);
-    if (!school) {
+    const docRef = firestore.collection('schools').doc(String(req.schoolId));
+    const snap = await docRef.get();
+    if (!snap.exists) {
       return res.status(404).json({ message: 'School profile not found' });
     }
-    res.json(school);
+    res.json(docToJson(snap));
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -37,17 +40,14 @@ router.put('/', authenticate, setSchoolContext, requireSchoolContext, async (req
     delete updateData.createdBy;
     delete updateData.isActive;
 
-    const school = await School.findByIdAndUpdate(
-      req.schoolId,
-      updateData,
-      { new: true, runValidators: true }
-    );
-
-    if (!school) {
+    const docRef = firestore.collection('schools').doc(String(req.schoolId));
+    const snap = await docRef.get();
+    if (!snap.exists) {
       return res.status(404).json({ message: 'School profile not found' });
     }
 
-    res.json(school);
+    await docRef.set({ ...updateData, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    res.json(docToJson(await docRef.get()));
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }

@@ -34,7 +34,7 @@ export class FirestoreService<T> {
     }
     
     const snapshot = await ref.get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
+    return snapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: doc.id, ...doc.data() } as T));
   }
 
   /**
@@ -76,7 +76,7 @@ export class FirestoreService<T> {
       .where(field, '==', value)
       .get();
     
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
+    return snapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: doc.id, ...doc.data() } as T));
   }
 
   /**
@@ -90,7 +90,7 @@ export class FirestoreService<T> {
     });
     
     const snapshot = await query.get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
+    return snapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: doc.id, ...doc.data() } as T));
   }
 
   /**

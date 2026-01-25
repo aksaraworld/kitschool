@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { authService } from './auth';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+// Default to same-origin in production. If backend is external, set NEXT_PUBLIC_API_URL to its origin.
+const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL || '';
+const API_URL = API_ORIGIN ? `${API_ORIGIN}/api` : '/api';
 
 const api = axios.create({
   baseURL: API_URL,
