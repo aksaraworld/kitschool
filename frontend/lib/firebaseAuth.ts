@@ -50,11 +50,9 @@ export const firebaseAuthService = {
       const idToken = await userCredential.user.getIdToken();
 
       // Get user data from Firestore via API
-      const userData = await api.get<User>('/auth/me', {
-        headers: {
-          Authorization: `Bearer ${idToken}`
-        }
-      });
+      // NOTE: `api` (aksara-api adapter) already injects Authorization header
+      // via `firebaseAuthService.getToken()`, so we don't pass headers here.
+      const userData = await api.get<User>('/auth/me');
 
       // Store token and user data
       if (typeof window !== 'undefined') {
