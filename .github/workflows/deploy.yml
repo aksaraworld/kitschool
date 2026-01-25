@@ -1,0 +1,80 @@
+name: Deploy (Vercel + Cloud Run)
+
+on:
+  push:
+    branches: [main]
+    # Reduce noisy deploys; adjust as you like.
+    paths:
+      - "frontend/**"
+      - "backend/**"
+      - "packages/**"
+      - "Dockerfile.backend"
+      - "cloudbuild.backend.yaml"
+      - "build-packages.js"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy_vercel:
+    name: Deploy frontend to Vercel
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # Vercel already deploys on git push if Git Integration is enabled.
+      # This job forces a production deploy from GitHub Actions.
+      - name: Deploy
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+          vercel-args: --prod
+
+  deploy_cloud_run:
+    name: Deploy backend to Cloud Run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Recommended: Workload Identity Federation (no JSON key).
+      # Requires repo secrets:
+      # - GCP_WORKLOAD_IDENTITY_PROVIDER (full resource name)
+      # - GCP_SERVICE_ACCOUNT_EMAIL
+      - name: Auth to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Build image (Cloud Build)
+        run: >
+          gcloud builds submit
+          --config cloudbuild.backend.yaml
+          --substitutions _IMAGE=${{ vars.GAR_IMAGE }}
+          .
+
+      - name: Deploy (Cloud Run)
+        run: |
+          gcloud run deploy "${{ vars.CLOUD_RUN_SERVICE }}" \
+            --image "${{ vars.GAR_IMAGE }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --allow-unauthenticated \
+            --timeout 300 \
+            --set-env-vars "FRONTEND_URL=${{ vars.FRONTEND_URL }},FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}"
