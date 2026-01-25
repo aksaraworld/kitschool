@@ -20,25 +20,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy_vercel:
-    name: Deploy frontend to Vercel
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      # Vercel already deploys on git push if Git Integration is enabled.
-      # This job forces a production deploy from GitHub Actions.
-      - name: Deploy
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: ./frontend
-          vercel-args: --prod
-
   deploy_cloud_run:
     name: Deploy backend to Cloud Run
     runs-on: ubuntu-latest
