@@ -77,6 +77,20 @@ const decodedToken = await verifyIdToken(idToken);
 
 This makes the package safe for **Next.js + Vercel (serverless)** and avoids bundling admin SDK into the browser.
 
+## Express middleware (server-only)
+
+If you run an Express API (Cloud Run, VM, etc), you can reuse a tiny auth layer:
+
+```ts
+import { firebaseAuthenticate, firebaseAuthorize } from '@aksara/firebase/express';
+
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+app.get('/api/private', firebaseAuthenticate(), (req, res) => res.json({ uid: req.user?.uid }));
+
+app.get('/api/admin', firebaseAuthenticate(), firebaseAuthorize('saas_admin'), (req, res) => res.json({ ok: true }));
+```
+
 ## Firebase-only backend (no Mongo required)
 
 The Aksara + Firebase stack works with **Firestore as the primary database** and **Firebase Auth as identity**.
