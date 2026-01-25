@@ -59,6 +59,12 @@ export const firebaseAuthService = {
 
       const idToken = await userCredential.user.getIdToken();
 
+      // Store token ASAP to avoid race conditions where `currentUser` isn't ready
+      // when our API client asks for auth headers.
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('idToken', idToken);
+      }
+
       // Get user data from Firestore via API
       // NOTE: `api` (aksara-api adapter) already injects Authorization header
       // via `firebaseAuthService.getToken()`, so we don't pass headers here.
@@ -66,7 +72,6 @@ export const firebaseAuthService = {
 
       // Store token and user data
       if (typeof window !== 'undefined') {
-        localStorage.setItem('idToken', idToken);
         localStorage.setItem('user', JSON.stringify(userData));
         emitAuthChange();
       }
