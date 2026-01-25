@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "prebuild": "cd .. && npm run build:packages",
+    "prebuild": "node -e \"process.exit(process.env.VERCEL ? 0 : 1)\" || (cd .. && npm run build:packages)",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
