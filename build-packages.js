@@ -31,9 +31,9 @@ for (const pkg of packages) {
       stdio: 'inherit'
     });
 
-    // Build package
+    // Build package (use npm run build so local typescript is used; npx tsc can resolve to wrong package)
     console.log('  Building package...');
-    execSync('npx tsc --project tsconfig.json', {
+    execSync('npm run build', {
       cwd: packagePath,
       stdio: 'inherit'
     });
