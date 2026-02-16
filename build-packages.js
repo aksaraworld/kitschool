@@ -43,9 +43,10 @@ for (const pkg of packages) {
 
   try {
     console.log('  Installing dependencies...');
-    execSync('npm install --legacy-peer-deps', {
+    execSync('npm install --legacy-peer-deps --include=dev', {
       cwd: packagePath,
-      stdio: 'inherit'
+      stdio: 'inherit',
+      env: { ...process.env, NODE_ENV: 'development' }
     });
 
     const tscBin = cachedTscBin || findTscBin();
