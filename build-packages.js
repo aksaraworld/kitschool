@@ -1,6 +1,6 @@
 /**
- * Cross-platform build script for Aksara Framework packages
- * Runs from repo root so root's typescript is used (works in Vercel/npm workspaces)
+ * Cross-platform build script for Aksara Framework packages.
+ * Uses TypeScript from root or from the package's node_modules (each package has typescript in devDependencies).
  */
 
 const { execSync } = require('child_process');
@@ -10,9 +10,20 @@ const fs = require('fs');
 const rootDir = __dirname;
 const packages = ['core', 'api', 'context', 'hooks', 'ui', 'formatters', 'firebase'];
 
+function findTscBin() {
+  const atRoot = path.join(rootDir, 'node_modules', 'typescript', 'bin', 'tsc');
+  if (fs.existsSync(atRoot)) return atRoot;
+  for (const pkg of packages) {
+    const inPackage = path.join(rootDir, 'packages', pkg, 'node_modules', 'typescript', 'bin', 'tsc');
+    if (fs.existsSync(inPackage)) return inPackage;
+  }
+  return null;
+}
+
 console.log('Building Aksara Framework packages...\n');
 
 let hasError = false;
+let cachedTscBin = null;
 
 for (const pkg of packages) {
   console.log(`Building @aksara/${pkg}...`);
@@ -31,18 +42,18 @@ for (const pkg of packages) {
   }
 
   try {
-    // Install dependencies (for workspace deps / peer deps)
     console.log('  Installing dependencies...');
     execSync('npm install --legacy-peer-deps', {
       cwd: packagePath,
       stdio: 'inherit'
     });
 
-    // Use root's typescript/bin/tsc directly (avoids npx resolving to wrong "tsc" package on Vercel)
-    const tscBin = path.join(rootDir, 'node_modules', 'typescript', 'bin', 'tsc');
-    if (!fs.existsSync(tscBin)) {
-      throw new Error('TypeScript not found at root. Run: npm install (with devDependencies) from repo root.');
+    const tscBin = cachedTscBin || findTscBin();
+    if (!tscBin) {
+      throw new Error('TypeScript not found. Each package has typescript in devDependencies; npm install should install it.');
     }
+    if (!cachedTscBin) cachedTscBin = tscBin;
+
     console.log('  Building package...');
     execSync(`node "${tscBin}" --project "${tsconfigPath}"`, {
       cwd: rootDir,
