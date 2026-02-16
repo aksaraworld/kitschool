@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "prebuild": "node -e \"process.exit(process.env.VERCEL ? 0 : 1)\" || (cd .. && npm run build:packages)",
-    "build": "node -e \"var p=require('path'),c=require('child_process');var np=p.resolve(process.cwd(),'..','node_modules');c.execSync('next build',{stdio:'inherit',env:Object.assign({},process.env,{NODE_PATH:np})})\"",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
