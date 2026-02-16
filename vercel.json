@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "buildCommand": "node build-packages.js && cd frontend && npm install && npm run build",
-  "outputDirectory": "frontend/.next",
-  "installCommand": "npm install",
+  "buildCommand": "if [ -f build-packages.js ]; then node build-packages.js && cd frontend; else cd .. && node build-packages.js && cd frontend; fi && npm install && npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "if [ -f ../package.json ] && [ ! -f build-packages.js ]; then cd .. && npm install; else npm install; fi",
   "framework": "nextjs"
 }

@@ -6,22 +6,23 @@ Single deployment: Next.js app + API routes in `frontend/`. No separate backend.
 
 1. Go to [vercel.com](https://vercel.com) → **Add New** → **Project**.
 2. Import your Git repo (GitHub/GitLab/Bitbucket).
-3. **Root Directory:** leave **empty** (repo root). Do **not** set to `frontend`.
 
 ## 2. Build settings
 
-Use these in **Project Settings → General** (or during import):
+**Root Directory:** set to **`frontend`** (so Vercel detects Next.js). Enable **“Include source files outside of the Root Directory in the Build Step”** (Project Settings → General → Root Directory) so the monorepo `packages` can be built.
+
+Then use (or let `vercel.json` set):
 
 | Setting | Value |
 |--------|--------|
 | **Framework Preset** | Next.js |
-| **Root Directory** | `.` (or leave default) |
-| **Build Command** | `node build-packages.js && cd frontend && npm install && npm run build` |
-| **Output Directory** | `frontend/.next` |
-| **Install Command** | `npm install` |
-| **Node.js Version** | 20.x (set in **Settings → General → Node.js Version** if needed) |
+| **Root Directory** | `frontend` |
+| **Build Command** | (from `vercel.json`: runs `build-packages.js` from repo root then `npm run build` in frontend) |
+| **Output Directory** | `.next` |
+| **Install Command** | (from `vercel.json`: installs root deps when in frontend) |
+| **Node.js Version** | 20.x (Settings → General) |
 
-`vercel.json` in the repo already sets these; you can override in the dashboard if needed.
+`vercel.json` is written to work when **Root Directory = frontend**: install and build commands `cd ..` to the repo root to run `build-packages.js`, then run the Next.js build in `frontend`.
 
 ## 3. Environment variables
 
