@@ -1,9 +1,13 @@
 const webpack = require('webpack');
+const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   webpack: (config, { isServer }) => {
+    // In monorepo/workspace, deps (e.g. tailwindcss) can be hoisted to root node_modules
+    const rootModules = path.resolve(__dirname, '..', 'node_modules');
+    config.resolve.modules = [...(config.resolve.modules || []), rootModules];
     // Exclude firebase-admin and Node.js modules from client-side bundle
     if (!isServer) {
       // Set fallbacks for Node.js modules (prevents webpack from trying to bundle them)
