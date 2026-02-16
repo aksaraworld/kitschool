@@ -98,9 +98,9 @@ export function paymentAttemptsCollection() {
   return getFirestore().collection('paymentAttempts');
 }
 
-/** Convert Firestore doc to JSON (id, _id + data, timestamps to ISO string). */
-export function docToJson(doc: { id: string; data: () => Record<string, unknown> }): Record<string, unknown> {
-  const data = doc.data() ?? {};
+/** Convert Firestore doc to JSON (id, _id + data, timestamps to ISO string). Accepts Firestore DocumentSnapshot. */
+export function docToJson(doc: { id: string; data: () => unknown }): Record<string, unknown> {
+  const data = (doc.data() ?? {}) as Record<string, unknown>;
   const out: Record<string, unknown> = { id: doc.id, _id: doc.id, ...data };
   for (const key of Object.keys(out)) {
     const v = out[key];
