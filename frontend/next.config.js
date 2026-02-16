@@ -5,7 +5,11 @@ const path = require('path');
 const nextConfig = {
   reactStrictMode: true,
   webpack: (config, { isServer }) => {
-    // In monorepo/workspace, deps (e.g. tailwindcss) can be hoisted to root node_modules
+    // Ensure @ resolves to frontend (Vercel cwd can differ)
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      '@': path.resolve(__dirname, '.'),
+    };
     const rootModules = path.resolve(__dirname, '..', 'node_modules');
     config.resolve.modules = [...(config.resolve.modules || []), rootModules];
     // Exclude firebase-admin and Node.js modules from client-side bundle
