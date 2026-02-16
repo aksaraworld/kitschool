@@ -38,9 +38,13 @@ for (const pkg of packages) {
       stdio: 'inherit'
     });
 
-    // Run tsc from repo root so root's node_modules/typescript is used (fixes "tsc: command not found" on Vercel)
+    // Use root's typescript/bin/tsc directly (avoids npx resolving to wrong "tsc" package on Vercel)
+    const tscBin = path.join(rootDir, 'node_modules', 'typescript', 'bin', 'tsc');
+    if (!fs.existsSync(tscBin)) {
+      throw new Error('TypeScript not found at root. Run: npm install (with devDependencies) from repo root.');
+    }
     console.log('  Building package...');
-    execSync(`npx tsc --project "${tsconfigPath}"`, {
+    execSync(`node "${tscBin}" --project "${tsconfigPath}"`, {
       cwd: rootDir,
       stdio: 'inherit'
     });
