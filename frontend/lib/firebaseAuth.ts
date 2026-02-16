@@ -161,8 +161,8 @@ export const firebaseAuthService = {
    */
   getToken: async (): Promise<string | null> => {
     try {
-      const firebaseAuth = requireFirebaseAuth();
-      const currentUser = firebaseAuth.currentUser;
+      if (!auth) return typeof window !== 'undefined' ? localStorage.getItem('idToken') : null;
+      const currentUser = auth.currentUser;
       if (currentUser) {
         return await currentUser.getIdToken();
       }
@@ -195,8 +195,8 @@ export const firebaseAuthService = {
    * Listen to auth state changes
    */
   onAuthStateChanged: (callback: (user: FirebaseUser | null) => void) => {
-    const firebaseAuth = requireFirebaseAuth();
-    return onAuthStateChanged(firebaseAuth, callback);
+    if (!auth) return () => {};
+    return onAuthStateChanged(auth, callback);
   },
 
   /**
@@ -204,8 +204,8 @@ export const firebaseAuthService = {
    */
   refreshToken: async (): Promise<string | null> => {
     try {
-      const firebaseAuth = requireFirebaseAuth();
-      const currentUser = firebaseAuth.currentUser;
+      if (!auth) return null;
+      const currentUser = auth.currentUser;
       if (currentUser) {
         const newToken = await currentUser.getIdToken(true); // Force refresh
         if (typeof window !== 'undefined') {

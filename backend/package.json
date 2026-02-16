@@ -14,7 +14,8 @@
     "migrate:firebase": "tsx src/scripts/migrate-to-firebase.ts",
     "bootstrap:firebase": "tsx src/scripts/bootstrap-firestore.ts",
     "migrate:firebase:all": "tsx src/scripts/migrate-all-to-firebase.ts",
-    "demo:auth": "tsx src/scripts/set-demo-auth-passwords.ts"
+    "demo:auth": "tsx src/scripts/set-demo-auth-passwords.ts",
+    "reset:seed:50": "tsx src/scripts/reset-and-seed-50.ts"
   },
   "dependencies": {
     "express": "^4.18.2",

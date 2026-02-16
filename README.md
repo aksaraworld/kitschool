@@ -108,7 +108,19 @@ npm run dev
    - Frontend: http://localhost:3000 (or 3001, 3002, etc.)
    - Backend API: http://localhost:5000/api
 
-**See [DEMO_ACCOUNTS.md](./DEMO_ACCOUNTS.md) for demo account credentials.**
+### Demo logins (passwords)
+
+| Role        | Example email                    | Password      |
+|------------|-----------------------------------|---------------|
+| SaaS Admin | `saas@cognifa.com`               | `saasadmin123` |
+| Principal  | `principal@smkdemodepok.sch.id`   | `principal123` |
+| Staff      | `staff1@smkdemodepok.sch.id`     | `staff123`     |
+| Finance    | `finance1@smkdemodepok.sch.id`   | `finance123`   |
+| Teacher    | `teacher1@smkdemodepok.sch.id`    | `teacher123`   |
+| Student    | `s0001@smkdemodepok.sch.id`       | `student123`   |
+| Parent     | `parent0001@smkdemodepok.sch.id` | `parent123`    |
+
+Full list of 50 accounts: [DEMO_ACCOUNTS.md](./DEMO_ACCOUNTS.md).
 
 **See [SETUP_AKSARA.md](./SETUP_AKSARA.md) for detailed setup guide.**
 
@@ -125,11 +137,11 @@ npm run dev
 
 ## 📚 Documentation
 
-- [DEMO_ACCOUNTS.md](./DEMO_ACCOUNTS.md) - Demo account credentials
-- [SETUP_AKSARA.md](./SETUP_AKSARA.md) - Aksara Framework setup
-- [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md) - Complete project overview
-- [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) - Database structure
-- [FINAL_MIGRATION_SUMMARY.md](./FINAL_MIGRATION_SUMMARY.md) - Migration details
+- [DEMO_ACCOUNTS.md](./DEMO_ACCOUNTS.md) – Demo account credentials (50 accounts)
+- [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) – Database structure
+- [DATABASE_AND_STORAGE.md](./DATABASE_AND_STORAGE.md) – Firestore & Firebase Storage integration
+- [SERVERLESS.md](./SERVERLESS.md) – Serverless API (auth/me, register)
+- [SETUP_AKSARA.md](./SETUP_AKSARA.md) – Aksara Framework setup
 
 ## 🎨 Theme
 

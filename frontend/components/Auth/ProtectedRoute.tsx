@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { authService } from '@/lib/auth';
+import { firebaseAuthService } from '@/lib/firebaseAuth';
 import { UserRole } from '@/lib/types';
 import DashboardLayout from '../Layout/DashboardLayout';
 
@@ -17,12 +17,12 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    if (!authService.isAuthenticated()) {
+    if (!firebaseAuthService.isAuthenticated()) {
       router.push('/login');
       return;
     }
 
-    const currentUser = authService.getCurrentUser();
+    const currentUser = firebaseAuthService.getCurrentUser();
     if (!currentUser) {
       router.push('/login');
       return;

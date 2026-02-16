@@ -5,7 +5,7 @@ import { createContextWithHook } from '@aksara/context';
 import { useLocalStorage } from '@aksara/hooks';
 import api from '@/lib/aksara-api';
 import { School, UserRole } from '@/lib/types';
-import { authService, AUTH_CHANGE_EVENT } from '@/lib/auth';
+import { firebaseAuthService, AUTH_CHANGE_EVENT } from '@/lib/firebaseAuth';
 
 interface SchoolContextValue {
   schools: School[];
@@ -29,7 +29,7 @@ export const SchoolProvider = ({ children }: { children: React.ReactNode }) => {
   const [isSaasAdmin, setIsSaasAdmin] = useState(false);
 
   const updateSaasAdminStatus = useCallback(() => {
-    const currentUser = authService.getCurrentUser();
+    const currentUser = firebaseAuthService.getCurrentUser();
     setIsSaasAdmin(currentUser?.role === UserRole.SAAS_ADMIN);
   }, []);
 
@@ -43,7 +43,15 @@ export const SchoolProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [updateSaasAdminStatus]);
 
-  // selectedSchoolId is automatically loaded from localStorage via useLocalStorage hook
+  // For non–SaaS users (principal, staff, etc.), set school context from their user doc so API has schoolId
+  useEffect(() => {
+    if (isSaasAdmin) return;
+    const currentUser = firebaseAuthService.getCurrentUser();
+    const userSchoolId = (currentUser as { schoolId?: string })?.schoolId;
+    if (userSchoolId) {
+      setSelectedSchoolId(userSchoolId);
+    }
+  }, [isSaasAdmin, setSelectedSchoolId]);
 
   const fetchSchools = useCallback(async () => {
     if (!isSaasAdmin) return;
@@ -78,8 +86,6 @@ export const SchoolProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (!isSaasAdmin) {
       setSchools([]);
-      removeSelectedSchoolId();
-      setSelectedSchoolId(null);
       return;
     }
     fetchSchools();

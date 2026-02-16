@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Button, Input } from '@aksara/ui';
 import { firebaseAuthService } from '@/lib/firebaseAuth';
 import { UserRole } from '@/lib/types';
-import { GraduationCap } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [logoError, setLogoError] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,14 +33,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-primary-100 to-blue-50 px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-primary-100">
+    <div className="min-h-screen flex items-center justify-center bg-cognifaNeutral-altBg px-4">
+      <div className="max-w-md w-full bg-cognifaNeutral-bg rounded-2xl shadow-lg p-8 border border-cognifaNeutral-border">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-700 rounded-full mb-4 shadow-lg">
-            <GraduationCap className="w-8 h-8 text-white" />
+          <div className="flex justify-center mb-4 min-h-[52px] items-center">
+            {!logoError ? (
+              <Image src="/logo.png" alt="Cognifa" width={200} height={52} className="h-[52px] w-auto object-contain object-center" style={{ width: 'auto', height: '52px' }} unoptimized onError={() => setLogoError(true)} />
+            ) : (
+              <h1 className="font-heading text-3xl font-bold text-primary-500">Cognifa</h1>
+            )}
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-600 to-primary-800 bg-clip-text text-transparent">Cognifa</h1>
-          <p className="text-gray-600 mt-2">Lacak. Terhubung. Percaya. Semua dalam Satu Tempat</p>
+          <p className="text-cognifaNeutral-secondary text-sm font-medium">Lacak. Terhubung. Percaya. Semua dalam Satu Tempat</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -73,14 +77,14 @@ export default function LoginPage() {
             type="submit"
             disabled={isLoading}
             isLoading={isLoading}
-            className="w-full"
+            className="w-full bg-primary-600 hover:bg-primary-700 [background-image:none] hover:[background-image:none]"
             variant="default"
           >
             Masuk
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-gray-700">
+        <p className="mt-6 text-center text-sm text-cognifaNeutral-secondary">
           Tidak ada pendaftaran. Akun dibuat oleh staf/kepala sekolah.
         </p>
       </div>

@@ -44,5 +44,11 @@ service firebase.storage {
     match /admin/{allPaths=**} {
       allow read, write: if isAdmin();
     }
+    
+    // General uploads (e.g. from firebaseStorage.ts default folder)
+    match /uploads/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
   }
 }

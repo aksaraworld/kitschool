@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { authService } from './auth';
+import { firebaseAuthService } from './firebaseAuth';
 
 // Default to same-origin in production. If backend is external, set NEXT_PUBLIC_API_URL to its origin.
 const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL || '';
@@ -12,12 +12,11 @@ const api = axios.create({
   },
 });
 
-// Add token to requests
-api.interceptors.request.use((config) => {
-  // Only access localStorage on client side
+// Add token to requests (async so we can use Firebase getToken())
+api.interceptors.request.use(async (config) => {
   if (typeof window !== 'undefined') {
     try {
-      const token = localStorage.getItem('token');
+      const token = await firebaseAuthService.getToken();
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -37,9 +36,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token invalid or expired - clear auth and redirect to login
       if (typeof window !== 'undefined') {
-        authService.logout();
+        firebaseAuthService.logout();
         // Only redirect if not already on login page
         if (window.location.pathname !== '/login') {
           window.location.href = '/login';

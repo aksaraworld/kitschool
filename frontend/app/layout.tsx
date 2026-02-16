@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Source_Sans_3 } from 'next/font/google'
 import './globals.css'
 import { SchoolProvider } from '@/context/SchoolContext'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin'], variable: '--font-heading' })
+const sourceSans = Source_Sans_3({ subsets: ['latin'], variable: '--font-body' })
 
 export const metadata: Metadata = {
   title: 'Cognifa - School Management System',
@@ -16,8 +17,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className={`${inter.variable} ${sourceSans.variable}`}>
+      <body className="font-body antialiased">
         <SchoolProvider>{children}</SchoolProvider>
       </body>
     </html>

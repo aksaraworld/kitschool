@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { authService } from '@/lib/auth';
+import { firebaseAuthService } from '@/lib/firebaseAuth';
 import { UserRole } from '@/lib/types';
 import SchoolSwitcher from '../SaaS/SchoolSwitcher';
 import {
@@ -99,23 +100,24 @@ const menuItems = {
 export default function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [logoError, setLogoError] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     // Get user on client side only
-    setUser(authService.getCurrentUser());
+    setUser(firebaseAuthService.getCurrentUser());
   }, []);
 
   const handleLogout = () => {
-    authService.logout();
+    firebaseAuthService.logout();
     router.push('/login');
   };
 
   const items = menuItems[userRole] || [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-blue-50">
+    <div className="min-h-screen bg-cognifaNeutral-altBg">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -131,9 +133,13 @@ export default function DashboardLayout({ children, userRole }: DashboardLayoutP
         }`}
       >
         <div className="flex flex-col h-full">
-          <div className="p-6 border-b border-primary-100 bg-gradient-to-r from-primary-50 to-blue-50">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-primary-800 bg-clip-text text-transparent">Cognifa</h1>
-            <p className="text-sm text-gray-600 mt-1">Lacak. Terhubung. Percaya. Semua dalam Satu Tempat</p>
+          <div className="p-6 border-b border-cognifaNeutral-border bg-cognifaNeutral-bg">
+            {!logoError ? (
+              <Image src="/logo.png" alt="Cognifa" width={140} height={36} className="h-9 w-auto object-contain" style={{ width: 'auto', height: '2.25rem' }} unoptimized onError={() => setLogoError(true)} />
+            ) : (
+              <h1 className="font-heading text-xl font-bold text-primary-500">Cognifa</h1>
+            )}
+            <p className="text-sm text-gray-600 mt-2">Lacak. Terhubung. Percaya. Semua dalam Satu Tempat</p>
           </div>
 
           <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
@@ -146,8 +152,8 @@ export default function DashboardLayout({ children, userRole }: DashboardLayoutP
                   href={item.href}
                   className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                     isActive
-                      ? 'bg-gradient-to-r from-primary-100 to-blue-100 text-primary-700 font-medium border-l-4 border-primary-600'
-                      : 'text-gray-700 hover:bg-primary-50 hover:text-primary-700'
+                  ? 'bg-primary-50 text-primary-700 font-medium border-l-4 border-primary-500'
+                  : 'text-cognifaNeutral-dark hover:bg-primary-50 hover:text-primary-600'
                   }`}
                   onClick={() => setSidebarOpen(false)}
                 >
@@ -186,7 +192,7 @@ export default function DashboardLayout({ children, userRole }: DashboardLayoutP
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top bar */}
-        <header className="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-30 border-b border-primary-100">
+        <header className="bg-cognifaNeutral-bg/95 backdrop-blur-sm shadow-sm sticky top-0 z-30 border-b border-cognifaNeutral-border">
           <div className="px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -217,7 +223,7 @@ export default function DashboardLayout({ children, userRole }: DashboardLayoutP
                   className="w-10 h-10 rounded-full"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center shadow-md">
+                <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center shadow-md">
                   <User className="w-6 h-6 text-white" />
                 </div>
               )}

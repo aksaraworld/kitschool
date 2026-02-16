@@ -3,25 +3,48 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 17, 24, 39; /* gray-900 */
-  --background-start-rgb: 239, 246, 255; /* primary-50 - very light blue */
-  --background-end-rgb: 255, 255, 255; /* white */
+  /* Cognifa neutrals */
+  --foreground-rgb: 26, 26, 26; /* #1A1A1A dark text */
+  --cognifa-primary: #2D74A8;
+  --cognifa-primary-hover: #1F5E8A;
+  --cognifa-light: #E8F2FA;
+  --cognifa-bg: #FFFFFF;
+  --cognifa-alt-bg: #F7F9FC;
+  --cognifa-border: #E5EAF0;
+  --cognifa-secondary-text: #5F6B7A;
 }
 
 /* Force light mode for inputs */
 input, textarea, select {
-  color: #111827 !important; /* gray-900 */
+  color: #1A1A1A !important;
   background-color: #ffffff !important;
 }
 
 input::placeholder, textarea::placeholder {
-  color: #6b7280 !important; /* gray-500 */
+  color: #5F6B7A !important;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(to bottom, rgb(var(--background-start-rgb)), rgb(var(--background-end-rgb)));
+  color: #1A1A1A;
+  background: #F7F9FC;
   min-height: 100vh;
+}
+
+/* Cognifa: no gradients on buttons – solid primary blue */
+button[class*="from-primary-600"],
+button[class*="from-primary-700"],
+button.bg-gradient-to-r {
+  background-image: none !important;
+  background-color: #2D74A8 !important;
+}
+button[class*="from-primary-600"]:hover,
+button[class*="from-primary-700"]:hover,
+button.bg-gradient-to-r:hover {
+  background-color: #1F5E8A !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading), Inter, sans-serif;
 }
 
 @layer utilities {

@@ -102,5 +102,25 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if getUserRole() == 'saas_admin';
     }
+    
+    // Payment attempts (for invoices)
+    match /paymentAttempts/{paymentAttemptId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if getUserRole() in ['saas_admin', 'principal', 'finance'];
+    }
+    
+    // Transaction fees (SaaS)
+    match /transactionFees/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if getUserRole() == 'saas_admin';
+    }
+    
+    // Student activities (e.g. parent view)
+    match /studentActivities/{activityId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
   }
 }

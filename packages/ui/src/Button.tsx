@@ -12,9 +12,9 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles = {
-  default: "bg-gradient-to-r from-primary-600 to-primary-700 text-white hover:from-primary-700 hover:to-primary-800 shadow-md",
-  secondary: "bg-gradient-to-r from-blue-400 to-blue-500 text-white hover:from-blue-500 hover:to-blue-600 shadow-md",
-  accent: "bg-gradient-to-r from-primary-800 to-primary-900 text-white hover:from-primary-900 hover:to-primary-950 shadow-lg",
+  default: "bg-primary-600 text-white hover:bg-primary-700 shadow-md",
+  secondary: "bg-primary-100 text-primary-700 hover:bg-primary-200",
+  accent: "bg-primary-700 text-white hover:bg-primary-800 shadow-md",
   outline: "border-2 border-primary-600 bg-white text-primary-700 hover:bg-primary-50 hover:border-primary-700",
   ghost: "hover:bg-primary-50 hover:text-primary-700 text-gray-700",
   link: "text-primary-600 underline-offset-4 hover:text-primary-700 hover:underline",

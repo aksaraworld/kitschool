@@ -2,15 +2,15 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { authService } from '@/lib/auth';
+import { firebaseAuthService } from '@/lib/firebaseAuth';
 import { UserRole } from '@/lib/types';
 
 export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (authService.isAuthenticated()) {
-      const currentUser = authService.getCurrentUser();
+    if (firebaseAuthService.isAuthenticated()) {
+      const currentUser = firebaseAuthService.getCurrentUser();
       if (currentUser?.role === UserRole.SAAS_ADMIN) {
         router.push('/saas/dashboard');
       } else {
