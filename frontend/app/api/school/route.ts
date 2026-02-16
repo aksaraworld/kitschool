@@ -40,10 +40,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ message: 'Only Principal and Staff can update school profile' }, { status: 403 });
     }
 
-    const schoolId =
-      auth.role !== UserRole.SAAS_ADMIN && auth.schoolId
-        ? auth.schoolId
-        : getSchoolId(req, auth);
+    const schoolId = auth.schoolId ?? getSchoolId(req, auth);
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
     const body = await req.json().catch(() => ({}));
@@ -77,10 +74,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
-    const schoolId =
-      auth.role !== UserRole.SAAS_ADMIN && auth.schoolId
-        ? auth.schoolId
-        : getSchoolId(req, auth);
+    const schoolId = auth.schoolId ?? getSchoolId(req, auth);
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
     const body = await req.json().catch(() => ({}));

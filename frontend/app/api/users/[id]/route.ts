@@ -7,8 +7,8 @@ import { getAuthUser, normalizeSchoolId } from '@/lib/server/auth-helpers';
 import { getAuth, usersCollection } from '@/lib/server/firebase-admin';
 import { UserRole } from '@/lib/types';
 
-function docToUser(doc: { id: string; data: () => Record<string, unknown> }): Record<string, unknown> {
-  const data = doc.data() ?? {};
+function docToUser(doc: { id: string; data: () => unknown }): Record<string, unknown> {
+  const data = (doc.data() ?? {}) as Record<string, unknown>;
   const createdAt = (data.createdAt as { toDate?: () => Date })?.toDate?.() ?? data.createdAt;
   const updatedAt = (data.updatedAt as { toDate?: () => Date })?.toDate?.() ?? data.updatedAt;
   const schoolId = normalizeSchoolId(data.schoolId);

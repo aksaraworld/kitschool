@@ -1,12 +1,13 @@
 /**
  * Cross-platform build script for Aksara Framework packages
- * Works on Windows, Linux, and Mac
+ * Runs from repo root so root's typescript is used (works in Vercel/npm workspaces)
  */
 
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+const rootDir = __dirname;
 const packages = ['core', 'api', 'context', 'hooks', 'ui', 'formatters', 'firebase'];
 
 console.log('Building Aksara Framework packages...\n');
@@ -15,26 +16,32 @@ let hasError = false;
 
 for (const pkg of packages) {
   console.log(`Building @aksara/${pkg}...`);
-  const packagePath = path.join(__dirname, 'packages', pkg);
-  
+  const packagePath = path.join(rootDir, 'packages', pkg);
+  const tsconfigPath = path.join(packagePath, 'tsconfig.json');
+
   if (!fs.existsSync(packagePath)) {
     console.error(`✗ Package directory not found: ${packagePath}`);
     hasError = true;
     continue;
   }
+  if (!fs.existsSync(tsconfigPath)) {
+    console.error(`✗ tsconfig.json not found in ${packagePath}`);
+    hasError = true;
+    continue;
+  }
 
   try {
-    // Install dependencies
+    // Install dependencies (for workspace deps / peer deps)
     console.log('  Installing dependencies...');
     execSync('npm install --legacy-peer-deps', {
       cwd: packagePath,
       stdio: 'inherit'
     });
 
-    // Build package (use npm run build so local typescript is used; npx tsc can resolve to wrong package)
+    // Run tsc from repo root so root's node_modules/typescript is used (fixes "tsc: command not found" on Vercel)
     console.log('  Building package...');
-    execSync('npm run build', {
-      cwd: packagePath,
+    execSync(`npx tsc --project "${tsconfigPath}"`, {
+      cwd: rootDir,
       stdio: 'inherit'
     });
 

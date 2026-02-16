@@ -71,7 +71,7 @@ export async function getAuthUser(req: NextRequest): Promise<AuthUser | null> {
 
   return {
     uid: decoded.uid,
-    email: (data.email ?? decoded.email) ?? '',
+    email: String(data.email ?? decoded.email ?? ''),
     role,
     schoolId,
   };
