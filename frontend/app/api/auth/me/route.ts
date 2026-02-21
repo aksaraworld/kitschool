@@ -24,11 +24,14 @@ export async function GET(req: NextRequest) {
     if (!decoded) {
       const hasAdminCreds =
         process.env.FIREBASE_SERVICE_ACCOUNT_PATH ||
-        (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY);
+        (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY);
       if (!hasAdminCreds) {
-        console.error('GET /api/auth/me: Firebase Admin not configured. Add FIREBASE_PROJECT_ID and FIREBASE_SERVICE_ACCOUNT_PATH (or FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY) to .env.local');
+        const hint = process.env.VERCEL
+          ? 'Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY in Vercel Project Settings → Environment Variables.'
+          : 'Add FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY to frontend .env.local.';
+        console.error('GET /api/auth/me: Firebase Admin not configured.', hint);
         return NextResponse.json(
-          { message: 'Server misconfiguration: Firebase Admin credentials required for login. Add them to frontend .env.local.' },
+          { message: `Server misconfiguration: Firebase Admin credentials required. ${hint}` },
           { status: 503 }
         );
       }

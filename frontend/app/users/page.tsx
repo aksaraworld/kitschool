@@ -6,7 +6,7 @@ import { UserRole, User } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
 import { Button } from '@aksara/ui';
-import { Users, Plus, Edit, Trash2, UserCheck } from 'lucide-react';
+import { Plus, Edit, Trash2, UserCheck, Search } from 'lucide-react';
 
 export default function UsersPage() {
   const { user } = useAuth();
@@ -14,6 +14,8 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [roleFilter, setRoleFilter] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [formData, setFormData] = useState({
     email: '',
@@ -32,12 +34,13 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [roleFilter]);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const usersData = await api.get<User[]>('/users');
+      const url = roleFilter ? `/users?role=${encodeURIComponent(roleFilter)}` : '/users';
+      const usersData = await api.get<User[]>(url);
       setUsers(usersData);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -132,6 +135,16 @@ export default function UsersPage() {
     };
     return colors[role] || 'bg-gray-100 text-gray-800';
   };
+
+  const q = searchQuery.trim().toLowerCase();
+  const filteredUsers = q
+    ? users.filter(
+        (u) =>
+          u.name?.toLowerCase().includes(q) ||
+          u.email?.toLowerCase().includes(q) ||
+          (u.role === UserRole.STUDENT && (u.studentId ?? '').toLowerCase().includes(q))
+      )
+    : users;
 
   const canManageUsers = user?.role === UserRole.STAFF || user?.role === UserRole.PRINCIPAL;
 
@@ -232,7 +245,7 @@ export default function UsersPage() {
                     <>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Student ID
+                          NISN (Nomor Induk Siswa Nasional)
                         </label>
                         <input
                           type="text"
@@ -319,14 +332,42 @@ export default function UsersPage() {
         )}
 
         <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b">
+          <div className="p-6 border-b flex flex-wrap items-center justify-between gap-4">
             <h2 className="text-xl font-semibold">All Users</h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari nama, email, NISN..."
+                  className="pl-9 pr-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm w-56"
+                />
+              </div>
+              <label htmlFor="role-filter" className="text-sm font-medium text-gray-700">Filter by role:</label>
+              <select
+                id="role-filter"
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+              >
+                <option value="">All roles</option>
+                {Object.values(UserRole).map((role) => (
+                  <option key={role} value={role}>
+                    {role.replace('_', ' ')}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="overflow-x-auto">
             {loading ? (
               <div className="p-8 text-center">Loading...</div>
             ) : users.length === 0 ? (
               <div className="p-8 text-center text-gray-500">No users found</div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">No matching users</div>
             ) : (
               <table className="w-full">
                 <thead className="bg-gray-50">
@@ -336,6 +377,9 @@ export default function UsersPage() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      NISN
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Role
@@ -349,7 +393,7 @@ export default function UsersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {users.map((userItem) => (
+                  {filteredUsers.map((userItem) => (
                     <tr key={userItem._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -363,6 +407,9 @@ export default function UsersPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {userItem.email}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {userItem.role === UserRole.STUDENT ? (userItem.studentId || '-') : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
