@@ -11,7 +11,7 @@ export default function ProfilePage() {
 
   return (
     <ProtectedRoute>
-      <ProfileView userId={user._id} isOwnProfile />
+      <ProfileView userId={user._id} isOwnProfile canEditMedical={false} />
     </ProtectedRoute>
   );
 }

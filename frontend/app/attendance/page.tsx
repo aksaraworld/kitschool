@@ -46,7 +46,7 @@ export default function AttendancePage() {
       fetchAttendances();
       alert('Attendance submitted successfully!');
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to submit attendance');
+      alert(error.response?.data?.message || 'Gagal mengirim kehadiran');
     }
   };
 

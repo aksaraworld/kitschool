@@ -35,7 +35,7 @@ const menuItems = {
   [UserRole.SAAS_ADMIN]: [
     { href: '/saas/dashboard', label: 'Ringkasan', icon: LayoutDashboard },
     { href: '/saas/schools', label: 'Sekolah', icon: Building2 },
-    { href: '/saas/subscription', label: 'Subscription', icon: CreditCard },
+    { href: '/saas/subscription', label: 'Langganan', icon: CreditCard },
   ],
   [UserRole.STUDENT]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },

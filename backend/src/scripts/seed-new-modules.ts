@@ -92,6 +92,7 @@ async function seedNewModules() {
 
   console.log('Seeding medical records...');
   const bloodGroups = ['A+', 'B+', 'O+'];
+  const vaccinationsSample = [{ name: 'BCG', date: '2020-01', notes: 'Lengkap' }, { name: 'DPT', date: '2020-03', notes: 'Dosis 1' }];
   for (let i = 0; i < Math.min(5, studentIds.length); i++) {
     await firestore.collection('medicalRecords').doc().set({
       schoolId,
@@ -99,6 +100,9 @@ async function seedNewModules() {
       bloodGroup: bloodGroups[i % 3],
       allergies: i % 2 === 0 ? 'Debu' : null,
       emergencyPhone: '+62 812 3456 789' + i,
+      illnessHistory: i === 0 ? 'Riwayat asma' : null,
+      doAndDonts: i === 0 ? 'Hindari aktivitas berat di bawah matahari.' : null,
+      vaccinations: i < 3 ? vaccinationsSample : [],
       createdAt: new Date(),
       updatedAt: new Date(),
     });

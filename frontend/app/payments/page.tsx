@@ -37,7 +37,7 @@ export default function PaymentsPage() {
       fetchPayments();
       alert('Payment marked as paid!');
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to update payment');
+      alert(error.response?.data?.message || 'Gagal memperbarui pembayaran');
     }
   };
 
@@ -81,8 +81,8 @@ export default function PaymentsPage() {
     <ProtectedRoute>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Payments</h1>
-          <p className="text-gray-600 mt-2">Manage monthly fee payments</p>
+          <h1 className="text-3xl font-bold text-gray-900">Pembayaran</h1>
+          <p className="text-gray-600 mt-2">Kelola pembayaran biaya bulanan</p>
         </div>
 
         {/* Summary Cards */}
@@ -90,7 +90,7 @@ export default function PaymentsPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Payments</p>
+                <p className="text-sm text-gray-600">Total Pembayaran</p>
                 <p className="text-2xl font-bold text-gray-900 mt-2">
                   {formatCurrency(payments.reduce((sum, p) => sum + p.amount, 0))}
                 </p>
@@ -101,7 +101,7 @@ export default function PaymentsPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Pending</p>
+                <p className="text-sm text-gray-600">Menunggu</p>
                 <p className="text-2xl font-bold text-yellow-600 mt-2">
                   {payments.filter((p) => p.status === PaymentStatus.PENDING).length}
                 </p>
@@ -112,7 +112,7 @@ export default function PaymentsPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Paid</p>
+                <p className="text-sm text-gray-600">Lunas</p>
                 <p className="text-2xl font-bold text-green-600 mt-2">
                   {payments.filter((p) => p.status === PaymentStatus.PAID).length}
                 </p>
@@ -125,34 +125,34 @@ export default function PaymentsPage() {
         {/* Payments Table */}
         <div className="bg-white rounded-lg shadow">
           <div className="p-6 border-b">
-            <h2 className="text-xl font-semibold">Payment Records</h2>
+            <h2 className="text-xl font-semibold">Catatan Pembayaran</h2>
           </div>
           <div className="overflow-x-auto">
             {loading ? (
-              <div className="p-8 text-center">Loading...</div>
+              <div className="p-8 text-center">Memuat...</div>
             ) : payments.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">No payment records found</div>
+              <div className="p-8 text-center text-gray-500">Tidak ada catatan pembayaran</div>
             ) : (
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Student
+                      Siswa
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Month/Year
+                      Bulan/Tahun
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Amount
+                      Jumlah
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Due Date
+                      Jatuh Tempo
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Actions
+                      Aksi
                     </th>
                   </tr>
                 </thead>
@@ -194,12 +194,12 @@ export default function PaymentsPage() {
                             onClick={() => handleMarkAsPaid(payment._id)}
                             className="text-primary-600 hover:text-primary-800 font-medium"
                           >
-                            Mark as Paid
+                            Tandai Lunas
                           </button>
                         )}
                         {payment.status === PaymentStatus.PAID && payment.paidDate && (
                           <span className="text-gray-500 text-xs">
-                            Paid on {new Date(payment.paidDate).toLocaleDateString()}
+                            Lunas pada {new Date(payment.paidDate).toLocaleDateString()}
                           </span>
                         )}
                       </td>

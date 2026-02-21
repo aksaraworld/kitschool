@@ -37,17 +37,17 @@ export default function ChildrenPage() {
     <ProtectedRoute allowedRoles={[UserRole.PARENT]}>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Children</h1>
-          <p className="text-gray-600 mt-2">Monitor your children's activities and progress</p>
+          <h1 className="text-3xl font-bold text-gray-900">Anak Saya</h1>
+          <p className="text-gray-600 mt-2">Pantau aktivitas dan perkembangan anak Anda</p>
         </div>
 
         {loading ? (
-          <div className="p-8 text-center">Loading...</div>
+          <div className="p-8 text-center">Memuat...</div>
         ) : children.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-8 text-center">
-            <p className="text-gray-500">No children registered to your account.</p>
+            <p className="text-gray-500">Belum ada anak terdaftar ke akun Anda.</p>
             <p className="text-sm text-gray-400 mt-2">
-              Please contact the school administration to link your children to your account.
+              Hubungi administrasi sekolah untuk menghubungkan anak ke akun Anda.
             </p>
           </div>
         ) : (
@@ -60,18 +60,18 @@ export default function ChildrenPage() {
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">{child.name}</h3>
-                    <p className="text-sm text-gray-500">Student ID: {child.studentId || 'N/A'}</p>
+                    <p className="text-sm text-gray-500">NISN: {child.nisn ?? child.studentId ?? 'T/A'}</p>
                   </div>
                 </div>
                 <div className="space-y-2 mb-4">
                   <p className="text-sm text-gray-600">
-                    <span className="font-medium">Class:</span> {child.classId || 'Not assigned'}
+                    <span className="font-medium">Kelas:</span> {child.classId || 'Belum ditugaskan'}
                   </p>
                   <p className="text-sm text-gray-600">
-                    <span className="font-medium">Year:</span> {child.year || 'N/A'}
+                    <span className="font-medium">Tahun:</span> {child.year ?? 'T/A'}
                   </p>
                   <p className="text-sm text-gray-600">
-                    <span className="font-medium">Major:</span> {child.major || 'N/A'}
+                    <span className="font-medium">Jurusan:</span> {child.major ?? 'T/A'}
                   </p>
                 </div>
                 <div className="grid grid-cols-3 gap-2 pt-4 border-t">
@@ -80,21 +80,21 @@ export default function ChildrenPage() {
                     className="flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors"
                   >
                     <ClipboardCheck className="w-5 h-5 text-primary-600 mb-1" />
-                    <span className="text-xs text-gray-600">Attendance</span>
+                    <span className="text-xs text-gray-600">Kehadiran</span>
                   </Link>
                   <Link
                     href={`/calendar?studentId=${child._id}`}
                     className="flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors"
                   >
                     <Calendar className="w-5 h-5 text-primary-600 mb-1" />
-                    <span className="text-xs text-gray-600">Calendar</span>
+                    <span className="text-xs text-gray-600">Kalender</span>
                   </Link>
                   <Link
                     href={`/reports?studentId=${child._id}`}
                     className="flex flex-col items-center p-2 hover:bg-gray-50 rounded-lg transition-colors"
                   >
                     <FileText className="w-5 h-5 text-primary-600 mb-1" />
-                    <span className="text-xs text-gray-600">Reports</span>
+                    <span className="text-xs text-gray-600">Laporan</span>
                   </Link>
                 </div>
               </div>

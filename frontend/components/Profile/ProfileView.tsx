@@ -1,19 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { UserRole, User, MedicalRecord, Grade, Class } from '@/lib/types';
 import api from '@/lib/aksara-api';
-import { User as UserIcon, ArrowLeft, Heart, GraduationCap, ClipboardCheck, Users, Wallet, Briefcase, Calendar } from 'lucide-react';
+import { User as UserIcon, ArrowLeft, Heart, GraduationCap, ClipboardCheck, Users, Wallet, Briefcase, Calendar, Pencil, Plus } from 'lucide-react';
 
 interface ProfileViewProps {
   userId: string;
   isOwnProfile: boolean;
+  /** Staff/Principal can edit medical records (added manually by school) */
+  canEditMedical?: boolean;
 }
 
-export default function ProfileView({ userId, isOwnProfile }: ProfileViewProps) {
-  const router = useRouter();
+export default function ProfileView({ userId, isOwnProfile, canEditMedical }: ProfileViewProps) {
   const [user, setUser] = useState<User | null>(null);
   const [medical, setMedical] = useState<MedicalRecord | null>(null);
   const [grades, setGrades] = useState<Grade[]>([]);
@@ -22,6 +22,16 @@ export default function ProfileView({ userId, isOwnProfile }: ProfileViewProps) 
   const [children, setChildren] = useState<User[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showMedicalModal, setShowMedicalModal] = useState(false);
+  const [medicalForm, setMedicalForm] = useState({
+    bloodGroup: '',
+    allergies: '',
+    medications: '',
+    emergencyPhone: '',
+    illnessHistory: '',
+    doAndDonts: '',
+    vaccinations: [] as { name: string; date: string; notes: string }[],
+  });
 
   useEffect(() => {
     async function load() {
@@ -63,6 +73,73 @@ export default function ProfileView({ userId, isOwnProfile }: ProfileViewProps) 
     }
     load();
   }, [userId]);
+
+  const openMedicalModal = () => {
+    if (medical) {
+      setMedicalForm({
+        bloodGroup: medical.bloodGroup ?? '',
+        allergies: medical.allergies ?? '',
+        medications: medical.medications ?? '',
+        emergencyPhone: medical.emergencyPhone ?? '',
+        illnessHistory: medical.illnessHistory ?? '',
+        doAndDonts: medical.doAndDonts ?? '',
+        vaccinations: medical.vaccinations ?? [],
+      });
+    } else {
+      setMedicalForm({
+        bloodGroup: '',
+        allergies: '',
+        medications: '',
+        emergencyPhone: '',
+        illnessHistory: '',
+        doAndDonts: '',
+        vaccinations: [],
+      });
+    }
+    setShowMedicalModal(true);
+  };
+
+  const saveMedicalRecord = async () => {
+    try {
+      const payload = {
+        studentId: userId,
+        bloodGroup: medicalForm.bloodGroup || undefined,
+        allergies: medicalForm.allergies || undefined,
+        medications: medicalForm.medications || undefined,
+        emergencyPhone: medicalForm.emergencyPhone || undefined,
+        illnessHistory: medicalForm.illnessHistory || undefined,
+        doAndDonts: medicalForm.doAndDonts || undefined,
+        vaccinations: medicalForm.vaccinations.filter((v) => v.name.trim()).length > 0
+          ? medicalForm.vaccinations.filter((v) => v.name.trim())
+          : undefined,
+      };
+      if (medical) {
+        await api.put(`/medical-records/${medical._id}`, payload);
+      } else {
+        await api.post('/medical-records', payload);
+      }
+      setShowMedicalModal(false);
+      const medRes = await api.get<MedicalRecord[]>(`/medical-records`, { params: { studentId: userId } });
+      setMedical(Array.isArray(medRes) && medRes.length > 0 ? medRes[0] : null);
+    } catch (e) {
+      console.error('Save medical error:', e);
+      alert('Gagal menyimpan rekam medis.');
+    }
+  };
+
+  const addVaccinationRow = () => {
+    setMedicalForm((f) => ({
+      ...f,
+      vaccinations: [...f.vaccinations, { name: '', date: '', notes: '' }],
+    }));
+  };
+
+  const removeVaccinationRow = (i: number) => {
+    setMedicalForm((f) => ({
+      ...f,
+      vaccinations: f.vaccinations.filter((_, j) => j !== i),
+    }));
+  };
 
   if (loading) return <div className="p-8 text-center">Memuat profil...</div>;
   if (!user) return <div className="p-8 text-center text-gray-500">Profil tidak ditemukan.</div>;
@@ -114,19 +191,63 @@ export default function ProfileView({ userId, isOwnProfile }: ProfileViewProps) 
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Heart className="w-5 h-5" />
-              Rekam Medis
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Heart className="w-5 h-5" />
+                  Rekam Medis
+                </h2>
+                <p className="text-xs text-gray-500 mt-1">Dikelola oleh sekolah untuk pencegahan dan keamanan operasional.</p>
+              </div>
+              {canEditMedical && (
+                <button
+                  onClick={openMedicalModal}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm text-primary-600 hover:bg-primary-50 rounded-lg"
+                >
+                  {medical ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  {medical ? 'Ubah' : 'Tambah'}
+                </button>
+              )}
+            </div>
             {medical ? (
-              <dl className="space-y-2 text-sm">
-                <div><dt className="text-gray-500">Golongan Darah</dt><dd className="font-medium">{medical.bloodGroup ?? '-'}</dd></div>
-                <div><dt className="text-gray-500">Alergi</dt><dd className="font-medium">{medical.allergies ?? '-'}</dd></div>
-                <div><dt className="text-gray-500">Obat</dt><dd className="font-medium">{medical.medications ?? '-'}</dd></div>
-                <div><dt className="text-gray-500">Telp Darurat</dt><dd className="font-medium">{medical.emergencyPhone ?? '-'}</dd></div>
-              </dl>
+              <div className="space-y-4 text-sm">
+                <dl className="space-y-2">
+                  <div><dt className="text-gray-500">Golongan Darah</dt><dd className="font-medium">{medical.bloodGroup ?? '-'}</dd></div>
+                  <div><dt className="text-gray-500">Alergi</dt><dd className="font-medium">{medical.allergies ?? '-'}</dd></div>
+                  <div><dt className="text-gray-500">Obat yang sedang dikonsumsi</dt><dd className="font-medium">{medical.medications ?? '-'}</dd></div>
+                  <div><dt className="text-gray-500">Telp Darurat</dt><dd className="font-medium">{medical.emergencyPhone ?? '-'}</dd></div>
+                </dl>
+                {medical.illnessHistory && (
+                  <div>
+                    <dt className="text-gray-500 font-medium mb-1">Riwayat Penyakit</dt>
+                    <dd className="text-gray-900 whitespace-pre-wrap">{medical.illnessHistory}</dd>
+                  </div>
+                )}
+                {medical.vaccinations && medical.vaccinations.length > 0 && (
+                  <div>
+                    <dt className="text-gray-500 font-medium mb-2">Catatan Vaksinasi</dt>
+                    <dd>
+                      <ul className="space-y-1">
+                        {medical.vaccinations.map((v, i) => (
+                          <li key={i} className="flex gap-2">
+                            <span className="font-medium">{v.name}</span>
+                            {v.date && <span className="text-gray-500">({v.date})</span>}
+                            {v.notes && <span className="text-gray-600">– {v.notes}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    </dd>
+                  </div>
+                )}
+                {medical.doAndDonts && (
+                  <div>
+                    <dt className="text-gray-500 font-medium mb-1">Do & Don&apos;t (Pencegahan di Sekolah)</dt>
+                    <dd className="text-gray-900 whitespace-pre-wrap">{medical.doAndDonts}</dd>
+                  </div>
+                )}
+              </div>
             ) : (
-              <p className="text-gray-500 text-sm">Belum ada data.</p>
+              <p className="text-gray-500 text-sm">Belum ada data. Ditambah manual oleh staf sekolah.</p>
             )}
           </div>
 
@@ -198,6 +319,148 @@ export default function ProfileView({ userId, isOwnProfile }: ProfileViewProps) 
               <Wallet className="w-4 h-4" />
               Lihat tagihan →
             </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Medical record modal (staff/principal) */}
+      {showMedicalModal && user.role === UserRole.STUDENT && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Kelola Rekam Medis – {user.name}</h3>
+              <p className="text-sm text-gray-500 mb-4">Ditambah manual oleh sekolah. Untuk pencegahan dan operasional sekolah.</p>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Golongan Darah</label>
+                    <select
+                      value={medicalForm.bloodGroup}
+                      onChange={(e) => setMedicalForm((f) => ({ ...f, bloodGroup: e.target.value }))}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    >
+                      <option value="">-</option>
+                      {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map((g) => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Telp Darurat</label>
+                    <input
+                      type="text"
+                      value={medicalForm.emergencyPhone}
+                      onChange={(e) => setMedicalForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="+62 812 ..."
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Alergi</label>
+                  <input
+                    type="text"
+                    value={medicalForm.allergies}
+                    onChange={(e) => setMedicalForm((f) => ({ ...f, allergies: e.target.value }))}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="Makanan, debu, serbuk sari, dll."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Obat yang sedang dikonsumsi</label>
+                  <input
+                    type="text"
+                    value={medicalForm.medications}
+                    onChange={(e) => setMedicalForm((f) => ({ ...f, medications: e.target.value }))}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Riwayat Penyakit</label>
+                  <textarea
+                    value={medicalForm.illnessHistory}
+                    onChange={(e) => setMedicalForm((f) => ({ ...f, illnessHistory: e.target.value }))}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    rows={3}
+                    placeholder="Contoh: Asma, kejang, dll."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Do & Don&apos;t (Pencegahan di Sekolah)</label>
+                  <textarea
+                    value={medicalForm.doAndDonts}
+                    onChange={(e) => setMedicalForm((f) => ({ ...f, doAndDonts: e.target.value }))}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    rows={3}
+                    placeholder="Contoh: Hindari aktivitas di bawah matahari. Jangan beri kacang."
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Catatan Vaksinasi</label>
+                    <button type="button" onClick={addVaccinationRow} className="text-sm text-primary-600 hover:underline">
+                      + Tambah
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {medicalForm.vaccinations.map((v, i) => (
+                      <div key={i} className="flex gap-2 items-center">
+                        <input
+                          value={v.name}
+                          onChange={(e) =>
+                            setMedicalForm((f) => ({
+                              ...f,
+                              vaccinations: f.vaccinations.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
+                            }))
+                          }
+                          className="flex-1 px-3 py-2 border rounded-lg"
+                          placeholder="Nama vaksin (BCG, DPT, Polio, dll.)"
+                        />
+                        <input
+                          value={v.date}
+                          onChange={(e) =>
+                            setMedicalForm((f) => ({
+                              ...f,
+                              vaccinations: f.vaccinations.map((x, j) => (j === i ? { ...x, date: e.target.value } : x)),
+                            }))
+                          }
+                          className="w-28 px-3 py-2 border rounded-lg"
+                          placeholder="Tgl (YYYY-MM)"
+                        />
+                        <input
+                          value={v.notes}
+                          onChange={(e) =>
+                            setMedicalForm((f) => ({
+                              ...f,
+                              vaccinations: f.vaccinations.map((x, j) => (j === i ? { ...x, notes: e.target.value } : x)),
+                            }))
+                          }
+                          className="flex-1 px-3 py-2 border rounded-lg"
+                          placeholder="Catatan (opsional)"
+                        />
+                        <button type="button" onClick={() => removeVaccinationRow(i)} className="text-red-600 p-1">
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-6">
+                <button
+                  onClick={saveMedicalRecord}
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                >
+                  Simpan
+                </button>
+                <button
+                  onClick={() => setShowMedicalModal(false)}
+                  className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                >
+                  Batal
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

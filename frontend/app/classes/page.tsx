@@ -31,11 +31,11 @@ export default function ClassesPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Classes</h1>
-          <p className="text-gray-600 mt-2">View class information and students</p>
+          <p className="text-gray-600 mt-2">Lihat informasi kelas dan siswa</p>
         </div>
 
         {loading ? (
-          <div className="p-8 text-center">Loading...</div>
+          <div className="p-8 text-center">Memuat...</div>
         ) : classes.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-8 text-center">
             <p className="text-gray-500">No classes found</p>

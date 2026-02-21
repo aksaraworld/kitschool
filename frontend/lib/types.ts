@@ -305,14 +305,33 @@ export enum ResourceType {
   DOCUMENT = 'document'
 }
 
+/** Vaccination entry for student health record */
+export interface VaccinationEntry {
+  name: string;
+  date?: string;
+  notes?: string;
+}
+
+/**
+ * Medical record – added manually by school staff for prevention & safe school operations.
+ * Covers allergies, vaccinations, do's/don'ts, illness history.
+ */
 export interface MedicalRecord {
   _id: string;
   schoolId: string;
   studentId: string;
   bloodGroup?: string;
+  /** Allergies (food, dust, pollen, etc.) */
   allergies?: string;
+  /** Current medications (if any) */
   medications?: string;
   emergencyPhone?: string;
+  /** Vaccination record (BCG, DPT, polio, etc.) */
+  vaccinations?: VaccinationEntry[];
+  /** Do's and Don'ts – precautions for school staff (e.g. avoid sun, no peanuts) */
+  doAndDonts?: string;
+  /** Medical history of past illnesses (asthma, seizures, etc.) */
+  illnessHistory?: string;
   createdAt?: string;
   updatedAt?: string;
 }

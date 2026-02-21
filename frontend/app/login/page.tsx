@@ -26,7 +26,7 @@ export default function LoginPage() {
         response.user.role === UserRole.SAAS_ADMIN ? '/saas/dashboard' : '/dashboard';
       router.push(targetRoute);
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please try again.');
+      setError(err.message || 'Login gagal. Silakan coba lagi.');
     } finally {
       setIsLoading(false);
     }

@@ -341,7 +341,12 @@ async function seed50() {
     });
   }
 
-  // Medical records (for first 8 students)
+  // Medical records (for first 8 students) – manually added by school for prevention
+  const vaccinationsSample = [
+    { name: 'BCG', date: '2020-01', notes: 'Lengkap' },
+    { name: 'DPT', date: '2020-03', notes: 'Dosis 1' },
+    { name: 'Polio', date: '2020-02', notes: 'Lengkap' },
+  ];
   for (let i = 0; i < Math.min(8, studentUids.length); i++) {
     const ref = firestore.collection('medicalRecords').doc();
     const bloodGroups = ['A+', 'B+', 'O+', 'AB+', 'A-', 'O-'];
@@ -352,6 +357,9 @@ async function seed50() {
       allergies: i % 3 === 0 ? 'Debu, Serbuk sari' : null,
       medications: i === 1 ? 'Vitamin D harian' : null,
       emergencyPhone: '+62 812 3456 789' + i,
+      illnessHistory: i % 4 === 0 ? 'Riwayat asma ringan (kontrol rutin)' : null,
+      doAndDonts: i % 2 === 0 ? 'Hindari aktivitas berat di bawah matahari. Jangan beri makanan mengandung kacang.' : null,
+      vaccinations: i < 4 ? vaccinationsSample : [],
       createdAt: new Date(),
       updatedAt: new Date(),
     });

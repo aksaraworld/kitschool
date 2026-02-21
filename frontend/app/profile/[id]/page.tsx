@@ -23,9 +23,11 @@ export default function ProfileByIdPage() {
     );
   }
 
+  const canEditMedical = user?.role === UserRole.STAFF || user?.role === UserRole.PRINCIPAL;
+
   return (
     <ProtectedRoute>
-      <ProfileView userId={id!} isOwnProfile={user?._id === id} />
+      <ProfileView userId={id!} isOwnProfile={user?._id === id} canEditMedical={canEditMedical} />
     </ProtectedRoute>
   );
 }

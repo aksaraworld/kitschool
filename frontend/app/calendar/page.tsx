@@ -127,7 +127,7 @@ export default function CalendarPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Calendar</h1>
-            <p className="text-gray-600 mt-2">View schedules, events, and important dates</p>
+            <p className="text-gray-600 mt-2">Lihat jadwal, acara, dan tanggal penting</p>
           </div>
           <div className="flex items-center space-x-4">
             <select
@@ -154,7 +154,7 @@ export default function CalendarPage() {
                 onClick={() => setSelectedDate(new Date())}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
-                Today
+                Hari Ini
               </button>
               <button
                 onClick={() => {
@@ -177,7 +177,7 @@ export default function CalendarPage() {
             </h2>
           </div>
           {loading ? (
-            <div className="p-8 text-center">Loading...</div>
+            <div className="p-8 text-center">Memuat...</div>
           ) : (
             renderMonthView()
           )}

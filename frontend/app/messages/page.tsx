@@ -60,9 +60,9 @@ export default function MessagesPage() {
       setNewMessage({ to: '', subject: '', message: '' });
       setShowCompose(false);
       fetchMessages();
-      alert('Message sent successfully!');
+      alert('Pesan berhasil dikirim!');
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to send message');
+      alert(error.response?.data?.message || 'Gagal mengirim pesan');
     }
   };
 
@@ -83,25 +83,25 @@ export default function MessagesPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Messages</h1>
-            <p className="text-gray-600 mt-2">Communicate with teachers, parents, and staff</p>
+            <h1 className="text-3xl font-bold text-gray-900">Pesan</h1>
+            <p className="text-gray-600 mt-2">Berkomunikasi dengan guru, orang tua, dan staf</p>
           </div>
           <button
             onClick={() => setShowCompose(!showCompose)}
             className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 flex items-center space-x-2"
           >
             <Send className="w-4 h-4" />
-            <span>Compose</span>
+            <span>Tulis Pesan</span>
           </button>
         </div>
 
         {showCompose && (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Compose Message</h2>
+            <h2 className="text-xl font-semibold mb-4">Tulis Pesan Baru</h2>
             <form onSubmit={handleSendMessage} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  To
+                  Kepada
                 </label>
                 <select
                   value={newMessage.to}
@@ -109,7 +109,7 @@ export default function MessagesPage() {
                   className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder:text-gray-500"
                   required
                 >
-                  <option value="">Select recipient</option>
+                  <option value="">Pilih penerima</option>
                   {recipients.map((recipient) => (
                     <option key={recipient._id} value={recipient._id}>
                       {recipient.name} ({recipient.role})
@@ -119,7 +119,7 @@ export default function MessagesPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Subject
+                  Subjek
                 </label>
                 <input
                   type="text"
@@ -131,7 +131,7 @@ export default function MessagesPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Message
+                  Isi Pesan
                 </label>
                 <textarea
                   value={newMessage.message}
@@ -145,14 +145,14 @@ export default function MessagesPage() {
                   type="submit"
                   className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700"
                 >
-                  Send
+                  Kirim
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowCompose(false)}
                   className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300"
                 >
-                  Cancel
+                  Batal
                 </button>
               </div>
             </form>
@@ -170,7 +170,7 @@ export default function MessagesPage() {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                Inbox {unreadCount > 0 && `(${unreadCount})`}
+                Kotak Masuk {unreadCount > 0 && `(${unreadCount})`}
               </button>
               <button
                 onClick={() => setActiveTab('sent')}
@@ -180,15 +180,15 @@ export default function MessagesPage() {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                Sent
+                Terkirim
               </button>
             </div>
           </div>
           <div className="divide-y">
             {loading ? (
-              <div className="p-8 text-center">Loading...</div>
+              <div className="p-8 text-center">Memuat...</div>
             ) : displayMessages.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">No messages found</div>
+              <div className="p-8 text-center text-gray-500">Tidak ada pesan</div>
             ) : (
               displayMessages.map((message) => (
                 <div
@@ -247,13 +247,13 @@ export default function MessagesPage() {
             </div>
             <div className="border-b pb-4 mb-4">
               <p className="text-sm text-gray-600">
-                From: {selectedMessage.from.name} ({selectedMessage.from.email})
+                Dari: {selectedMessage.from.name} ({selectedMessage.from.email})
               </p>
               <p className="text-sm text-gray-600">
-                To: {selectedMessage.to.name} ({selectedMessage.to.email})
+                Kepada: {selectedMessage.to.name} ({selectedMessage.to.email})
               </p>
               <p className="text-sm text-gray-600">
-                Date: {new Date(selectedMessage.createdAt).toLocaleString()}
+                Tanggal: {new Date(selectedMessage.createdAt).toLocaleString()}
               </p>
             </div>
             <div className="prose max-w-none">
