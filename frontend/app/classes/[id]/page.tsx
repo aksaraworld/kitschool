@@ -101,8 +101,10 @@ export default function ClassDetailPage() {
 
   const homeroomName =
     cls?.homeroomTeacherId && typeof cls.homeroomTeacherId === 'object'
-      ? (cls.homeroomTeacherId as { name?: string }).name
-      : cls?.homeroomTeacherId ?? 'Belum ditugaskan';
+      ? ((cls.homeroomTeacherId as { name?: string }).name ?? 'N/A')
+      : typeof cls?.homeroomTeacherId === 'string'
+        ? cls.homeroomTeacherId
+        : 'Belum ditugaskan';
   const yearName = cls?.yearId && typeof cls.yearId === 'object' ? (cls.yearId as any).name : cls?.yearId ?? 'N/A';
   const majorName = cls?.majorId && typeof cls.majorId === 'object' ? (cls.majorId as any).name : cls?.majorId ?? 'N/A';
 

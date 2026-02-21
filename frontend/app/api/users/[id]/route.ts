@@ -99,6 +99,12 @@ export async function PUT(
     delete updateData.email;
     updateData.updatedAt = new Date();
 
+    const toStr = (v: unknown): string | null => {
+      if (typeof v === 'string') return v;
+      const o = v as { _id?: string; id?: string } | null;
+      if (o && (o._id || o.id)) return String(o._id ?? o.id);
+      return null;
+    };
     const role = body.role ?? existing.role ?? '';
     const rolesBody = body.roles;
     const isStudent = role === UserRole.STUDENT;
@@ -122,7 +128,7 @@ export async function PUT(
             studentsSnap.docs
               .filter((d) => d.id !== id)
               .map((d) => (d.data() as { nisn?: string; studentId?: string }).nisn ?? (d.data() as { studentId?: string }).studentId)
-              .filter(Boolean)
+              .filter((x): x is string => Boolean(x))
           );
           nisnVal = generateNisn(schoolId, existing);
         }
@@ -138,8 +144,8 @@ export async function PUT(
 
     // Sync Class.studentIds when student classId changes
     if (isStudent && updateData.classId !== undefined) {
-      const newClassId = updateData.classId || null;
-      const oldClassId = existing.classId || null;
+      const newClassId = toStr(updateData.classId);
+      const oldClassId = toStr(existing.classId);
       if (oldClassId !== newClassId) {
         const cols = classesCollection();
         if (oldClassId) {
@@ -167,8 +173,8 @@ export async function PUT(
     // Sync Class.homeroomTeacherId when teacher homeroomClassId changes
     const isTeacherRole = [UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.GURU_PRODUKTIF].includes(role as UserRole);
     if (isTeacherRole && updateData.homeroomClassId !== undefined) {
-      const newClassId = updateData.homeroomClassId || null;
-      const oldClassId = existing.homeroomClassId || null;
+      const newClassId = toStr(updateData.homeroomClassId);
+      const oldClassId = toStr(existing.homeroomClassId);
       const cols = classesCollection();
       if (oldClassId && oldClassId !== newClassId) {
         const oldClassRef = cols.doc(oldClassId);

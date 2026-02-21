@@ -136,7 +136,9 @@ export async function POST(req: NextRequest) {
         .where('role', '==', UserRole.STUDENT)
         .get();
       const existing = new Set(
-        studentsSnap.docs.map((d) => (d.data() as { nisn?: string; studentId?: string }).nisn ?? (d.data() as { studentId?: string }).studentId).filter(Boolean)
+        studentsSnap.docs
+          .map((d) => (d.data() as { nisn?: string; studentId?: string }).nisn ?? (d.data() as { studentId?: string }).studentId)
+          .filter((x): x is string => Boolean(x))
       );
       nisnVal = generateNisn(finalSchoolId, existing);
     }

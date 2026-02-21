@@ -16,6 +16,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import {
+  UserRole,
   RoleDefinition,
   ROLE_PAGES,
   ROLE_RESOURCES,
@@ -69,7 +70,7 @@ export default function RoleManagementPage() {
   };
 
   const startEdit = (role: RoleRow) => {
-    const id = (role._id ?? role.id) as string;
+    const id = ((role as { _id?: string; id?: string })._id ?? (role as { id?: string }).id ?? '');
     if (id?.startsWith('default-')) return;
     setEditingId(id);
     setEditForm({
@@ -172,7 +173,7 @@ export default function RoleManagementPage() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={['principal']}>
+    <ProtectedRoute allowedRoles={[UserRole.PRINCIPAL]}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -195,7 +196,7 @@ export default function RoleManagementPage() {
         ) : (
           <div className="bg-white rounded-lg shadow divide-y">
             {roles.map((role) => {
-              const id = (role._id ?? role.id) as string;
+              const id = ((role as { _id?: string; id?: string })._id ?? (role as { id?: string }).id ?? '');
               const isDefault = (role as { isDefault?: boolean }).isDefault ?? id?.startsWith('default-');
               const isEditing = editingId === id;
               const isExpanded = expandedId === id;
@@ -218,7 +219,7 @@ export default function RoleManagementPage() {
                         <ChevronRight className="w-5 h-5 text-gray-500" />
                       )}
                       <span className="font-medium">{(role.displayName as string) ?? role.roleKey}</span>
-                      <span className="text-sm text-gray-500">({role.roleKey})</span>
+                      <span className="text-sm text-gray-500">({String(role.roleKey ?? '')})</span>
                       {isDefault && (
                         <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-700 rounded">
                           Default

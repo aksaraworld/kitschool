@@ -211,7 +211,7 @@ export default function UsersPage() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={ROLES_CAN_MANAGE_USERS.map(String)}>
+    <ProtectedRoute allowedRoles={ROLES_CAN_MANAGE_USERS}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

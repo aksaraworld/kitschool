@@ -46,7 +46,7 @@ export async function GET(
       })
       .map((d) => docToJson(d) as Record<string, unknown>);
 
-    const yearIds = [...new Set(classesRaw.map((c) => c.yearId).filter(Boolean))] as string[];
+    const yearIds = Array.from(new Set(classesRaw.map((c) => c.yearId).filter(Boolean))) as string[];
     const yearsSnap = yearIds.length
       ? await yearsCollection().where('schoolId', '==', schoolId).get()
       : { docs: [] };
