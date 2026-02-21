@@ -117,6 +117,7 @@ export const ROLE_PAGES = [
   { key: 'profile', label: 'Profil' },
   { key: 'users', label: 'Pengguna' },
   { key: 'classes', label: 'Kelas' },
+  { key: 'subjects', label: 'Mata Pelajaran' },
   { key: 'years', label: 'Tahun Ajaran' },
   { key: 'majors', label: 'Jurusan' },
   { key: 'schedules', label: 'Jadwal' },
@@ -135,6 +136,7 @@ export const ROLE_PAGES = [
 export const ROLE_RESOURCES = [
   { key: 'users', label: 'Pengguna' },
   { key: 'classes', label: 'Kelas' },
+  { key: 'subjects', label: 'Mata Pelajaran' },
   { key: 'years', label: 'Tahun Ajaran' },
   { key: 'majors', label: 'Jurusan' },
   { key: 'schedules', label: 'Jadwal' },

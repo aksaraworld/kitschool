@@ -16,6 +16,8 @@ interface Schedule {
   startTime?: string;
   endTime?: string;
   classId?: any;
+  subjectId?: string;
+  subject?: { _id: string; name: string };
   type: 'class' | 'school' | 'exam' | 'holiday' | 'event';
   isRecurring: boolean;
   isAllDay: boolean;
@@ -33,6 +35,7 @@ export default function SchedulesPage() {
   const [showModal, setShowModal] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [classes, setClasses] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -41,6 +44,7 @@ export default function SchedulesPage() {
     startTime: '',
     endTime: '',
     classId: '',
+    subjectId: '',
     type: 'class' as Schedule['type'],
     isRecurring: false,
     isAllDay: false
@@ -49,6 +53,7 @@ export default function SchedulesPage() {
   useEffect(() => {
     fetchSchedules();
     fetchClasses();
+    fetchSubjects();
   }, [currentDate, viewMode]);
 
   const fetchSchedules = async () => {
@@ -76,6 +81,15 @@ export default function SchedulesPage() {
       setClasses(classesData);
     } catch (error) {
       console.error('Error fetching classes:', error);
+    }
+  };
+
+  const fetchSubjects = async () => {
+    try {
+      const subjectsData = await api.get<any[]>('/subjects');
+      setSubjects(subjectsData ?? []);
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
     }
   };
 
@@ -145,6 +159,7 @@ export default function SchedulesPage() {
       startTime: '08:00',
       endTime: '09:00',
       classId: '',
+      subjectId: '',
       type: 'class',
       isRecurring: false,
       isAllDay: false
@@ -154,6 +169,7 @@ export default function SchedulesPage() {
 
   const handleEdit = (schedule: Schedule) => {
     setSelectedSchedule(schedule);
+    const classId = schedule.classId && typeof schedule.classId === 'object' ? schedule.classId._id : schedule.classId;
     setFormData({
       title: schedule.title,
       description: schedule.description || '',
@@ -161,7 +177,8 @@ export default function SchedulesPage() {
       endDate: schedule.endDate ? new Date(schedule.endDate).toISOString().split('T')[0] : new Date(schedule.startDate).toISOString().split('T')[0],
       startTime: schedule.startTime || '',
       endTime: schedule.endTime || '',
-      classId: schedule.classId?._id || '',
+      classId: classId || '',
+      subjectId: (schedule as any).subjectId || (schedule as any).subject?._id || '',
       type: schedule.type,
       isRecurring: schedule.isRecurring,
       isAllDay: schedule.isAllDay
@@ -264,7 +281,7 @@ export default function SchedulesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Jadwal</h1>
-            <p className="text-gray-600 mt-2">Lihat dan kelola jadwal pelajaran dan acara</p>
+            <p className="text-gray-600 mt-2">Kelola jadwal per mata pelajaran dan kelas. Setiap kelas dapat memiliki jadwal berbeda untuk mata pelajaran yang sama.</p>
           </div>
           {canManage && (
             <button
@@ -679,23 +696,47 @@ export default function SchedulesPage() {
                   </select>
                 </div>
                 {formData.type === 'class' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Kelas
-                    </label>
-                    <select
-                      value={formData.classId}
-                      onChange={(e) => setFormData({ ...formData, classId: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 bg-white"
-                    >
-                      <option value="">Pilih Kelas</option>
-                      {classes.map((cls) => (
-                        <option key={cls._id} value={cls._id}>
-                          {cls.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Mata Pelajaran
+                      </label>
+                      <select
+                        value={formData.subjectId}
+                        onChange={(e) => {
+                          const sub = subjects.find((s) => s._id === e.target.value);
+                          setFormData({
+                            ...formData,
+                            subjectId: e.target.value,
+                            title: sub?.name ?? formData.title
+                          });
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 bg-white"
+                      >
+                        <option value="">— Pilih mata pelajaran —</option>
+                        {subjects.map((s) => (
+                          <option key={s._id} value={s._id}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Kelas
+                      </label>
+                      <select
+                        value={formData.classId}
+                        onChange={(e) => setFormData({ ...formData, classId: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 bg-white"
+                      >
+                      <option value="">— Pilih kelas —</option>
+                        {classes.map((cls) => (
+                          <option key={cls._id} value={cls._id}>
+                            {cls.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
                 )}
                 <div className="flex items-center justify-end space-x-3 pt-4">
                   <button
