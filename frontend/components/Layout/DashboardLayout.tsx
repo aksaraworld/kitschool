@@ -39,12 +39,14 @@ const menuItems = {
   ],
   [UserRole.STUDENT]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/profile', label: 'Profil', icon: User },
     { href: '/attendance', label: 'Kehadiran', icon: ClipboardCheck },
     { href: '/calendar', label: 'Kalender', icon: Calendar },
     { href: '/reports', label: 'Laporan', icon: FileText },
   ],
   [UserRole.PARENT]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/profile', label: 'Profil', icon: User },
     { href: '/children', label: 'Anak Saya', icon: User },
     { href: '/invoices', label: 'Tagihan', icon: CreditCard },
     { href: '/attendance', label: 'Kehadiran', icon: ClipboardCheck },
@@ -54,6 +56,7 @@ const menuItems = {
   ],
   [UserRole.TEACHER]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/profile', label: 'Profil', icon: User },
     { href: '/attendance', label: 'Kehadiran Saya', icon: ClipboardCheck },
     { href: '/classes', label: 'Kelas Saya', icon: BookOpen },
     { href: '/schedules', label: 'Jadwal', icon: Calendar },
@@ -62,6 +65,7 @@ const menuItems = {
   ],
   [UserRole.HOMEROOM_TEACHER]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/profile', label: 'Profil', icon: User },
     { href: '/attendance', label: 'Kehadiran Saya', icon: ClipboardCheck },
     { href: '/classes', label: 'Kelas Saya', icon: BookOpen },
     { href: '/schedules', label: 'Jadwal', icon: Calendar },
@@ -69,6 +73,7 @@ const menuItems = {
   ],
   [UserRole.STAFF]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/profile', label: 'Profil', icon: User },
     { href: '/users', label: 'Pengguna', icon: Users },
     { href: '/classes', label: 'Kelas', icon: GraduationCap },
     { href: '/years', label: 'Tahun Ajaran', icon: Calendar },
@@ -80,6 +85,7 @@ const menuItems = {
   ],
   [UserRole.PRINCIPAL]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/profile', label: 'Profil', icon: User },
     { href: '/users', label: 'Pengguna', icon: Users },
     { href: '/classes', label: 'Kelas', icon: GraduationCap },
     { href: '/years', label: 'Tahun Ajaran', icon: Calendar },
@@ -92,6 +98,7 @@ const menuItems = {
   ],
   [UserRole.FINANCE]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/profile', label: 'Profil', icon: User },
     { href: '/invoices', label: 'Tagihan', icon: CreditCard },
     { href: '/reports', label: 'Laporan', icon: FileText },
   ],

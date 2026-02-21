@@ -122,5 +122,79 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow update, delete: if isAdmin();
     }
+    
+    // Medical records (student health)
+    match /medicalRecords/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Admissions (applications)
+    match /admissions/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Fee structures (tuition, bus, lab, etc.)
+    match /feeStructures/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if getUserRole() in ['saas_admin', 'principal', 'finance'];
+    }
+    
+    // Leave requests (staff)
+    match /leaveRequests/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+    
+    // Payroll logs
+    match /payrollLogs/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if getUserRole() in ['saas_admin', 'principal', 'finance'];
+    }
+    
+    // Subjects (for exams, schedules)
+    match /subjects/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Rooms (classrooms)
+    match /rooms/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Exams
+    match /exams/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Grades
+    match /grades/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Assignments (LMS)
+    match /assignments/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Submissions (LMS)
+    match /submissions/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+    
+    // Resources (LMS materials)
+    match /resources/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
   }
 }

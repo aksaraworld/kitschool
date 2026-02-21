@@ -74,6 +74,9 @@ export async function POST(req: NextRequest) {
       name,
       role,
       phone,
+      nisn,
+      admissionNo,
+      nip,
       studentId,
       teacherId,
       employeeId,
@@ -105,6 +108,14 @@ export async function POST(req: NextRequest) {
 
     await setUserRole(userRecord.uid, role, finalSchoolId);
 
+    const isStudent = role === UserRole.STUDENT;
+    const isStaffRole =
+      role === UserRole.TEACHER ||
+      role === UserRole.HOMEROOM_TEACHER ||
+      role === UserRole.STAFF ||
+      role === UserRole.PRINCIPAL ||
+      role === UserRole.FINANCE;
+
     const userData: Record<string, unknown> = {
       email,
       name,
@@ -112,9 +123,12 @@ export async function POST(req: NextRequest) {
       schoolId: role !== UserRole.SAAS_ADMIN ? finalSchoolId : undefined,
       phone,
       isActive: true,
-      studentId,
-      teacherId,
-      employeeId,
+      nisn: isStudent ? nisn ?? studentId : undefined,
+      admissionNo: isStudent ? admissionNo : undefined,
+      nip: isStaffRole ? nip ?? teacherId ?? employeeId : undefined,
+      studentId: isStudent ? nisn ?? studentId : undefined,
+      teacherId: isStaffRole ? nip ?? teacherId ?? employeeId : undefined,
+      employeeId: isStaffRole ? nip ?? teacherId ?? employeeId : undefined,
       classId,
       year,
       major,

@@ -98,6 +98,54 @@ export function paymentAttemptsCollection() {
   return getFirestore().collection('paymentAttempts');
 }
 
+export function medicalRecordsCollection() {
+  return getFirestore().collection('medicalRecords');
+}
+
+export function admissionsCollection() {
+  return getFirestore().collection('admissions');
+}
+
+export function feeStructuresCollection() {
+  return getFirestore().collection('feeStructures');
+}
+
+export function leaveRequestsCollection() {
+  return getFirestore().collection('leaveRequests');
+}
+
+export function payrollLogsCollection() {
+  return getFirestore().collection('payrollLogs');
+}
+
+export function subjectsCollection() {
+  return getFirestore().collection('subjects');
+}
+
+export function roomsCollection() {
+  return getFirestore().collection('rooms');
+}
+
+export function examsCollection() {
+  return getFirestore().collection('exams');
+}
+
+export function gradesCollection() {
+  return getFirestore().collection('grades');
+}
+
+export function assignmentsCollection() {
+  return getFirestore().collection('assignments');
+}
+
+export function submissionsCollection() {
+  return getFirestore().collection('submissions');
+}
+
+export function resourcesCollection() {
+  return getFirestore().collection('resources');
+}
+
 /** Convert Firestore doc to JSON (id, _id + data, timestamps to ISO string). Accepts Firestore DocumentSnapshot. */
 export function docToJson(doc: { id: string; data: () => unknown }): Record<string, unknown> {
   const data = (doc.data() ?? {}) as Record<string, unknown>;

@@ -12,7 +12,7 @@ const VALID_ROLES = Object.values(UserRole);
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, password, name, role, schoolId, phone, studentId, teacherId, employeeId, classId, year, major, department } = body;
+    const { email, password, name, role, schoolId, phone, nisn, admissionNo, nip, studentId, teacherId, employeeId, classId, year, major, department } = body;
 
     if (!email || !password || !name || !role) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
@@ -34,6 +34,9 @@ export async function POST(req: NextRequest) {
 
     await setUserRole(userRecord.uid, role, role !== UserRole.SAAS_ADMIN ? schoolId : undefined);
 
+    const isStudent = role === UserRole.STUDENT;
+    const isStaffRole = [UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.STAFF, UserRole.PRINCIPAL, UserRole.FINANCE].includes(role);
+
     const userData: Record<string, unknown> = {
       email,
       name,
@@ -42,9 +45,12 @@ export async function POST(req: NextRequest) {
       createdAt: new Date(),
       updatedAt: new Date(),
       phone: phone ?? null,
-      studentId: studentId ?? null,
-      teacherId: teacherId ?? null,
-      employeeId: employeeId ?? null,
+      nisn: isStudent ? (nisn ?? studentId) ?? null : null,
+      admissionNo: isStudent ? (admissionNo ?? null) : null,
+      nip: isStaffRole ? (nip ?? teacherId ?? employeeId) ?? null : null,
+      studentId: isStudent ? (nisn ?? studentId) ?? null : null,
+      teacherId: isStaffRole ? (nip ?? teacherId ?? employeeId) ?? null : null,
+      employeeId: isStaffRole ? (nip ?? teacherId ?? employeeId) ?? null : null,
       classId: classId ?? null,
       year: year ?? null,
       major: major ?? null,

@@ -41,6 +41,18 @@ const FIRESTORE_COLLECTIONS = [
   'config',
   'transactionFees',
   'studentActivities',
+  'medicalRecords',
+  'admissions',
+  'feeStructures',
+  'leaveRequests',
+  'payrollLogs',
+  'subjects',
+  'rooms',
+  'exams',
+  'grades',
+  'assignments',
+  'submissions',
+  'resources',
 ];
 
 type DemoUser = {
@@ -289,7 +301,278 @@ async function seed50() {
     updatedAt: new Date(),
   });
 
-  console.log('\nDone. 50 demo accounts + full school profile + 2 years, 3 majors, 5 classes + 2 sample schedules. See DEMO_ACCOUNTS.md for credentials.');
+  console.log('6) Seeding new modules: subjects, rooms, medical records, admissions, fee structures, leave, payroll, exams, grades, LMS...');
+
+  // Subjects (for exams, schedules, resources)
+  const subjectIds: string[] = [];
+  const subjectNames = [
+    { name: 'Matematika', code: 'MAT' },
+    { name: 'Bahasa Indonesia', code: 'BIN' },
+    { name: 'Bahasa Inggris', code: 'BIG' },
+    { name: 'Fisika', code: 'FIS' },
+    { name: 'Kimia', code: 'KIM' },
+  ];
+  for (const s of subjectNames) {
+    const ref = firestore.collection('subjects').doc();
+    subjectIds.push(ref.id);
+    await ref.set({
+      schoolId,
+      name: s.name,
+      code: s.code,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  // Rooms
+  const roomIds: string[] = [];
+  const roomNames = ['R. 101', 'R. 102', 'R. 103', 'Lab Komputer 1', 'Lab Kimia', 'Aula'];
+  for (const r of roomNames) {
+    const ref = firestore.collection('rooms').doc();
+    roomIds.push(ref.id);
+    await ref.set({
+      schoolId,
+      name: r,
+      capacity: r.startsWith('Lab') ? 24 : 36,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  // Medical records (for first 8 students)
+  for (let i = 0; i < Math.min(8, studentUids.length); i++) {
+    const ref = firestore.collection('medicalRecords').doc();
+    const bloodGroups = ['A+', 'B+', 'O+', 'AB+', 'A-', 'O-'];
+    await ref.set({
+      schoolId,
+      studentId: studentUids[i],
+      bloodGroup: bloodGroups[i % bloodGroups.length],
+      allergies: i % 3 === 0 ? 'Debu, Serbuk sari' : null,
+      medications: i === 1 ? 'Vitamin D harian' : null,
+      emergencyPhone: '+62 812 3456 789' + i,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  // Admissions (pending, interview, accepted samples)
+  const principalUid = userIds['principal@smkdemodepok.sch.id'];
+  const staff1Uid = userIds['staff1@smkdemodepok.sch.id'];
+  for (let i = 1; i <= 5; i++) {
+    const ref = firestore.collection('admissions').doc();
+    const statuses = ['pending', 'pending', 'interview', 'accepted', 'rejected'];
+    await ref.set({
+      schoolId,
+      applicantName: `Calon Siswa ${i}`,
+      targetGrade: i <= 3 ? 'X TKJ' : 'X MM',
+      submissionDate: new Date(Date.now() - i * 86400000 * 7),
+      status: statuses[i - 1],
+      reviewerId: statuses[i - 1] !== 'pending' ? staff1Uid : null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  // Fee structures (tuition, bus, lab)
+  const feeItems = [
+    { name: 'SPP Bulanan', amountBase: 500000, frequency: 'monthly' },
+    { name: 'Transport Bus', amountBase: 200000, frequency: 'monthly' },
+    { name: 'Lab Komputer', amountBase: 150000, frequency: 'termly' },
+    { name: 'Uang Gedung', amountBase: 3000000, frequency: 'yearly' },
+  ];
+  for (const f of feeItems) {
+    const ref = firestore.collection('feeStructures').doc();
+    await ref.set({
+      schoolId,
+      name: f.name,
+      amountBase: f.amountBase,
+      frequency: f.frequency,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  // Leave requests (staff)
+  const staffUids = [1, 2, 3, 4].map((i) => userIds[`staff${i}@smkdemodepok.sch.id`]).filter(Boolean);
+  for (let i = 0; i < 3; i++) {
+    const ref = firestore.collection('leaveRequests').doc();
+    const types = ['sick', 'vacation', 'personal'];
+    const statuses = ['approved', 'pending', 'denied'];
+    await ref.set({
+      schoolId,
+      staffId: staffUids[i % staffUids.length],
+      leaveType: types[i],
+      status: statuses[i],
+      startDate: new Date('2025-02-01'),
+      endDate: new Date('2025-02-0' + (3 + i)),
+      reason: i === 0 ? 'Demam' : i === 1 ? 'Cuti keluarga' : 'Urusan pribadi',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  // Payroll logs (staff + teachers)
+  const teacherUids = [1, 2, 3, 4].map((i) => userIds[`teacher${i}@smkdemodepok.sch.id`]).filter(Boolean);
+  const allStaff = [...staffUids, ...teacherUids];
+  for (let m = 1; m <= 3; m++) {
+    for (let i = 0; i < Math.min(4, allStaff.length); i++) {
+      const ref = firestore.collection('payrollLogs').doc();
+      await ref.set({
+        schoolId,
+        staffId: allStaff[i],
+        netPay: 4500000 + i * 500000,
+        disburseDate: new Date(`2025-0${m}-25`),
+        periodStart: new Date(`2025-0${m}-01`),
+        periodEnd: new Date(`2025-0${m}-28`),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+  }
+
+  // Exams (mid-term, final for Math & Physics)
+  const examIds: string[] = [];
+  const examSubjects = [
+    { id: subjectIds[0], title: 'UTS Matematika' },
+    { id: subjectIds[3], title: 'UTS Fisika' },
+  ];
+  for (const { id: subjId, title } of examSubjects) {
+    const ref = firestore.collection('exams').doc();
+    examIds.push(ref.id);
+    await ref.set({
+      schoolId,
+      title,
+      subjectId: subjId,
+      maxMarks: 100,
+      weightage: 30,
+      examDate: new Date('2025-03-15'),
+      classId: classIds[0],
+      academicYear: '2024/2025',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+  const finalRef = firestore.collection('exams').doc();
+  examIds.push(finalRef.id);
+  await finalRef.set({
+    schoolId,
+    title: 'UAS Matematika',
+    subjectId: subjectIds[0],
+    maxMarks: 100,
+    weightage: 40,
+    examDate: new Date('2025-06-10'),
+    classId: classIds[0],
+    academicYear: '2024/2025',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  // Grades (for first 5 students, first 2 exams)
+  for (let e = 0; e < 2; e++) {
+    for (let s = 0; s < 5; s++) {
+      const ref = firestore.collection('grades').doc();
+      const marks = 65 + Math.floor(Math.random() * 30);
+      await ref.set({
+        schoolId,
+        studentId: studentUids[s],
+        examId: examIds[e],
+        marksObtained: marks,
+        teacherComments: marks >= 80 ? 'Bagus!' : marks >= 70 ? 'Cukup baik' : 'Perlu remedial',
+        isPublished: e === 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+  }
+
+  // Assignments (LMS) for X TKJ 1
+  const assignmentIds: string[] = [];
+  const assignmentTitles = ['Tugas Matematika Bab 1', 'Essay Bahasa Indonesia', 'Presentasi kelompok'];
+  for (let i = 0; i < 3; i++) {
+    const ref = firestore.collection('assignments').doc();
+    assignmentIds.push(ref.id);
+    await ref.set({
+      schoolId,
+      classId: classIds[0],
+      title: assignmentTitles[i],
+      description: `Kerjakan tugas ${i + 1} sesuai instruksi. Kumpulkan sebelum tenggat.`,
+      dueDate: new Date(Date.now() + (i + 1) * 7 * 86400000),
+      createdBy: teacher1Uid,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  // Submissions (students submit to first 2 assignments)
+  for (let a = 0; a < 2; a++) {
+    for (let s = 0; s < 4; s++) {
+      const ref = firestore.collection('submissions').doc();
+      await ref.set({
+        schoolId,
+        assignmentId: assignmentIds[a],
+        studentId: studentUids[s],
+        contentUrl: `https://storage.example.com/submissions/${ref.id}.pdf`,
+        submittedAt: new Date(Date.now() - (4 - s) * 86400000),
+        score: a === 0 ? 75 + s * 5 : null,
+        feedback: a === 0 && s < 2 ? 'Sudah baik' : null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+  }
+
+  // Resources (LMS materials)
+  const resourceTypes = ['pdf', 'video', 'link', 'document'];
+  for (let i = 0; i < 6; i++) {
+    const ref = firestore.collection('resources').doc();
+    await ref.set({
+      schoolId,
+      subjectId: subjectIds[i % subjectIds.length],
+      type: resourceTypes[i % resourceTypes.length],
+      title: `Materi ${subjectNames[i % subjectNames.length].name} - Modul ${i + 1}`,
+      url: i % 2 === 0 ? `https://example.com/modul-${i + 1}` : null,
+      fileUrl: i % 2 === 1 ? `https://storage.example.com/resources/${ref.id}.pdf` : null,
+      description: `Bahan ajar untuk pertemuan ${i + 1}`,
+      createdBy: teacher1Uid,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  // Add NISN, NIP to users
+  for (let i = 0; i < studentUids.length; i++) {
+    await firestore.collection(USERS_COLLECTION).doc(studentUids[i]).update({
+      nisn: '00' + String(2008 + (i % 2)).slice(-2) + String(1000000 + i).padStart(6, '0'),
+      admissionNo: `ADM${String(i + 1).padStart(4, '0')}`,
+      studentId: '00' + String(2008 + (i % 2)).slice(-2) + String(1000000 + i).padStart(6, '0'),
+      updatedAt: new Date(),
+    });
+  }
+  for (let i = 1; i <= 4; i++) {
+    const uid = userIds[`teacher${i}@smkdemodepok.sch.id`];
+    if (uid) {
+      await firestore.collection(USERS_COLLECTION).doc(uid).update({
+        nip: `1987${String(1000000 + i).padStart(6, '0')}`,
+        teacherId: `1987${String(1000000 + i).padStart(6, '0')}`,
+        updatedAt: new Date(),
+      });
+    }
+  }
+  for (let i = 1; i <= 4; i++) {
+    const uid = userIds[`staff${i}@smkdemodepok.sch.id`];
+    if (uid) {
+      await firestore.collection(USERS_COLLECTION).doc(uid).update({
+        nip: `1990${String(1000000 + i).padStart(6, '0')}`,
+        employeeId: `1990${String(1000000 + i).padStart(6, '0')}`,
+        updatedAt: new Date(),
+      });
+    }
+  }
+
+  console.log('\nDone. 50 demo accounts + full school profile + new modules seeded. See DEMO_ACCOUNTS.md for credentials.');
 }
 
 seed50().catch((e) => {

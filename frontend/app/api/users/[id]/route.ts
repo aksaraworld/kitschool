@@ -33,7 +33,15 @@ export async function GET(
     }
 
     const { id } = await params;
-    if (auth.uid !== id && auth.role !== UserRole.SAAS_ADMIN && auth.role !== UserRole.STAFF && auth.role !== UserRole.PRINCIPAL) {
+    const isOwn = auth.uid === id;
+    const isAdmin = auth.role === UserRole.SAAS_ADMIN || auth.role === UserRole.STAFF || auth.role === UserRole.PRINCIPAL;
+    let isParentOfChild = false;
+    if (auth.role === UserRole.PARENT && !isOwn && !isAdmin) {
+      const parentDoc = await usersCollection().doc(auth.uid).get();
+      const children = (parentDoc.data() as { children?: string[] })?.children ?? [];
+      isParentOfChild = children.includes(id);
+    }
+    if (!isOwn && !isAdmin && !isParentOfChild) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -76,6 +84,16 @@ export async function PUT(
     delete updateData.email;
     delete updateData.role;
     updateData.updatedAt = new Date();
+
+    const role = body.role ?? (await usersCollection().doc(id).get()).data()?.role;
+    const isStudent = role === UserRole.STUDENT;
+    const isStaffRole = [UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.STAFF, UserRole.PRINCIPAL, UserRole.FINANCE].includes(role as UserRole);
+
+    if (updateData.nisn !== undefined) updateData.studentId = isStudent ? updateData.nisn : undefined;
+    if (updateData.nip !== undefined) {
+      if (isStaffRole) updateData.teacherId = updateData.employeeId = updateData.nip;
+      else updateData.teacherId = updateData.employeeId = undefined;
+    }
 
     await usersCollection().doc(id).update(updateData);
     return NextResponse.json({ message: 'User updated successfully' });

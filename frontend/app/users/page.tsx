@@ -6,7 +6,8 @@ import { UserRole, User } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
 import { Button } from '@aksara/ui';
-import { Plus, Edit, Trash2, UserCheck, Search } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, Edit, Trash2, UserCheck, Search, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function UsersPage() {
   const { user } = useAuth();
@@ -16,6 +17,8 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const [formData, setFormData] = useState({
     email: '',
@@ -23,9 +26,9 @@ export default function UsersPage() {
     name: '',
     role: UserRole.STUDENT,
     phone: '',
-    studentId: '',
-    teacherId: '',
-    employeeId: '',
+    nisn: '',
+    admissionNo: '',
+    nip: '',
     classId: '',
     year: '',
     major: '',
@@ -94,9 +97,9 @@ export default function UsersPage() {
       name: '',
       role: UserRole.STUDENT,
       phone: '',
-      studentId: '',
-      teacherId: '',
-      employeeId: '',
+      nisn: '',
+      admissionNo: '',
+      nip: '',
       classId: '',
       year: '',
       major: '',
@@ -106,15 +109,17 @@ export default function UsersPage() {
 
   const openEditModal = (user: User) => {
     setEditingUser(user);
+    const nisnVal = user.nisn ?? user.studentId;
+    const nipVal = user.nip ?? user.teacherId ?? user.employeeId;
     setFormData({
       email: user.email,
       password: '',
       name: user.name,
       role: user.role,
       phone: user.phone || '',
-      studentId: user.studentId || '',
-      teacherId: user.teacherId || '',
-      employeeId: user.employeeId || '',
+      nisn: nisnVal || '',
+      admissionNo: user.admissionNo || '',
+      nip: nipVal || '',
       classId: user.classId || '',
       year: user.year?.toString() || '',
       major: user.major || '',
@@ -142,9 +147,25 @@ export default function UsersPage() {
         (u) =>
           u.name?.toLowerCase().includes(q) ||
           u.email?.toLowerCase().includes(q) ||
-          (u.role === UserRole.STUDENT && (u.studentId ?? '').toLowerCase().includes(q))
+          (u.nisn ?? u.studentId ?? '').toLowerCase().includes(q) ||
+          (u.admissionNo ?? '').toLowerCase().includes(q) ||
+          (u.nip ?? u.teacherId ?? u.employeeId ?? '').toLowerCase().includes(q)
       )
     : users;
+
+  const getDisplayId = (u: User) => {
+    if (u.role === UserRole.STUDENT) return u.nisn ?? u.studentId ?? '-';
+    if ([UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.STAFF, UserRole.PRINCIPAL, UserRole.FINANCE].includes(u.role))
+      return u.nip ?? u.teacherId ?? u.employeeId ?? '-';
+    return '-';
+  };
+
+  const totalPages = Math.ceil(filteredUsers.length / PAGE_SIZE) || 1;
+  const paginatedUsers = filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [roleFilter, searchQuery]);
 
   const canManageUsers = user?.role === UserRole.STAFF || user?.role === UserRole.PRINCIPAL;
 
@@ -249,8 +270,21 @@ export default function UsersPage() {
                         </label>
                         <input
                           type="text"
-                          value={formData.studentId}
-                          onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
+                          value={formData.nisn}
+                          onChange={(e) => setFormData({ ...formData, nisn: e.target.value })}
+                          placeholder="10-digit national ID"
+                          className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder:text-gray-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Admission No
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.admissionNo}
+                          onChange={(e) => setFormData({ ...formData, admissionNo: e.target.value })}
+                          placeholder="School-facing ID"
                           className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder:text-gray-500"
                         />
                       </div>
@@ -270,12 +304,13 @@ export default function UsersPage() {
                   {(formData.role === UserRole.TEACHER || formData.role === UserRole.HOMEROOM_TEACHER) && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Teacher ID
+                        NIP (Nomor Induk Pegawai)
                       </label>
                       <input
                         type="text"
-                        value={formData.teacherId}
-                        onChange={(e) => setFormData({ ...formData, teacherId: e.target.value })}
+                        value={formData.nip}
+                        onChange={(e) => setFormData({ ...formData, nip: e.target.value })}
+                        placeholder="Employee/teacher ID"
                         className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder:text-gray-500"
                       />
                     </div>
@@ -284,12 +319,13 @@ export default function UsersPage() {
                     <>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Employee ID
+                          NIP (Nomor Induk Pegawai)
                         </label>
                         <input
                           type="text"
-                          value={formData.employeeId}
-                          onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                          value={formData.nip}
+                          onChange={(e) => setFormData({ ...formData, nip: e.target.value })}
+                          placeholder="Employee ID"
                           className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder:text-gray-500"
                         />
                       </div>
@@ -341,7 +377,7 @@ export default function UsersPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Cari nama, email, NISN..."
+                  placeholder="Cari nama, email, NISN, NIP..."
                   className="pl-9 pr-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm w-56"
                 />
               </div>
@@ -379,7 +415,7 @@ export default function UsersPage() {
                       Email
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      NISN
+                      ID (NISN / NIP)
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Role
@@ -393,7 +429,7 @@ export default function UsersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredUsers.map((userItem) => (
+                  {paginatedUsers.map((userItem) => (
                     <tr key={userItem._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -409,7 +445,7 @@ export default function UsersPage() {
                         {userItem.email}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {userItem.role === UserRole.STUDENT ? (userItem.studentId || '-') : '-'}
+                        {getDisplayId(userItem)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
@@ -433,6 +469,13 @@ export default function UsersPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="flex items-center space-x-2">
+                          <Link
+                            href={`/profile/${userItem._id}`}
+                            className="text-gray-600 hover:text-primary-600"
+                            title="Lihat profil"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Link>
                           <button
                             onClick={() => openEditModal(userItem)}
                             className="text-primary-600 hover:text-primary-800"
@@ -455,6 +498,32 @@ export default function UsersPage() {
               </table>
             )}
           </div>
+          {filteredUsers.length > 0 && totalPages > 1 && (
+            <div className="px-6 py-4 border-t flex items-center justify-between">
+              <p className="text-sm text-gray-600">
+                Menampilkan {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filteredUsers.length)} dari {filteredUsers.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="p-2 rounded border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-gray-600">
+                  Halaman {page} dari {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="p-2 rounded border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </ProtectedRoute>

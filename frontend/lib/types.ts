@@ -66,15 +66,24 @@ export interface User {
   phone?: string;
   avatar?: string;
   isActive: boolean;
+  /** NISN – students only (Nomor Induk Siswa Nasional, 10-digit national ID) */
+  nisn?: string;
+  /** Admission No – students only (school-facing ID) */
+  admissionNo?: string;
+  /** NIP – teachers, staff, principal, finance (Nomor Induk Pegawai) */
+  nip?: string;
+  /** @deprecated use nisn */
   studentId?: string;
   classId?: string;
   year?: number;
   major?: string;
   children?: string[];
+  /** @deprecated use nip */
   teacherId?: string;
   assignedClasses?: string[];
   isHomeroom?: boolean;
   homeroomClassId?: string;
+  /** @deprecated use nip */
   employeeId?: string;
   department?: string;
   schoolId?: string;
@@ -260,4 +269,188 @@ export interface TransactionFeeStatistics {
   totalAdminFee: number;
   totalNetAmount: number;
   feeBreakdown: TransactionFeeBreakdown;
+}
+
+// === Student Information System (from CSV) ===
+
+export enum AdmissionStatus {
+  PENDING = 'pending',
+  INTERVIEW = 'interview',
+  ACCEPTED = 'accepted',
+  REJECTED = 'rejected'
+}
+
+export enum LeaveType {
+  SICK = 'sick',
+  VACATION = 'vacation',
+  PERSONAL = 'personal'
+}
+
+export enum LeaveStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  DENIED = 'denied'
+}
+
+export enum FeeFrequency {
+  MONTHLY = 'monthly',
+  TERMLY = 'termly',
+  YEARLY = 'yearly'
+}
+
+export enum ResourceType {
+  VIDEO = 'video',
+  PDF = 'pdf',
+  LINK = 'link',
+  DOCUMENT = 'document'
+}
+
+export interface MedicalRecord {
+  _id: string;
+  schoolId: string;
+  studentId: string;
+  bloodGroup?: string;
+  allergies?: string;
+  medications?: string;
+  emergencyPhone?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Admission {
+  _id: string;
+  schoolId: string;
+  applicantName: string;
+  targetGrade: string;
+  submissionDate: string;
+  status: AdmissionStatus;
+  docUrlJson?: string;
+  reviewerId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FeeStructure {
+  _id: string;
+  schoolId: string;
+  name: string;
+  amountBase: number;
+  frequency: FeeFrequency;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface LeaveRequest {
+  _id: string;
+  schoolId: string;
+  staffId: string;
+  leaveType: LeaveType;
+  status: LeaveStatus;
+  startDate: string;
+  endDate: string;
+  reason?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PayrollLog {
+  _id: string;
+  schoolId: string;
+  staffId: string;
+  netPay: number;
+  disburseDate: string;
+  periodStart?: string;
+  periodEnd?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Subject {
+  _id: string;
+  schoolId: string;
+  name: string;
+  code?: string;
+  description?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Room {
+  _id: string;
+  schoolId: string;
+  name: string;
+  capacity?: number;
+  building?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Exam {
+  _id: string;
+  schoolId: string;
+  title: string;
+  subjectId: string;
+  maxMarks: number;
+  weightage?: number;
+  examDate?: string;
+  classId?: string;
+  academicYear?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Grade {
+  _id: string;
+  schoolId: string;
+  studentId: string;
+  examId: string;
+  marksObtained: number;
+  teacherComments?: string;
+  isPublished?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Assignment {
+  _id: string;
+  schoolId: string;
+  classId: string;
+  title: string;
+  description?: string;
+  fileUrl?: string;
+  dueDate: string;
+  createdBy: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AssignmentSubmission {
+  _id: string;
+  schoolId: string;
+  assignmentId: string;
+  studentId: string;
+  contentUrl?: string;
+  submittedAt: string;
+  score?: number;
+  feedback?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Resource {
+  _id: string;
+  schoolId: string;
+  subjectId: string;
+  type: ResourceType;
+  title: string;
+  url?: string;
+  fileUrl?: string;
+  description?: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
