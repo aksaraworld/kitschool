@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Button, Input } from '@aksara/ui';
 import { firebaseAuthService } from '@/lib/firebaseAuth';
-import { UserRole } from '@/lib/types';
+import { UserRole, hasAnyRole } from '@/lib/types';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function LoginPage() {
     try {
       const response = await firebaseAuthService.login({ email, password });
       const targetRoute =
-        response.user.role === UserRole.SAAS_ADMIN ? '/saas/dashboard' : '/dashboard';
+        hasAnyRole(response.user, [UserRole.SAAS_ADMIN]) ? '/saas/dashboard' : '/dashboard';
       router.push(targetRoute);
     } catch (err: any) {
       setError(err.message || 'Login gagal. Silakan coba lagi.');

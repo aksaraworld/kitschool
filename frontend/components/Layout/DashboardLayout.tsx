@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { firebaseAuthService } from '@/lib/firebaseAuth';
-import { UserRole } from '@/lib/types';
+import { UserRole, getEffectiveRoles, ROLE_LABELS } from '@/lib/types';
 import SchoolSwitcher from '../SaaS/SchoolSwitcher';
 import {
   LayoutDashboard,
@@ -28,10 +28,10 @@ import {
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  userRole: UserRole;
+  user: { role?: string; roles?: string[] };
 }
 
-const menuItems = {
+const menuItems: Record<string, { href: string; label: string; icon: React.ComponentType<{ className?: string }> }[]> = {
   [UserRole.SAAS_ADMIN]: [
     { href: '/saas/dashboard', label: 'Ringkasan', icon: LayoutDashboard },
     { href: '/saas/schools', label: 'Sekolah', icon: Building2 },
@@ -87,6 +87,7 @@ const menuItems = {
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/profile', label: 'Profil', icon: User },
     { href: '/users', label: 'Pengguna', icon: Users },
+    { href: '/role-management', label: 'Kelola Peran', icon: Settings },
     { href: '/classes', label: 'Kelas', icon: GraduationCap },
     { href: '/years', label: 'Tahun Ajaran', icon: Calendar },
     { href: '/majors', label: 'Jurusan', icon: Building2 },
@@ -104,7 +105,34 @@ const menuItems = {
   ],
 };
 
-export default function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
+const MENU_PRIORITY: UserRole[] = [
+  UserRole.SAAS_ADMIN,
+  UserRole.PRINCIPAL,
+  UserRole.WAKASEK_KURIKULUM,
+  UserRole.WAKASEK_KESISWAAN,
+  UserRole.WAKASEK_SARANA,
+  UserRole.KEPALA_PROGRAM_KEAHLIAN,
+  UserRole.KOORDINATOR_BK_ESKUL,
+  UserRole.KOORDINATOR_LAB_PERPUS,
+  UserRole.KAPRODI,
+  UserRole.STAFF,
+  UserRole.FINANCE,
+  UserRole.HOMEROOM_TEACHER,
+  UserRole.GURU_PRODUKTIF,
+  UserRole.TEACHER,
+  UserRole.PARENT,
+  UserRole.STUDENT,
+];
+
+function getPrimaryMenuRole(user: { role?: string; roles?: string[] }): UserRole {
+  const effective = getEffectiveRoles(user);
+  for (const r of MENU_PRIORITY) {
+    if (effective.includes(r)) return r;
+  }
+  return (user.role as UserRole) ?? UserRole.STUDENT;
+}
+
+export default function DashboardLayout({ children, user: layoutUser }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [logoError, setLogoError] = useState(false);
@@ -112,7 +140,6 @@ export default function DashboardLayout({ children, userRole }: DashboardLayoutP
   const pathname = usePathname();
 
   useEffect(() => {
-    // Get user on client side only
     setUser(firebaseAuthService.getCurrentUser());
   }, []);
 
@@ -121,7 +148,16 @@ export default function DashboardLayout({ children, userRole }: DashboardLayoutP
     router.push('/login');
   };
 
-  const items = menuItems[userRole] || [];
+  const primaryRole = getPrimaryMenuRole(layoutUser);
+  const staffMenu = menuItems[UserRole.STAFF] ?? [];
+  const teacherMenu = menuItems[UserRole.TEACHER] ?? [];
+  const items =
+    menuItems[primaryRole] ??
+    ([UserRole.WAKASEK_KURIKULUM, UserRole.WAKASEK_KESISWAAN, UserRole.WAKASEK_SARANA, UserRole.KEPALA_PROGRAM_KEAHLIAN, UserRole.KOORDINATOR_BK_ESKUL, UserRole.KOORDINATOR_LAB_PERPUS, UserRole.KAPRODI].includes(primaryRole as UserRole)
+      ? staffMenu
+      : primaryRole === UserRole.GURU_PRODUKTIF
+        ? teacherMenu
+        : staffMenu);
 
   return (
     <div className="min-h-screen bg-cognifaNeutral-altBg">
@@ -174,15 +210,8 @@ export default function DashboardLayout({ children, userRole }: DashboardLayoutP
           <div className="p-4 border-t">
             <div className="mb-4 px-4 py-2">
               <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-              <p className="text-xs text-gray-500 capitalize">
-                {userRole === UserRole.SAAS_ADMIN ? 'SaaS Admin' :
-                 userRole === UserRole.HOMEROOM_TEACHER ? 'Wali Kelas' : 
-                 userRole === UserRole.PRINCIPAL ? 'Kepala Sekolah' :
-                 userRole === UserRole.FINANCE ? 'Keuangan' :
-                 userRole === UserRole.STAFF ? 'Staf' :
-                 userRole === UserRole.TEACHER ? 'Guru' :
-                 userRole === UserRole.PARENT ? 'Orang Tua' :
-                 userRole === UserRole.STUDENT ? 'Siswa' : userRole}
+              <p className="text-xs text-gray-500">
+                {layoutUser ? getEffectiveRoles(layoutUser).map((r) => ROLE_LABELS[r] ?? r).join(', ') : ''}
               </p>
             </div>
             <button
@@ -209,18 +238,11 @@ export default function DashboardLayout({ children, userRole }: DashboardLayoutP
             </button>
             <div className="flex-1" />
             <div className="flex flex-wrap items-center gap-4 justify-end">
-              {userRole === UserRole.SAAS_ADMIN && <SchoolSwitcher />}
+              {layoutUser && getEffectiveRoles(layoutUser).includes(UserRole.SAAS_ADMIN) && <SchoolSwitcher />}
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                <p className="text-xs text-gray-500 capitalize">
-                  {userRole === UserRole.SAAS_ADMIN ? 'SaaS Admin' :
-                   userRole === UserRole.HOMEROOM_TEACHER ? 'Wali Kelas' : 
-                   userRole === UserRole.PRINCIPAL ? 'Kepala Sekolah' :
-                   userRole === UserRole.FINANCE ? 'Keuangan' :
-                   userRole === UserRole.STAFF ? 'Staf' :
-                   userRole === UserRole.TEACHER ? 'Guru' :
-                   userRole === UserRole.PARENT ? 'Orang Tua' :
-                   userRole === UserRole.STUDENT ? 'Siswa' : userRole}
+                <p className="text-xs text-gray-500">
+                  {layoutUser ? getEffectiveRoles(layoutUser).map((r) => ROLE_LABELS[r] ?? r).join(', ') : ''}
                 </p>
               </div>
               {user?.avatar ? (

@@ -69,6 +69,7 @@ export async function GET(req: NextRequest) {
       email: data.email ?? decoded.email ?? '',
       name: data.name ?? '',
       role: data.role ?? '',
+      roles: Array.isArray(data.roles) ? data.roles : undefined,
       schoolId: schoolIdStr ?? undefined,
       school,
       isActive: data.isActive !== false,

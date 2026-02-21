@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole } from '@/lib/types';
+import { UserRole, ROLES_CAN_MANAGE_USERS, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency, formatIDR } from '@aksara/formatters';
 import { formatDate, formatDateTime } from '@aksara/formatters';
@@ -84,7 +84,7 @@ export default function ReportsPage() {
   useEffect(() => {
     const fetchFilters = async () => {
       try {
-        if (user?.role === UserRole.STAFF || user?.role === UserRole.PRINCIPAL || user?.role === UserRole.FINANCE) {
+        if (hasAnyRole(user, [...ROLES_CAN_MANAGE_USERS.map(String), UserRole.FINANCE])) {
           const [classesData, studentsData] = await Promise.all([
             api.get<any[]>('/classes'),
             api.get<any[]>('/users', { params: { role: 'student' } })
@@ -243,7 +243,7 @@ export default function ReportsPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 bg-white"
               />
             </div>
-            {(user?.role === UserRole.STAFF || user?.role === UserRole.PRINCIPAL || user?.role === UserRole.FINANCE) && (
+            {hasAnyRole(user, [...ROLES_CAN_MANAGE_USERS.map(String), UserRole.FINANCE]) && (
               <>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Kelas</label>

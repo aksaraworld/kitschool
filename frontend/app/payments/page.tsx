@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole, Payment, PaymentStatus } from '@/lib/types';
+import { UserRole, Payment, PaymentStatus, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
 import { CreditCard, CheckCircle, Clock, XCircle, DollarSign } from 'lucide-react';
@@ -75,7 +75,7 @@ export default function PaymentsPage() {
     }).format(amount);
   };
 
-  const canMarkAsPaid = user?.role === UserRole.PARENT || user?.role === UserRole.FINANCE;
+  const canMarkAsPaid = user?.role === UserRole.PARENT || hasAnyRole(user, [UserRole.FINANCE]);
 
   return (
     <ProtectedRoute>

@@ -3,13 +3,25 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser, normalizeSchoolId } from '@/lib/server/auth-helpers';
+import { getAuthUser, hasAnyRole, hasFullAccess, normalizeSchoolId } from '@/lib/server/auth-helpers';
 import {
   getAuth,
   usersCollection,
   setUserRole,
+  classesCollection,
 } from '@/lib/server/firebase-admin';
-import { UserRole } from '@/lib/types';
+import { UserRole, ROLES_CAN_MANAGE_USERS } from '@/lib/types';
+
+/** Generate unique 10-digit NISN. */
+function generateNisn(schoolId: string, existingNisns: Set<string>): string {
+  let nisn = String(Math.floor(1000000000 + Math.random() * 900000000));
+  let attempts = 0;
+  while (existingNisns.has(nisn) && attempts < 100) {
+    nisn = String(Math.floor(1000000000 + Math.random() * 900000000));
+    attempts++;
+  }
+  return nisn;
+}
 
 function docToUser(doc: { id: string; data: () => unknown }): Record<string, unknown> {
   const data = (doc.data() ?? {}) as Record<string, unknown>;
@@ -34,15 +46,25 @@ export async function GET(req: NextRequest) {
     }
 
     const col = usersCollection();
-    const snapshot =
-      auth.role !== UserRole.SAAS_ADMIN && auth.schoolId
-        ? await col.where('schoolId', '==', auth.schoolId).get()
-        : await col.get();
-
     const roleParam = req.nextUrl.searchParams.get('role');
+    const parentOfParam = req.nextUrl.searchParams.get('parentOf');
+    const schoolIdForQuery = auth.role !== UserRole.SAAS_ADMIN && auth.schoolId ? auth.schoolId : null;
+
+    let snapshot;
+    if (schoolIdForQuery) {
+      const q = col.where('schoolId', '==', schoolIdForQuery);
+      snapshot = parentOfParam
+        ? await q.where('children', 'array-contains', parentOfParam).get()
+        : await q.get();
+    } else {
+      snapshot = await col.get();
+    }
     let docs = snapshot.docs;
     if (roleParam) {
-      docs = docs.filter((d) => d.data()?.role === roleParam);
+      docs = docs.filter((d) => {
+        const d2 = d.data() as { role?: string; roles?: string[] };
+        return d2?.role === roleParam || (Array.isArray(d2?.roles) && d2.roles.includes(roleParam));
+      });
     }
     const users = docs.map((doc) => docToUser(doc));
 
@@ -59,11 +81,7 @@ export async function POST(req: NextRequest) {
     if (!auth) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
-    if (
-      auth.role !== UserRole.SAAS_ADMIN &&
-      auth.role !== UserRole.STAFF &&
-      auth.role !== UserRole.PRINCIPAL
-    ) {
+    if (auth.role !== UserRole.SAAS_ADMIN && !hasFullAccess(auth) && !hasAnyRole(auth, ROLES_CAN_MANAGE_USERS.map(String))) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -73,6 +91,7 @@ export async function POST(req: NextRequest) {
       password,
       name,
       role,
+      roles: rolesBody,
       phone,
       nisn,
       admissionNo,
@@ -86,6 +105,7 @@ export async function POST(req: NextRequest) {
       children,
       department,
       schoolId,
+      homeroomClassId,
     } = body;
 
     if (!email || !password || !name || !role) {
@@ -109,24 +129,34 @@ export async function POST(req: NextRequest) {
     await setUserRole(userRecord.uid, role, finalSchoolId);
 
     const isStudent = role === UserRole.STUDENT;
-    const isStaffRole =
-      role === UserRole.TEACHER ||
-      role === UserRole.HOMEROOM_TEACHER ||
-      role === UserRole.STAFF ||
-      role === UserRole.PRINCIPAL ||
-      role === UserRole.FINANCE;
+    let nisnVal = isStudent ? (nisn ?? studentId) : undefined;
+    if (isStudent && !nisnVal?.toString().trim()) {
+      const studentsSnap = await usersCollection()
+        .where('schoolId', '==', finalSchoolId)
+        .where('role', '==', UserRole.STUDENT)
+        .get();
+      const existing = new Set(
+        studentsSnap.docs.map((d) => (d.data() as { nisn?: string; studentId?: string }).nisn ?? (d.data() as { studentId?: string }).studentId).filter(Boolean)
+      );
+      nisnVal = generateNisn(finalSchoolId, existing);
+    }
+    const isStaffRole = !isStudent && role !== UserRole.PARENT;
+    const staffRoles = isStaffRole && Array.isArray(rolesBody) && rolesBody.length
+      ? [...new Set([role, ...rolesBody].filter(Boolean))]
+      : undefined;
 
     const userData: Record<string, unknown> = {
       email,
       name,
       role,
+      ...(staffRoles && { roles: staffRoles }),
       schoolId: role !== UserRole.SAAS_ADMIN ? finalSchoolId : undefined,
       phone,
       isActive: true,
-      nisn: isStudent ? nisn ?? studentId : undefined,
+      nisn: isStudent ? nisnVal : undefined,
       admissionNo: isStudent ? admissionNo : undefined,
       nip: isStaffRole ? nip ?? teacherId ?? employeeId : undefined,
-      studentId: isStudent ? nisn ?? studentId : undefined,
+      studentId: isStudent ? nisnVal : undefined,
       teacherId: isStaffRole ? nip ?? teacherId ?? employeeId : undefined,
       employeeId: isStaffRole ? nip ?? teacherId ?? employeeId : undefined,
       classId,
@@ -134,11 +164,33 @@ export async function POST(req: NextRequest) {
       major,
       department,
       children,
+      homeroomClassId: [UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.GURU_PRODUKTIF].includes(role as UserRole) ? homeroomClassId : undefined,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
     await usersCollection().doc(userRecord.uid).set(userData);
+
+    // Sync Class.studentIds when creating student with classId
+    if (isStudent && classId) {
+      const classRef = classesCollection().doc(classId);
+      const classSnap = await classRef.get();
+      if (classSnap.exists) {
+        const data = classSnap.data() as { studentIds?: string[] };
+        const ids = Array.isArray(data?.studentIds) ? data.studentIds : [];
+        if (!ids.includes(userRecord.uid)) ids.push(userRecord.uid);
+        await classRef.update({ studentIds: ids, updatedAt: new Date() });
+      }
+    }
+
+    // Sync Class.homeroomTeacherId when creating teacher with homeroomClassId
+    if ([UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.GURU_PRODUKTIF].includes(role as UserRole) && homeroomClassId) {
+      const classRef = classesCollection().doc(homeroomClassId);
+      const classSnap = await classRef.get();
+      if (classSnap.exists) {
+        await classRef.update({ homeroomTeacherId: userRecord.uid, updatedAt: new Date() });
+      }
+    }
 
     return NextResponse.json(
       { message: 'User created successfully', uid: userRecord.uid, email: userRecord.email },

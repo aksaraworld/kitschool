@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole } from '@/lib/types';
+import { UserRole, ROLES_CAN_MANAGE_USERS, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import ProfileView from '@/components/Profile/ProfileView';
 
@@ -11,8 +11,7 @@ export default function ProfileByIdPage() {
   const { user } = useAuth();
 
   const canViewOther =
-    user?.role === UserRole.STAFF ||
-    user?.role === UserRole.PRINCIPAL ||
+    hasAnyRole(user, ROLES_CAN_MANAGE_USERS.map(String)) ||
     (user?.role === UserRole.PARENT && user?.children?.includes(id!));
 
   if (!canViewOther) {
@@ -23,7 +22,7 @@ export default function ProfileByIdPage() {
     );
   }
 
-  const canEditMedical = user?.role === UserRole.STAFF || user?.role === UserRole.PRINCIPAL;
+  const canEditMedical = hasAnyRole(user, ROLES_CAN_MANAGE_USERS.map(String));
 
   return (
     <ProtectedRoute>

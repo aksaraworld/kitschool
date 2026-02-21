@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole, Attendance, AttendanceStatus } from '@/lib/types';
+import { UserRole, Attendance, AttendanceStatus, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
 import { Calendar, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
@@ -37,7 +37,7 @@ export default function AttendancePage() {
     try {
       await api.post('/attendance', {
         userId: user?._id,
-        type: user?.role === UserRole.TEACHER ? 'teacher' : 'student',
+        type: hasAnyRole(user, [UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.GURU_PRODUKTIF]) ? 'teacher' : 'student',
         date: selectedDate,
         status,
         checkInTime: new Date(),
@@ -76,7 +76,7 @@ export default function AttendancePage() {
     }
   };
 
-  const canSubmitAttendance = user?.role === UserRole.STUDENT || user?.role === UserRole.TEACHER;
+  const canSubmitAttendance = user?.role === UserRole.STUDENT || hasAnyRole(user, [UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.GURU_PRODUKTIF]);
   const todayAttendance = attendances.find(
     (a) => a.userId === user?._id && a.date.split('T')[0] === selectedDate
   );

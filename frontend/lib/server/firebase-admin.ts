@@ -146,6 +146,30 @@ export function resourcesCollection() {
   return getFirestore().collection('resources');
 }
 
+export function roleDefinitionsCollection() {
+  return getFirestore().collection('roleDefinitions');
+}
+
+export function subjectCategoriesCollection() {
+  return getFirestore().collection('subjectCategories');
+}
+
+export function gradingConfigsCollection() {
+  return getFirestore().collection('gradingConfigs');
+}
+
+export function subjectGradingConfigsCollection() {
+  return getFirestore().collection('subjectGradingConfigs');
+}
+
+export function gradeComponentsCollection() {
+  return getFirestore().collection('gradeComponents');
+}
+
+export function tkDevelopmentAreasCollection() {
+  return getFirestore().collection('tkDevelopmentAreas');
+}
+
 /** Convert Firestore doc to JSON (id, _id + data, timestamps to ISO string). Accepts Firestore DocumentSnapshot. */
 export function docToJson(doc: { id: string; data: () => unknown }): Record<string, unknown> {
   const data = (doc.data() ?? {}) as Record<string, unknown>;

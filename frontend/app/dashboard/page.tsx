@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole } from '@/lib/types';
+import { UserRole, hasFullAccess, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
 import {
@@ -11,37 +12,52 @@ import {
   CreditCard,
   ClipboardCheck,
   TrendingUp,
-  BookOpen
+  BookOpen,
+  Award,
+  GraduationCap,
 } from 'lucide-react';
+
+interface DashboardSummary {
+  totalStudents?: number;
+  activeYear: { _id: string; name: string };
+  top3ByGrades: { studentId: string; studentName: string; avgGrade: number }[];
+  top10ByGrades: { studentId: string; studentName: string; avgGrade: number }[];
+  top10ByAttendance: { studentId: string; studentName: string; presentCount: number; totalCount: number; rate: number }[];
+  teacherCount: number;
+  teachers: { _id: string; name: string }[];
+  graphTeachersByMajor: { label: string; value: number }[];
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState<any>({});
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const showDashboardSummary = hasFullAccess(user) || hasAnyRole(user, [UserRole.STAFF]);
 
   useEffect(() => {
-    // Fetch dashboard stats based on user role
-    const fetchStats = async () => {
+    const fetchData = async () => {
       if (!user) return;
-      
       try {
-        // This would be replaced with actual API calls
-        setStats({
-          students: 0,
-          teachers: 0,
-          classes: 0,
-          payments: 0,
-        });
-      } catch (error) {
-        console.error('Error fetching stats:', error);
+        setLoading(true);
+        if (showDashboardSummary) {
+          const data = await api.get<DashboardSummary>('/dashboard/summary');
+          setSummary(data);
+          setStats({ students: data.top10ByGrades?.length ?? 0, teachers: data.teacherCount ?? 0 });
+        }
+      } catch (e) {
+        console.error('Dashboard fetch error:', e);
+        setSummary(null);
+      } finally {
+        setLoading(false);
       }
     };
-
-    fetchStats();
-  }, [user]);
+    fetchData();
+  }, [user, showDashboardSummary]);
 
   const getRoleSpecificStats = () => {
     if (!user) return [];
-
     switch (user.role) {
       case UserRole.STUDENT:
         return [
@@ -63,10 +79,10 @@ export default function DashboardPage() {
       case UserRole.STAFF:
       case UserRole.PRINCIPAL:
         return [
-          { label: 'Total Siswa', value: '450', icon: Users, color: 'bg-blue-500' },
-          { label: 'Total Guru', value: '35', icon: Users, color: 'bg-purple-500' },
-          { label: 'Kelas Aktif', value: '18', icon: BookOpen, color: 'bg-green-500' },
-          { label: 'Tagihan Tertunda', value: '12', icon: CreditCard, color: 'bg-yellow-500' },
+          { label: 'Total Siswa', value: String(summary?.totalStudents ?? '-'), icon: Users, color: 'bg-blue-500' },
+          { label: 'Total Guru', value: String(summary?.teacherCount ?? '-'), icon: Users, color: 'bg-purple-500' },
+          { label: 'Tahun Ajaran', value: summary?.activeYear?.name ?? '-', icon: Calendar, color: 'bg-green-500' },
+          { label: 'Tagihan Tertunda', value: '-', icon: CreditCard, color: 'bg-yellow-500' },
         ];
       case UserRole.FINANCE:
         return [
@@ -90,10 +106,7 @@ export default function DashboardPage() {
           {getRoleSpecificStats().map((stat, index) => {
             const Icon = stat.icon;
             return (
-              <div
-                key={index}
-                className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow"
-              >
+              <div key={index} className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600">{stat.label}</p>
@@ -108,44 +121,160 @@ export default function DashboardPage() {
           })}
         </div>
 
+        {showDashboardSummary && summary && (
+          <>
+            <p className="text-sm text-gray-500">Data untuk tahun ajaran <strong>{summary.activeYear?.name ?? '-'}</strong></p>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Award className="w-5 h-5 text-primary-600" />
+                  Top 3 Siswa (Nilai) – {summary.activeYear?.name}
+                </h2>
+                {loading ? (
+                  <p className="text-gray-500 text-sm">Memuat...</p>
+                ) : summary.top3ByGrades?.length > 0 ? (
+                  <ol className="space-y-2">
+                    {summary.top3ByGrades.map((s, i) => (
+                      <li key={s.studentId} className="flex justify-between items-center py-2 border-b last:border-0">
+                        <Link href={`/profile/${s.studentId}`} className="text-primary-600 hover:underline font-medium">
+                          {i + 1}. {s.studentName}
+                        </Link>
+                        <span className="font-semibold text-gray-900">{s.avgGrade}</span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-gray-500 text-sm">Belum ada nilai.</p>
+                )}
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5 text-primary-600" />
+                  Guru per Jurusan – {summary.activeYear?.name}
+                </h2>
+                {loading ? (
+                  <p className="text-gray-500 text-sm">Memuat...</p>
+                ) : summary.graphTeachersByMajor?.length > 0 ? (
+                  <div className="space-y-3">
+                    {summary.graphTeachersByMajor.map((b) => (
+                      <div key={b.label} className="flex items-center gap-3">
+                        <span className="text-sm w-24">{b.label}</span>
+                        <div className="flex-1 bg-gray-100 rounded-full h-6 overflow-hidden">
+                          <div
+                            className="bg-primary-600 h-full rounded-full transition-all"
+                            style={{ width: `${Math.min(100, (b.value / (Math.max(...summary.graphTeachersByMajor.map((x) => x.value), 0) || 1)) * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium w-8">{b.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-sm">Belum ada data.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Award className="w-5 h-5 text-primary-600" />
+                  Top 10 Siswa (Nilai) – {summary.activeYear?.name}
+                </h2>
+                {loading ? (
+                  <p className="text-gray-500 text-sm">Memuat...</p>
+                ) : summary.top10ByGrades?.length > 0 ? (
+                  <ol className="space-y-1.5 text-sm">
+                    {summary.top10ByGrades.map((s, i) => (
+                      <li key={s.studentId} className="flex justify-between py-1.5 border-b last:border-0">
+                        <Link href={`/profile/${s.studentId}`} className="text-primary-600 hover:underline">
+                          {i + 1}. {s.studentName}
+                        </Link>
+                        <span className="font-medium">{s.avgGrade}</span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-gray-500 text-sm">Belum ada nilai.</p>
+                )}
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <ClipboardCheck className="w-5 h-5 text-primary-600" />
+                  Top 10 Siswa (Kehadiran) – {summary.activeYear?.name}
+                </h2>
+                {loading ? (
+                  <p className="text-gray-500 text-sm">Memuat...</p>
+                ) : summary.top10ByAttendance?.length > 0 ? (
+                  <ol className="space-y-1.5 text-sm">
+                    {summary.top10ByAttendance.map((s, i) => (
+                      <li key={s.studentId} className="flex justify-between py-1.5 border-b last:border-0">
+                        <Link href={`/profile/${s.studentId}`} className="text-primary-600 hover:underline">
+                          {i + 1}. {s.studentName}
+                        </Link>
+                        <span className="font-medium">{s.rate}% ({s.presentCount}/{s.totalCount})</span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-gray-500 text-sm">Belum ada data kehadiran.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary-600" />
+                Guru – {summary.activeYear?.name} ({summary.teacherCount})
+              </h2>
+              {loading ? (
+                <p className="text-gray-500 text-sm">Memuat...</p>
+              ) : summary.teachers?.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {summary.teachers.map((t) => (
+                    <Link key={t._id} href={`/profile/${t._id}`} className="px-3 py-2 bg-gray-50 hover:bg-primary-50 rounded-lg text-sm text-gray-800 hover:text-primary-700">
+                      {t.name}
+                    </Link>
+                  ))}
+                  {summary.teacherCount > summary.teachers.length && (
+                    <span className="text-sm text-gray-500 self-center">+{summary.teacherCount - summary.teachers.length} lainnya</span>
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm">Belum ada data guru.</p>
+              )}
+            </div>
+          </>
+        )}
+
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Aksi Cepat</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Quick action buttons based on role */}
             {user?.role === UserRole.STUDENT && (
               <>
-                <a
-                  href="/attendance"
-                  className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                >
+                <Link href="/attendance" className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                   <ClipboardCheck className="w-6 h-6 text-primary-600 mb-2" />
                   <p className="font-medium">Kirim Kehadiran</p>
-                </a>
-                <a
-                  href="/calendar"
-                  className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                >
+                </Link>
+                <Link href="/calendar" className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                   <Calendar className="w-6 h-6 text-primary-600 mb-2" />
                   <p className="font-medium">Lihat Kalender</p>
-                </a>
+                </Link>
               </>
             )}
             {user?.role === UserRole.PARENT && (
               <>
-                <a
-                  href="/invoices"
-                  className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                >
+                <Link href="/invoices" className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                   <CreditCard className="w-6 h-6 text-primary-600 mb-2" />
                   <p className="font-medium">Bayar Tagihan</p>
-                </a>
-                <a
-                  href="/messages"
-                  className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                >
+                </Link>
+                <Link href="/messages" className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                   <Calendar className="w-6 h-6 text-primary-600 mb-2" />
                   <p className="font-medium">Pesan Guru</p>
-                </a>
+                </Link>
               </>
             )}
           </div>
@@ -154,4 +283,3 @@ export default function DashboardPage() {
     </ProtectedRoute>
   );
 }
-

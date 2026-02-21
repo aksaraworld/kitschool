@@ -16,10 +16,12 @@ export async function GET(req: NextRequest) {
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
     const studentId = req.nextUrl.searchParams.get('studentId');
+    const userIdParam = req.nextUrl.searchParams.get('userId');
     const date = req.nextUrl.searchParams.get('date');
 
     let query = attendanceCollection().where('schoolId', '==', schoolId);
     if (studentId) query = query.where('studentId', '==', studentId) as ReturnType<typeof attendanceCollection>;
+    else if (userIdParam) query = query.where('userId', '==', userIdParam) as ReturnType<typeof attendanceCollection>;
     if (date) query = query.where('date', '==', date) as ReturnType<typeof attendanceCollection>;
 
     const snapshot = await query.get();

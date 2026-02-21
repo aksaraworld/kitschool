@@ -1,5 +1,6 @@
 /**
  * Serverless GET/POST /api/subjects.
+ * Query: ?categoryId=...&teacherId=...
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,7 +15,14 @@ export async function GET(req: NextRequest) {
     const schoolId = getSchoolId(req, auth);
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
-    const snapshot = await subjectsCollection().where('schoolId', '==', schoolId).get();
+    const categoryId = req.nextUrl.searchParams.get('categoryId');
+    const teacherId = req.nextUrl.searchParams.get('teacherId');
+
+    let query = subjectsCollection().where('schoolId', '==', schoolId) as ReturnType<typeof subjectsCollection>;
+    if (categoryId) query = query.where('categoryId', '==', categoryId) as ReturnType<typeof subjectsCollection>;
+    if (teacherId) query = query.where('teacherId', '==', teacherId) as ReturnType<typeof subjectsCollection>;
+
+    const snapshot = await query.get();
     const rows = snapshot.docs.map((d) => docToJson(d));
     return NextResponse.json(rows);
   } catch (e) {

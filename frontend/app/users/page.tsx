@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole, User } from '@/lib/types';
+import { UserRole, User, STAFF_ROLES, ROLES_CAN_MANAGE_USERS, ROLE_LABELS, getEffectiveRoles, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
 import { Button } from '@aksara/ui';
@@ -18,7 +18,7 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 10;
+  const PAGE_SIZE = 25;
 
   const [formData, setFormData] = useState({
     email: '',
@@ -32,12 +32,29 @@ export default function UsersPage() {
     classId: '',
     year: '',
     major: '',
-    department: ''
+    department: '',
+    children: [] as string[],
+    homeroomClassId: '',
+    roles: [] as string[]
   });
+  const [classesList, setClassesList] = useState<{ _id: string; name: string }[]>([]);
+  const [studentsList, setStudentsList] = useState<User[]>([]);
 
   useEffect(() => {
     fetchUsers();
   }, [roleFilter]);
+
+  useEffect(() => {
+    if (showCreateModal) {
+      Promise.all([
+        api.get<{ _id: string; name: string }[]>('/classes').then((c) => c.map((x) => ({ _id: x._id, name: x.name }))).catch(() => []),
+        api.get<User[]>('/users?role=student').catch(() => [])
+      ]).then(([classes, students]) => {
+        setClassesList(classes);
+        setStudentsList(students);
+      });
+    }
+  }, [showCreateModal]);
 
   const fetchUsers = async () => {
     try {
@@ -103,7 +120,10 @@ export default function UsersPage() {
       classId: '',
       year: '',
       major: '',
-      department: ''
+      department: '',
+      children: [],
+      homeroomClassId: '',
+      roles: []
     });
   };
 
@@ -123,20 +143,31 @@ export default function UsersPage() {
       classId: user.classId || '',
       year: user.year?.toString() || '',
       major: user.major || '',
-      department: user.department || ''
+      department: user.department || '',
+      children: user.children ?? [],
+      homeroomClassId: user.homeroomClassId || '',
+      roles: user.roles ?? []
     });
     setShowCreateModal(true);
   };
 
-  const getRoleColor = (role: UserRole) => {
+  const getRoleColor = (role: string) => {
     const colors: Record<string, string> = {
       student: 'bg-blue-100 text-blue-800',
       parent: 'bg-purple-100 text-purple-800',
       teacher: 'bg-green-100 text-green-800',
       homeroom_teacher: 'bg-green-100 text-green-800',
+      guru_produktif: 'bg-green-100 text-green-800',
       staff: 'bg-yellow-100 text-yellow-800',
       principal: 'bg-red-100 text-red-800',
-      finance: 'bg-indigo-100 text-indigo-800'
+      finance: 'bg-indigo-100 text-indigo-800',
+      wakasek_kurikulum: 'bg-amber-100 text-amber-800',
+      wakasek_kesiswaan: 'bg-amber-100 text-amber-800',
+      wakasek_sarana: 'bg-amber-100 text-amber-800',
+      kepala_program_keahlian: 'bg-orange-100 text-orange-800',
+      koordinator_bk_eskul: 'bg-orange-100 text-orange-800',
+      koordinator_lab_perpus: 'bg-orange-100 text-orange-800',
+      kaprodi: 'bg-teal-100 text-teal-800'
     };
     return colors[role] || 'bg-gray-100 text-gray-800';
   };
@@ -155,7 +186,7 @@ export default function UsersPage() {
 
   const getDisplayId = (u: User) => {
     if (u.role === UserRole.STUDENT) return u.nisn ?? u.studentId ?? '-';
-    if ([UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.STAFF, UserRole.PRINCIPAL, UserRole.FINANCE].includes(u.role))
+    if (u.role !== UserRole.PARENT && u.role !== UserRole.SAAS_ADMIN)
       return u.nip ?? u.teacherId ?? u.employeeId ?? '-';
     return '-';
   };
@@ -167,7 +198,7 @@ export default function UsersPage() {
     setPage(1);
   }, [roleFilter, searchQuery]);
 
-  const canManageUsers = user?.role === UserRole.STAFF || user?.role === UserRole.PRINCIPAL;
+  const canManageUsers = hasAnyRole(user, ROLES_CAN_MANAGE_USERS.map(String));
 
   if (!canManageUsers) {
     return (
@@ -180,7 +211,7 @@ export default function UsersPage() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={[UserRole.STAFF, UserRole.PRINCIPAL]}>
+    <ProtectedRoute allowedRoles={ROLES_CAN_MANAGE_USERS.map(String)}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -188,17 +219,17 @@ export default function UsersPage() {
             <p className="text-gray-600 mt-2">Buat dan kelola akun pengguna</p>
           </div>
           <Button
-            onClick={() => {
-              setEditingUser(null);
-              resetForm();
-              setShowCreateModal(true);
-            }}
-            variant="default"
-            className="flex items-center space-x-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tambah Pengguna</span>
-          </Button>
+              onClick={() => {
+                setEditingUser(null);
+                resetForm();
+                setShowCreateModal(true);
+              }}
+              variant="default"
+              className="flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Tambah Pengguna</span>
+            </Button>
         </div>
 
         {showCreateModal && (
@@ -247,34 +278,71 @@ export default function UsersPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Peran *
+                      Peran Utama *
                     </label>
                     <select
                       value={formData.role}
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
+                      onChange={(e) => {
+                        const v = e.target.value as UserRole;
+                        setFormData({
+                          ...formData,
+                          role: v,
+                          roles: [UserRole.STUDENT, UserRole.PARENT].includes(v)
+                            ? []
+                            : formData.roles.filter((r) => r !== v)
+                        });
+                      }}
                       className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder:text-gray-500"
                       required
                     >
-                      {Object.values(UserRole).map((role) => (
-                        <option key={role} value={role}>
-                          {role.replace('_', ' ').toUpperCase()}
-                        </option>
-                      ))}
+                      <optgroup label="Siswa & Orang Tua">
+                        <option value={UserRole.STUDENT}>{ROLE_LABELS[UserRole.STUDENT]}</option>
+                        <option value={UserRole.PARENT}>{ROLE_LABELS[UserRole.PARENT]}</option>
+                      </optgroup>
+                      <optgroup label="Struktur Organisasi Sekolah">
+                        {STAFF_ROLES.map((r) => (
+                          <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
+                        ))}
+                      </optgroup>
                     </select>
                   </div>
+                  {formData.role !== UserRole.STUDENT && formData.role !== UserRole.PARENT && (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Peran Tambahan (satu user bisa punya banyak peran)
+                      </label>
+                      <select
+                        multiple
+                        value={formData.roles}
+                        onChange={(e) => {
+                          const sel = Array.from(e.target.selectedOptions, (o) => o.value);
+                          setFormData({ ...formData, roles: sel });
+                        }}
+                        className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[100px]"
+                      >
+                        {STAFF_ROLES.filter((r) => r !== formData.role).map((r) => (
+                          <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">Tahan Ctrl (Windows) atau Cmd (Mac) untuk memilih banyak peran tambahan</p>
+                    </div>
+                  )}
                   {(formData.role === UserRole.STUDENT) && (
                     <>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          NISN (Nomor Induk Siswa Nasional)
+                          NISN (Nomor Induk Siswa Nasional) *
                         </label>
                         <input
                           type="text"
                           value={formData.nisn}
-                          onChange={(e) => setFormData({ ...formData, nisn: e.target.value })}
-                          placeholder="10 digit NISN"
+                          onChange={(e) => setFormData({ ...formData, nisn: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                          placeholder="10 digit NISN (kosongkan untuk auto-generate)"
+                          maxLength={10}
+                          pattern="[0-9]*"
                           className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder:text-gray-500"
                         />
+                        <p className="text-xs text-gray-500 mt-1">Wajib diisi. Kosongkan untuk generate otomatis.</p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -299,23 +367,76 @@ export default function UsersPage() {
                           className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder:text-gray-500"
                         />
                       </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Kelas
+                        </label>
+                        <select
+                          value={formData.classId}
+                          onChange={(e) => setFormData({ ...formData, classId: e.target.value })}
+                          className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        >
+                          <option value="">-- Pilih kelas --</option>
+                          {classesList.map((c) => (
+                            <option key={c._id} value={c._id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
                     </>
                   )}
-                  {(formData.role === UserRole.TEACHER || formData.role === UserRole.HOMEROOM_TEACHER) && (
-                    <div>
+                  {(formData.role === UserRole.PARENT) && (
+                    <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        NIP (Nomor Induk Pegawai)
+                        Anak (Siswa)
                       </label>
-                      <input
-                        type="text"
-                        value={formData.nip}
-                        onChange={(e) => setFormData({ ...formData, nip: e.target.value })}
-                        placeholder="NIP guru"
-                        className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder:text-gray-500"
-                      />
+                      <select
+                        multiple
+                        value={formData.children}
+                        onChange={(e) => {
+                          const sel = Array.from(e.target.selectedOptions, (o) => o.value);
+                          setFormData({ ...formData, children: sel });
+                        }}
+                        className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[100px]"
+                      >
+                        {studentsList.map((s) => (
+                          <option key={s._id} value={s._id}>{s.name} ({s.nisn ?? s.studentId ?? '-'})</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">Tahan Ctrl (Windows) atau Cmd (Mac) untuk memilih banyak</p>
                     </div>
                   )}
-                  {(formData.role === UserRole.STAFF || formData.role === UserRole.PRINCIPAL || formData.role === UserRole.FINANCE) && (
+                  {[UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.GURU_PRODUKTIF].includes(formData.role as UserRole) && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          NIP (Nomor Induk Pegawai)
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.nip}
+                          onChange={(e) => setFormData({ ...formData, nip: e.target.value })}
+                          placeholder="NIP guru"
+                          className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder:text-gray-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Wali Kelas (opsional)
+                        </label>
+                        <select
+                          value={formData.homeroomClassId}
+                          onChange={(e) => setFormData({ ...formData, homeroomClassId: e.target.value })}
+                          className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        >
+                          <option value="">-- Tidak sebagai wali kelas --</option>
+                          {classesList.map((c) => (
+                            <option key={c._id} value={c._id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
+                  {formData.role !== UserRole.STUDENT && formData.role !== UserRole.PARENT && ![UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.GURU_PRODUKTIF].includes(formData.role as UserRole) && (
                     <>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -389,11 +510,15 @@ export default function UsersPage() {
                 className="px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
               >
                 <option value="">Semua peran</option>
-                {Object.values(UserRole).map((role) => (
-                  <option key={role} value={role}>
-                    {role.replace('_', ' ')}
-                  </option>
-                ))}
+                <optgroup label="Siswa & Orang Tua">
+                  <option value={UserRole.STUDENT}>{ROLE_LABELS[UserRole.STUDENT]}</option>
+                  <option value={UserRole.PARENT}>{ROLE_LABELS[UserRole.PARENT]}</option>
+                </optgroup>
+                <optgroup label="Struktur Organisasi">
+                  {STAFF_ROLES.map((r) => (
+                    <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
+                  ))}
+                </optgroup>
               </select>
             </div>
           </div>
@@ -436,9 +561,12 @@ export default function UsersPage() {
                           <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
                             <UserCheck className="w-5 h-5 text-primary-600" />
                           </div>
-                          <span className="ml-3 text-sm font-medium text-gray-900">
+                          <Link
+                            href={`/profile/${userItem._id}`}
+                            className="ml-3 text-sm font-medium text-primary-600 hover:text-primary-800 hover:underline"
+                          >
                             {userItem.name}
-                          </span>
+                          </Link>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -447,14 +575,17 @@ export default function UsersPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {getDisplayId(userItem)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleColor(
-                            userItem.role
-                          )}`}
-                        >
-                          {userItem.role.replace('_', ' ')}
-                        </span>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-1">
+                          {getEffectiveRoles(userItem).map((r) => (
+                            <span
+                              key={r}
+                              className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleColor(r)}`}
+                            >
+                              {ROLE_LABELS[r] ?? r.replace(/_/g, ' ')}
+                            </span>
+                          ))}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
@@ -482,7 +613,7 @@ export default function UsersPage() {
                           >
                             <Edit className="w-4 h-4" />
                           </button>
-                          {user?.role === UserRole.PRINCIPAL && (
+                          {hasAnyRole(user, [UserRole.PRINCIPAL]) && (
                             <button
                               onClick={() => handleDeleteUser(userItem._id)}
                               className="text-red-600 hover:text-red-800"

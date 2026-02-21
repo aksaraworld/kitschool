@@ -47,12 +47,18 @@ const FIRESTORE_COLLECTIONS = [
   'leaveRequests',
   'payrollLogs',
   'subjects',
+  'subjectCategories',
   'rooms',
   'exams',
   'grades',
+  'gradeComponents',
+  'gradingConfigs',
+  'subjectGradingConfigs',
+  'tkDevelopmentAreas',
   'assignments',
   'submissions',
   'resources',
+  'roleDefinitions',
 ];
 
 type DemoUser = {

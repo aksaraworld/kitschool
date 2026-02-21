@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole } from '@/lib/types';
+import { UserRole, ROLES_CAN_MANAGE_USERS, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
-import { Calendar, Plus, Edit, Trash2, X, Save } from 'lucide-react';
+import { Calendar, Plus, Edit, Trash2, X, Save, ChevronRight, Shuffle } from 'lucide-react';
 
 interface Year {
   _id: string;
@@ -30,6 +31,7 @@ export default function YearsPage() {
     endDate: '',
     isActive: true
   });
+  const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
     fetchYears();
@@ -101,7 +103,28 @@ export default function YearsPage() {
     }
   };
 
-  const canManage = user?.role === UserRole.STAFF || user?.role === UserRole.PRINCIPAL;
+  const canManage = hasAnyRole(user, ROLES_CAN_MANAGE_USERS.map(String));
+
+  const handleAssignRandom = async () => {
+    if (
+      !confirm(
+        'Assign acak akan menghubungkan: siswa→kelas, wali kelas→kelas, kelas→tahun, kelas→jurusan, jadwal→guru. Lanjut?'
+      )
+    )
+      return;
+    try {
+      setAssigning(true);
+      const res = await api.post<{ stats: Record<string, number> }>('/admin/assign-random');
+      const s = res.stats ?? {};
+      let msg = `Selesai! ${s.studentsAssigned ?? 0} siswa, ${s.classesUpdated ?? 0} kelas, ${s.schedulesAssigned ?? 0} jadwal diperbarui.`;
+      if ((s.nisnGenerated ?? 0) > 0) msg += ` ${s.nisnGenerated} NISN digenerate.`;
+      alert(msg);
+    } catch (error: any) {
+      alert(error?.message || 'Gagal assign acak');
+    } finally {
+      setAssigning(false);
+    }
+  };
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('id-ID', {
@@ -119,15 +142,25 @@ export default function YearsPage() {
             <h1 className="text-3xl font-bold text-gray-900">Tahun Ajaran</h1>
             <p className="text-gray-600 mt-2">Kelola tahun ajaran sekolah</p>
           </div>
-          {canManage && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleCreate}
-              className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 flex items-center space-x-2"
+              onClick={handleAssignRandom}
+              disabled={assigning}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center space-x-2 disabled:opacity-50"
             >
-              <Plus className="w-5 h-5" />
-              <span>Tambah Tahun Ajaran</span>
+              <Shuffle className="w-5 h-5" />
+              <span>{assigning ? 'Memproses...' : 'Assign Acak'}</span>
             </button>
-          )}
+            {canManage && (
+              <button
+                onClick={handleCreate}
+                className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 flex items-center space-x-2"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Tambah Tahun Ajaran</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (
@@ -171,10 +204,14 @@ export default function YearsPage() {
                     years.map((year) => (
                       <tr key={year._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <Calendar className="w-5 h-5 text-primary-600 mr-2" />
-                            <span className="text-sm font-medium text-gray-900">{year.name}</span>
-                          </div>
+                          <Link
+                            href={`/years/${year._id}`}
+                            className="flex items-center group text-primary-600 hover:text-primary-800"
+                          >
+                            <Calendar className="w-5 h-5 text-primary-600 mr-2 flex-shrink-0" />
+                            <span className="text-sm font-medium group-hover:underline">{year.name}</span>
+                            <ChevronRight className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </Link>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">{formatDate(year.startDate)}</div>

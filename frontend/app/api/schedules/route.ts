@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
+import { getAuthUser, getSchoolId, hasAnyRole, hasFullAccess } from '@/lib/server/auth-helpers';
 import { schedulesCollection, docToJson } from '@/lib/server/firebase-admin';
 import { UserRole } from '@/lib/types';
 
@@ -47,10 +47,8 @@ export async function POST(req: NextRequest) {
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     if (
-      auth.role !== UserRole.TEACHER &&
-      auth.role !== UserRole.HOMEROOM_TEACHER &&
-      auth.role !== UserRole.STAFF &&
-      auth.role !== UserRole.PRINCIPAL
+      !hasFullAccess(auth) &&
+      !hasAnyRole(auth, [UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.STAFF])
     ) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }

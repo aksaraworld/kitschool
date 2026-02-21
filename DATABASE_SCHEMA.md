@@ -5,6 +5,19 @@ MongoDB database schema for Cognifa school management system.
 
 ## Collections
 
+### roleDefinitions
+Stores configurable role definitions per school. Used for role management (access, approvals, CRUD).
+
+**Fields:**
+- `schoolId` (string, required)
+- `roleKey` (string, required, unique per school, e.g. principal, wakasek_kurikulum)
+- `displayName` (string, required)
+- `permissions` (object):
+  - `pageAccess` (string[], page keys the role can access)
+  - `approvals` (string[], approval types: leave, admission, payment)
+  - `resources` (Record<string, {create, read, update, delete}>)
+- `createdAt`, `updatedAt` (Date)
+
 ### Users
 Stores all user accounts (students, parents, teachers, staff, principal, finance).
 
@@ -12,7 +25,7 @@ Stores all user accounts (students, parents, teachers, staff, principal, finance
 - `email` (String, required, unique)
 - `password` (String, required, hashed)
 - `name` (String, required)
-- `role` (Enum: student, parent, teacher, homeroom_teacher, staff, principal, finance)
+- `role` (Enum: student, parent, teacher, homeroom_teacher/wali_kelas, staff, principal, finance, wakasek_*, kepala_program_keahlian, koordinator_*, kaprodi, guru_produktif)
 - `phone` (String, optional)
 - `avatar` (String, optional)
 - `isActive` (Boolean, default: true)
@@ -69,7 +82,7 @@ Class groups within a year and major.
 - `name` (String, required, e.g., "10A")
 - `yearId` (ObjectId, ref: Year, required)
 - `majorId` (ObjectId, ref: Major, required)
-- `homeroomTeacherId` (ObjectId, ref: User, required)
+- `homeroomTeacherId` (ObjectId, ref: User) – Wali Kelas
 - `studentIds` (Array of ObjectId, ref: User)
 - `capacity` (Number, default: 40)
 - `isActive` (Boolean, default: true)

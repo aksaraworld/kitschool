@@ -168,6 +168,55 @@ async function seedNewModules() {
     });
   }
 
+  let effectiveYearId = (classesSnap.docs[0]?.data() as { yearId?: string })?.yearId;
+  if (!effectiveYearId) {
+    const yearsSnap = await firestore.collection('years').where('schoolId', '==', schoolId).limit(1).get();
+    if (!yearsSnap.empty) {
+      effectiveYearId = yearsSnap.docs[0].id;
+    } else {
+      const yearRef = firestore.collection('years').doc();
+      await yearRef.set({
+        schoolId,
+        name: '2024/2025',
+        startDate: new Date('2024-07-01'),
+        endDate: new Date('2025-06-30'),
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      effectiveYearId = yearRef.id;
+      console.log('   Created year 2024/2025 for grade components');
+    }
+  }
+
+  console.log('Seeding grade components (dummy grades for each student)...');
+  const components = ['uh', 'pts', 'pas'] as const;
+  const componentLabels = { uh: 'UH', pts: 'PTS', pas: 'PAS' };
+  let gradeComponentCount = 0;
+  for (const studentId of studentIds) {
+    for (const subjectId of subjectIds) {
+      for (const key of components) {
+        const numericScore = 60 + Math.floor(Math.random() * 36);
+        await firestore.collection('gradeComponents').doc().set({
+          schoolId,
+          studentId,
+          subjectId,
+          yearId: effectiveYearId,
+          semester: 1,
+          componentKey: key,
+          componentLabel: componentLabels[key],
+          numericScore,
+          maxScore: 100,
+          teacherId: teacher1,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        gradeComponentCount++;
+      }
+    }
+  }
+  console.log(`   Created ${gradeComponentCount} grade components for ${studentIds.length} students × ${subjectIds.length} subjects`);
+
   console.log('Seeding exams & grades...');
   const examRef = firestore.collection('exams').doc();
   await examRef.set({

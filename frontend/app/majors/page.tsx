@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole } from '@/lib/types';
+import { UserRole, ROLES_CAN_MANAGE_USERS, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
-import { Building2, Plus, Edit, Trash2, X, Save } from 'lucide-react';
+import { Building2, Plus, Edit, Trash2, X, Save, ChevronRight } from 'lucide-react';
 
 interface Major {
   _id: string;
@@ -92,7 +93,7 @@ export default function MajorsPage() {
     }
   };
 
-  const canManage = user?.role === UserRole.STAFF || user?.role === UserRole.PRINCIPAL;
+  const canManage = hasAnyRole(user, ROLES_CAN_MANAGE_USERS.map(String));
 
   return (
     <ProtectedRoute allowedRoles={[UserRole.STAFF, UserRole.PRINCIPAL]}>
@@ -154,10 +155,21 @@ export default function MajorsPage() {
                     majors.map((major) => (
                       <tr key={major._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm font-medium text-gray-900">{major.code}</span>
+                          <Link
+                            href={`/majors/${major._id}`}
+                            className="text-sm font-medium text-primary-600 hover:text-primary-800 hover:underline"
+                          >
+                            {major.code}
+                          </Link>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{major.name}</div>
+                          <Link
+                            href={`/majors/${major._id}`}
+                            className="flex items-center group text-primary-600 hover:text-primary-800"
+                          >
+                            <span className="text-sm font-medium group-hover:underline">{major.name}</span>
+                            <ChevronRight className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </Link>
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-sm text-gray-500">{major.description || '-'}</div>

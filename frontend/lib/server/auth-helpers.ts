@@ -10,6 +10,7 @@ export interface AuthUser {
   uid: string;
   email: string;
   role: string;
+  roles?: string[];
   schoolId?: string;
 }
 
@@ -59,8 +60,9 @@ export async function getAuthUser(req: NextRequest): Promise<AuthUser | null> {
         : undefined;
 
   const role = (data.role as string) ?? '';
+  const roles = Array.isArray(data.roles) ? (data.roles as string[]) : undefined;
   // Principal: resolve school by principalEmail so API uses the same school as Firestore (user doc schoolId can be stale/wrong)
-  if (role === 'principal' && data.email) {
+  if ((role === 'principal' || roles?.includes('principal')) && data.email) {
     const email = String(data.email).trim();
     const schoolSnap = await schoolsCollection()
       .where('principalEmail', '==', email)
@@ -73,6 +75,21 @@ export async function getAuthUser(req: NextRequest): Promise<AuthUser | null> {
     uid: decoded.uid,
     email: String(data.email ?? decoded.email ?? ''),
     role,
+    roles,
     schoolId,
   };
+}
+
+/** Check if auth user has any of the allowed roles. Supports multi-role staff. */
+export function hasAnyRole(auth: AuthUser | null, allowed: string[]): boolean {
+  if (!auth || !allowed.length) return false;
+  const roles = auth.roles ?? [];
+  const primary = auth.role ?? '';
+  const effective = primary && !roles.includes(primary) ? [primary, ...roles] : roles.length ? roles : (primary ? [primary] : []);
+  return effective.some((r) => allowed.includes(r));
+}
+
+/** Kepala Sekolah has full access to all pages and functions. */
+export function hasFullAccess(auth: AuthUser | null): boolean {
+  return hasAnyRole(auth, ['principal']);
 }

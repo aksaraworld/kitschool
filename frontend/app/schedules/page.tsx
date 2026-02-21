@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole } from '@/lib/types';
+import { UserRole, ROLES_CAN_MANAGE_USERS, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
 import { Calendar, Plus, ChevronLeft, ChevronRight, Clock, MapPin, X, Save, Edit, Trash2 } from 'lucide-react';
@@ -195,10 +195,7 @@ export default function SchedulesPage() {
   };
 
   const canManage =
-    user?.role === UserRole.TEACHER ||
-    user?.role === UserRole.HOMEROOM_TEACHER ||
-    user?.role === UserRole.STAFF ||
-    user?.role === UserRole.PRINCIPAL;
+    hasAnyRole(user, [UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, ...ROLES_CAN_MANAGE_USERS.map(String)]);
 
   const getTypeColor = (type: Schedule['type']) => {
     const colors = {

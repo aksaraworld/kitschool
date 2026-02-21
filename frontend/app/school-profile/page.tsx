@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole, School } from '@/lib/types';
+import { UserRole, School, ROLES_CAN_MANAGE_USERS, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
 import { Building2, MapPin, Phone, Mail, Globe, User, Edit, Save, X } from 'lucide-react';
@@ -15,11 +15,11 @@ export default function SchoolProfilePage() {
   const [formData, setFormData] = useState<Partial<School>>({});
   const [saving, setSaving] = useState(false);
 
-  const canEdit = user?.role === UserRole.STAFF || user?.role === UserRole.PRINCIPAL;
+  const canEdit = hasAnyRole(user, ROLES_CAN_MANAGE_USERS.map(String));
 
   useEffect(() => {
     // SaaS Admin should not access school profile page
-    if (user?.role === UserRole.SAAS_ADMIN) {
+    if (hasAnyRole(user, [UserRole.SAAS_ADMIN])) {
       return;
     }
     fetchSchoolProfile();
@@ -27,7 +27,7 @@ export default function SchoolProfilePage() {
 
   const fetchSchoolProfile = async () => {
     // Skip if SaaS Admin
-    if (user?.role === UserRole.SAAS_ADMIN) {
+    if (hasAnyRole(user, [UserRole.SAAS_ADMIN])) {
       return;
     }
     try {
@@ -85,7 +85,7 @@ export default function SchoolProfilePage() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={[UserRole.STAFF, UserRole.PRINCIPAL]}>
+    <ProtectedRoute allowedRoles={ROLES_CAN_MANAGE_USERS.map(String)}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

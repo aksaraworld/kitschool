@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
+import { getAuthUser, getSchoolId, hasFullAccess } from '@/lib/server/auth-helpers';
 import { schoolsCollection, docToJson } from '@/lib/server/firebase-admin';
 import { UserRole } from '@/lib/types';
 
@@ -36,8 +36,8 @@ export async function PUT(req: NextRequest) {
   try {
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    if (auth.role !== UserRole.PRINCIPAL && auth.role !== UserRole.STAFF) {
-      return NextResponse.json({ message: 'Only Principal and Staff can update school profile' }, { status: 403 });
+    if (!hasFullAccess(auth) && auth.role !== UserRole.STAFF) {
+      return NextResponse.json({ message: 'Only Kepala Sekolah and Staff can update school profile' }, { status: 403 });
     }
 
     const schoolId = auth.schoolId ?? getSchoolId(req, auth);
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    if (auth.role !== UserRole.PRINCIPAL && auth.role !== UserRole.STAFF) {
+    if (!hasFullAccess(auth) && auth.role !== UserRole.STAFF) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 

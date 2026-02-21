@@ -2,12 +2,155 @@ export enum UserRole {
   SAAS_ADMIN = 'saas_admin',
   STUDENT = 'student',
   PARENT = 'parent',
-  TEACHER = 'teacher',
-  HOMEROOM_TEACHER = 'homeroom_teacher',
-  STAFF = 'staff',
-  PRINCIPAL = 'principal',
-  FINANCE = 'finance'
+  // Staff hierarchy (org chart) – staff can have multiple roles
+  PRINCIPAL = 'principal',                    // Kepala Sekolah
+  WAKASEK_KURIKULUM = 'wakasek_kurikulum',   // Wakasek Kurikulum
+  WAKASEK_KESISWAAN = 'wakasek_kesiswaan',   // Wakasek Kesiswaan
+  WAKASEK_SARANA = 'wakasek_sarana',         // Wakasek Sarana Prasarana
+  KEPALA_PROGRAM_KEAHLIAN = 'kepala_program_keahlian', // Kepala Program Keahlian
+  KOORDINATOR_BK_ESKUL = 'koordinator_bk_eskul',       // Koordinator BK & Eskul
+  KOORDINATOR_LAB_PERPUS = 'koordinator_lab_perpus',   // Koordinator Lab & Perpus
+  KAPRODI = 'kaprodi',                       // Kaprodi (Head of Study Program)
+  GURU_PRODUKTIF = 'guru_produktif',         // Guru Produktif
+  HOMEROOM_TEACHER = 'homeroom_teacher',     // Wali Kelas
+  TEACHER = 'teacher',                       // Guru (generic)
+  STAFF = 'staff',                           // Staf (generic)
+  FINANCE = 'finance'                        // Keuangan
 }
+
+/** Staff roles only – students and parents have a single role. */
+export const STAFF_ROLES: UserRole[] = [
+  UserRole.PRINCIPAL,
+  UserRole.WAKASEK_KURIKULUM,
+  UserRole.WAKASEK_KESISWAAN,
+  UserRole.WAKASEK_SARANA,
+  UserRole.KEPALA_PROGRAM_KEAHLIAN,
+  UserRole.KOORDINATOR_BK_ESKUL,
+  UserRole.KOORDINATOR_LAB_PERPUS,
+  UserRole.KAPRODI,
+  UserRole.GURU_PRODUKTIF,
+  UserRole.HOMEROOM_TEACHER,
+  UserRole.TEACHER,
+  UserRole.STAFF,
+  UserRole.FINANCE,
+];
+
+/** Roles that can manage users (Pengguna page). */
+export const ROLES_CAN_MANAGE_USERS: UserRole[] = [
+  UserRole.PRINCIPAL,
+  UserRole.WAKASEK_KURIKULUM,
+  UserRole.WAKASEK_KESISWAAN,
+  UserRole.WAKASEK_SARANA,
+  UserRole.KEPALA_PROGRAM_KEAHLIAN,
+  UserRole.KOORDINATOR_BK_ESKUL,
+  UserRole.KOORDINATOR_LAB_PERPUS,
+  UserRole.KAPRODI,
+  UserRole.STAFF,
+];
+
+export const ROLE_LABELS: Record<string, string> = {
+  [UserRole.SAAS_ADMIN]: 'SaaS Admin',
+  [UserRole.STUDENT]: 'Siswa',
+  [UserRole.PARENT]: 'Orang Tua',
+  [UserRole.PRINCIPAL]: 'Kepala Sekolah',
+  [UserRole.WAKASEK_KURIKULUM]: 'Wakasek Kurikulum',
+  [UserRole.WAKASEK_KESISWAAN]: 'Wakasek Kesiswaan',
+  [UserRole.WAKASEK_SARANA]: 'Wakasek Sarana Prasarana',
+  [UserRole.KEPALA_PROGRAM_KEAHLIAN]: 'Kepala Program Keahlian',
+  [UserRole.KOORDINATOR_BK_ESKUL]: 'Koordinator BK & Eskul',
+  [UserRole.KOORDINATOR_LAB_PERPUS]: 'Koordinator Lab & Perpus',
+  [UserRole.KAPRODI]: 'Kaprodi',
+  [UserRole.GURU_PRODUKTIF]: 'Guru Produktif',
+  [UserRole.HOMEROOM_TEACHER]: 'Wali Kelas',
+  [UserRole.TEACHER]: 'Guru',
+  [UserRole.STAFF]: 'Staf',
+  [UserRole.FINANCE]: 'Keuangan',
+};
+
+/** Returns effective roles for a user (role + roles). Students/parents have single role. */
+export function getEffectiveRoles(user: { role?: string; roles?: string[] }): string[] {
+  if (!user) return [];
+  const roles = user.roles ?? [];
+  const primary = user.role ?? '';
+  if (primary && !roles.includes(primary)) return [primary, ...roles];
+  return roles.length ? roles : (primary ? [primary] : []);
+}
+
+/** Returns true if user has any of the given roles. */
+export function hasAnyRole(user: { role?: string; roles?: string[] } | null, allowed: string[]): boolean {
+  if (!user || !allowed.length) return false;
+  const effective = getEffectiveRoles(user);
+  return effective.some((r) => allowed.includes(r));
+}
+
+/** Kepala Sekolah has full access to all pages and functions. */
+export function hasFullAccess(user: { role?: string; roles?: string[] } | null): boolean {
+  return hasAnyRole(user, [UserRole.PRINCIPAL]);
+}
+
+/** Resource CRUD permission. */
+export interface ResourcePermission {
+  create: boolean;
+  read: boolean;
+  update: boolean;
+  delete: boolean;
+}
+
+/** Role definition stored in DB – configurable per school. */
+export interface RoleDefinition {
+  _id: string;
+  schoolId: string;
+  roleKey: string;
+  displayName: string;
+  permissions: {
+    pageAccess: string[];
+    approvals: string[];
+    resources: Record<string, ResourcePermission>;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Available pages for role access config. */
+export const ROLE_PAGES = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'profile', label: 'Profil' },
+  { key: 'users', label: 'Pengguna' },
+  { key: 'classes', label: 'Kelas' },
+  { key: 'years', label: 'Tahun Ajaran' },
+  { key: 'majors', label: 'Jurusan' },
+  { key: 'schedules', label: 'Jadwal' },
+  { key: 'attendance', label: 'Kehadiran' },
+  { key: 'invoices', label: 'Tagihan' },
+  { key: 'payments', label: 'Pembayaran' },
+  { key: 'reports', label: 'Laporan' },
+  { key: 'school-profile', label: 'Profil Sekolah' },
+  { key: 'messages', label: 'Pesan' },
+  { key: 'calendar', label: 'Kalender' },
+  { key: 'children', label: 'Anak Saya' },
+  { key: 'role-management', label: 'Kelola Peran' },
+] as const;
+
+/** Available resources for CRUD config. */
+export const ROLE_RESOURCES = [
+  { key: 'users', label: 'Pengguna' },
+  { key: 'classes', label: 'Kelas' },
+  { key: 'years', label: 'Tahun Ajaran' },
+  { key: 'majors', label: 'Jurusan' },
+  { key: 'schedules', label: 'Jadwal' },
+  { key: 'attendance', label: 'Kehadiran' },
+  { key: 'invoices', label: 'Tagihan' },
+  { key: 'medicalRecords', label: 'Rekam Medis' },
+  { key: 'leaveRequests', label: 'Cuti' },
+] as const;
+
+/** Available approval types. "Requires approval" = when this role does it, needs Principal sign-off. */
+export const ROLE_APPROVALS = [
+  { key: 'leave', label: 'Cuti' },
+  { key: 'admission', label: 'Penerimaan' },
+  { key: 'payment', label: 'Pembayaran' },
+  { key: 'class_create', label: 'Pembuatan Kelas (perlu persetujuan Kepala Sekolah)' },
+] as const;
 
 export enum SubscriptionStatus {
   TRIAL = 'trial',
@@ -63,6 +206,8 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  /** Additional roles for staff only; students and parents have single role. */
+  roles?: string[];
   phone?: string;
   avatar?: string;
   isActive: boolean;
@@ -104,6 +249,9 @@ export interface Class {
   studentIds: string[];
   capacity: number;
   isActive: boolean;
+  /** pending = needs Principal approval; approved = visible to all */
+  approvalStatus?: 'pending' | 'approved';
+  createdBy?: string;
 }
 
 export interface Attendance {
@@ -188,6 +336,7 @@ export interface Schedule {
   startTime?: string;
   endTime?: string;
   classId?: string;
+  subjectId?: string;
   createdBy: string;
   type: 'class' | 'school' | 'exam' | 'holiday' | 'event';
   isRecurring: boolean;
@@ -391,10 +540,113 @@ export interface Subject {
   schoolId: string;
   name: string;
   code?: string;
+  categoryId?: string;
+  teacherId?: string;
   description?: string;
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface SubjectCategory {
+  _id: string;
+  schoolId: string;
+  name: string;
+  code?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type SchoolLevel = 'tk' | 'sd' | 'smp' | 'sma' | 'smk';
+
+export interface GradingComponent {
+  key: string;
+  label: string;
+  weight: number;
+  minScore?: number;
+  maxScore?: number;
+}
+
+export interface AttitudeConfig {
+  spiritual?: { scale: string[] };
+  social?: { scale: string[] };
+}
+
+export interface PredicateMapping {
+  minNumeric: number;
+  maxNumeric: number;
+  letter: string;
+  description?: string;
+}
+
+export interface GradingConfig {
+  _id: string;
+  schoolId: string;
+  level: SchoolLevel;
+  name: string;
+  isActive?: boolean;
+  components: GradingComponent[];
+  attitudeConfig?: AttitudeConfig;
+  predicateMappings?: PredicateMapping[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SubjectGradingConfig {
+  _id: string;
+  schoolId: string;
+  subjectId: string;
+  gradingConfigId: string;
+  level: SchoolLevel;
+  componentOverrides?: { key: string; weight: number }[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TkDevelopmentArea {
+  _id: string;
+  schoolId: string;
+  gradingConfigId: string;
+  areaKey: string;
+  label: string;
+  scale: string[];
+  order: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface GradeComponent {
+  _id: string;
+  schoolId: string;
+  studentId: string;
+  subjectId: string;
+  classId?: string;
+  yearId: string;
+  semester: 1 | 2;
+  componentKey: string;
+  componentLabel?: string;
+  numericScore?: number;
+  letterScore?: string;
+  descriptiveScore?: string;
+  maxScore?: number;
+  examId?: string;
+  teacherId?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CalculatedGrade {
+  subjectId: string;
+  subjectName?: string;
+  numeric: number;
+  letter: string;
+  predicate?: string;
+  components: { key: string; label: string; score: number; weight: number }[];
+  /** TK only: development area → descriptive score (BB/MB/BSH/BSB) */
+  descriptiveComponents?: { key: string; label: string; value: string }[];
+  attitude?: { spiritual?: string; social?: string };
 }
 
 export interface Room {
@@ -426,9 +678,19 @@ export interface Grade {
   _id: string;
   schoolId: string;
   studentId: string;
-  examId: string;
+  examId?: string;
+  subjectId?: string;
+  classId?: string;
+  yearId?: string;
+  semester?: 1 | 2;
+  componentKey?: string;
   marksObtained: number;
+  maxMarks?: number;
+  letterGrade?: string;
+  predicate?: string;
   teacherComments?: string;
+  developmentArea?: string;
+  descriptiveScore?: string;
   isPublished?: boolean;
   createdAt?: string;
   updatedAt?: string;

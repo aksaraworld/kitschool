@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { firebaseAuthService } from '@/lib/firebaseAuth';
-import { UserRole } from '@/lib/types';
+import { UserRole, hasAnyRole, hasFullAccess } from '@/lib/types';
 import DashboardLayout from '../Layout/DashboardLayout';
 
 interface ProtectedRouteProps {
@@ -28,7 +28,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
       return;
     }
 
-    if (allowedRoles && !allowedRoles.includes(currentUser.role)) {
+    if (allowedRoles && !hasFullAccess(currentUser) && !hasAnyRole(currentUser, allowedRoles)) {
       router.push('/unauthorized');
       return;
     }
@@ -49,7 +49,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     return null;
   }
 
-  return <DashboardLayout userRole={user.role}>{children}</DashboardLayout>;
+  return <DashboardLayout user={user}>{children}</DashboardLayout>;
 }
 
 

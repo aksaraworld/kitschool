@@ -4,8 +4,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuth, getFirestore, setUserRole, usersCollection } from '@/lib/server/firebase-admin';
+import { getAuth, setUserRole, usersCollection } from '@/lib/server/firebase-admin';
 import { UserRole } from '@/lib/types';
+
+function generateNisn(existingNisns: Set<string>): string {
+  let n = String(Math.floor(1000000000 + Math.random() * 900000000));
+  let attempts = 0;
+  while (existingNisns.has(n) && attempts < 100) {
+    n = String(Math.floor(1000000000 + Math.random() * 900000000));
+    attempts++;
+  }
+  return n;
+}
 
 const VALID_ROLES = Object.values(UserRole);
 
@@ -35,6 +45,19 @@ export async function POST(req: NextRequest) {
     await setUserRole(userRecord.uid, role, role !== UserRole.SAAS_ADMIN ? schoolId : undefined);
 
     const isStudent = role === UserRole.STUDENT;
+    let nisnVal = isStudent ? (nisn ?? studentId) : null;
+    if (isStudent && !String(nisnVal ?? '').trim() && schoolId) {
+      const snap = await usersCollection()
+        .where('schoolId', '==', schoolId)
+        .where('role', '==', UserRole.STUDENT)
+        .get();
+      const existing = new Set(
+        snap.docs
+          .map((d) => (d.data() as { nisn?: string; studentId?: string }).nisn ?? (d.data() as { studentId?: string }).studentId)
+          .filter((x): x is string => Boolean(x))
+      );
+      nisnVal = generateNisn(existing);
+    }
     const isStaffRole = [UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.STAFF, UserRole.PRINCIPAL, UserRole.FINANCE].includes(role);
 
     const userData: Record<string, unknown> = {
@@ -45,10 +68,10 @@ export async function POST(req: NextRequest) {
       createdAt: new Date(),
       updatedAt: new Date(),
       phone: phone ?? null,
-      nisn: isStudent ? (nisn ?? studentId) ?? null : null,
+      nisn: isStudent ? (nisnVal ?? null) : null,
       admissionNo: isStudent ? (admissionNo ?? null) : null,
       nip: isStaffRole ? (nip ?? teacherId ?? employeeId) ?? null : null,
-      studentId: isStudent ? (nisn ?? studentId) ?? null : null,
+      studentId: isStudent ? (nisnVal ?? null) : null,
       teacherId: isStaffRole ? (nip ?? teacherId ?? employeeId) ?? null : null,
       employeeId: isStaffRole ? (nip ?? teacherId ?? employeeId) ?? null : null,
       classId: classId ?? null,
