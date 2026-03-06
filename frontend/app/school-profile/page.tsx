@@ -5,7 +5,7 @@ import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import { UserRole, School, ROLES_CAN_MANAGE_USERS, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
-import { Building2, MapPin, Phone, Mail, Globe, User, Edit, Save, X } from 'lucide-react';
+import { Building2, MapPin, Phone, Mail, Globe, User, Edit, Save, X, Award } from 'lucide-react';
 
 export default function SchoolProfilePage() {
   const { user } = useAuth();
@@ -249,6 +249,70 @@ export default function SchoolProfilePage() {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg h-32 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 placeholder:text-gray-500"
                 />
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Award className="w-5 h-5 text-primary-600" />
+                  Matrix Ranking Top 10 (UAS / UTS / PR)
+                </h3>
+                <p className="text-sm text-gray-600 mb-3">Bobot dalam persen (total 100). Digunakan untuk perhitungan Top 10 Siswa di Dashboard.</p>
+                <div className="grid grid-cols-3 gap-4 max-w-md">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">UAS (%)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={(formData as any).rankingMatrix?.wUas ?? 50}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        rankingMatrix: {
+                          wUas: Number(e.target.value) || 0,
+                          wUts: (formData as any).rankingMatrix?.wUts ?? 30,
+                          wPr: (formData as any).rankingMatrix?.wPr ?? 20,
+                        },
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">UTS (%)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={(formData as any).rankingMatrix?.wUts ?? 30}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        rankingMatrix: {
+                          wUas: (formData as any).rankingMatrix?.wUas ?? 50,
+                          wUts: Number(e.target.value) || 0,
+                          wPr: (formData as any).rankingMatrix?.wPr ?? 20,
+                        },
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">PR/Tugas (%)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={(formData as any).rankingMatrix?.wPr ?? 20}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        rankingMatrix: {
+                          wUas: (formData as any).rankingMatrix?.wUas ?? 50,
+                          wUts: (formData as any).rankingMatrix?.wUts ?? 30,
+                          wPr: Number(e.target.value) || 0,
+                        },
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="border-t pt-4">

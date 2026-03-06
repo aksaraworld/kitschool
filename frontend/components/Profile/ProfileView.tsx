@@ -32,6 +32,8 @@ export default function ProfileView({ userId, isOwnProfile, canEditMedical }: Pr
   const [studentSchedules, setStudentSchedules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showMedicalModal, setShowMedicalModal] = useState(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [editProfileForm, setEditProfileForm] = useState({ name: '', phone: '', address: '', email: '', avatar: '' });
   const [medicalForm, setMedicalForm] = useState({
     bloodGroup: '',
     allergies: '',
@@ -207,6 +209,57 @@ export default function ProfileView({ userId, isOwnProfile, canEditMedical }: Pr
   if (loading) return <div className="p-8 text-center">Memuat profil...</div>;
   if (!user) return <div className="p-8 text-center text-gray-500">Profil tidak ditemukan.</div>;
 
+  const openEditProfile = () => {
+    setEditProfileForm({
+      name: user.name ?? '',
+      phone: user.phone ?? '',
+      address: (user as { address?: string }).address ?? '',
+      email: user.email ?? '',
+      avatar: user.avatar ?? '',
+    });
+    setShowEditProfileModal(true);
+  };
+
+  const saveEditProfile = async () => {
+    try {
+      const payload: Record<string, unknown> = {
+        name: editProfileForm.name,
+        phone: editProfileForm.phone || undefined,
+        avatar: editProfileForm.avatar || undefined,
+      };
+      if (user.role === UserRole.STUDENT || user.role === UserRole.PARENT) {
+        payload.address = editProfileForm.address || undefined;
+        if (!(user as { emailProvidedBySchool?: boolean }).emailProvidedBySchool) {
+          payload.email = editProfileForm.email || undefined;
+        }
+      }
+      const needsOrtuApproval = user.role === UserRole.STUDENT && isOwnProfile &&
+        (editProfileForm.address !== ((user as { address?: string }).address ?? '') ||
+         editProfileForm.email !== (user.email ?? '') ||
+         editProfileForm.phone !== (user.phone ?? ''));
+      if (needsOrtuApproval) {
+        const changes: Record<string, unknown> = {};
+        if (editProfileForm.address !== ((user as { address?: string }).address ?? '')) changes.address = editProfileForm.address || '';
+        if (editProfileForm.phone !== (user.phone ?? '')) changes.phone = editProfileForm.phone || '';
+        if (!(user as { emailProvidedBySchool?: boolean }).emailProvidedBySchool && editProfileForm.email !== (user.email ?? '')) {
+          changes.email = editProfileForm.email || '';
+        }
+        if (Object.keys(changes).length > 0) {
+          await api.post('/pending-profile-changes', changes);
+          setShowEditProfileModal(false);
+          alert('Perubahan akan disimpan setelah persetujuan orang tua. Lihat halaman Anak Saya.');
+          return;
+        }
+      }
+      await api.put(`/users/${userId}`, payload);
+      setUser((prev) => prev ? { ...prev, ...payload } : null);
+      setShowEditProfileModal(false);
+    } catch (e) {
+      console.error('Save profile error:', e);
+      alert('Gagal menyimpan profil.');
+    }
+  };
+
   const getRoleLabel = (r: string) =>
     r === UserRole.HOMEROOM_TEACHER ? 'Wali Kelas' : r === UserRole.PRINCIPAL ? 'Kepala Sekolah' : r === UserRole.FINANCE ? 'Keuangan' : r;
 
@@ -225,14 +278,30 @@ export default function ProfileView({ userId, isOwnProfile, canEditMedical }: Pr
       {/* Header */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex flex-wrap items-center gap-6">
-          <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center">
-            <UserIcon className="w-10 h-10 text-primary-600" />
+          <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden">
+            {user.avatar ? (
+              <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <UserIcon className="w-10 h-10 text-primary-600" />
+            )}
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-bold text-gray-900">{user.name}</h1>
             <p className="text-gray-600">{user.email}</p>
             <p className="text-sm text-gray-500 mt-1">{getRoleLabel(user.role)}</p>
             {user.phone && <p className="text-sm text-gray-600">📞 {user.phone}</p>}
+            {(user as { address?: string }).address && (
+              <p className="text-sm text-gray-600">📍 {(user as { address?: string }).address}</p>
+            )}
+            {isOwnProfile && (
+              <button
+                onClick={openEditProfile}
+                className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 text-sm text-primary-600 hover:bg-primary-50 rounded-lg border border-primary-200"
+              >
+                <Pencil className="w-4 h-4" />
+                Edit profil
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -498,6 +567,92 @@ export default function ProfileView({ userId, isOwnProfile, canEditMedical }: Pr
               <Wallet className="w-4 h-4" />
               Lihat tagihan →
             </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile modal (own profile) */}
+      {showEditProfileModal && isOwnProfile && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6">
+            <h3 className="text-lg font-semibold mb-4">Edit profil</h3>
+            {(user.role === UserRole.STUDENT || user.role === UserRole.PARENT) && (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mb-4">
+                Siswa & ortu hanya dapat mengubah alamat, email, dan no. telp. Siswa yang mengubah profil memerlukan persetujuan orang tua. Jika email diberikan sekolah, email tidak dapat diubah.
+              </p>
+            )}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">URL Avatar</label>
+                <input
+                  type="url"
+                  value={editProfileForm.avatar}
+                  onChange={(e) => setEditProfileForm((f) => ({ ...f, avatar: e.target.value }))}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nama *</label>
+                <input
+                  type="text"
+                  value={editProfileForm.name}
+                  onChange={(e) => setEditProfileForm((f) => ({ ...f, name: e.target.value }))}
+                  required
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">No. Telepon</label>
+                <input
+                  type="tel"
+                  value={editProfileForm.phone}
+                  onChange={(e) => setEditProfileForm((f) => ({ ...f, phone: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+              </div>
+              {(user.role === UserRole.STUDENT || user.role === UserRole.PARENT) && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Alamat</label>
+                    <input
+                      type="text"
+                      value={editProfileForm.address}
+                      onChange={(e) => setEditProfileForm((f) => ({ ...f, address: e.target.value }))}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="Alamat lengkap"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={editProfileForm.email}
+                      onChange={(e) => setEditProfileForm((f) => ({ ...f, email: e.target.value }))}
+                      disabled={(user as { emailProvidedBySchool?: boolean }).emailProvidedBySchool === true}
+                      className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-500"
+                    />
+                    {(user as { emailProvidedBySchool?: boolean }).emailProvidedBySchool && (
+                      <p className="text-xs text-gray-500 mt-1">Email diberikan sekolah, tidak dapat diubah.</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={saveEditProfile}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              >
+                Simpan
+              </button>
+              <button
+                onClick={() => setShowEditProfileModal(false)}
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                Batal
+              </button>
+            </div>
           </div>
         </div>
       )}

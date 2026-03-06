@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import { UserRole, ROLES_CAN_MANAGE_USERS, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,7 +27,9 @@ interface Schedule {
 
 type ViewMode = 'month' | 'week' | 'day';
 
-export default function SchedulesPage() {
+function SchedulesPageContent() {
+  const searchParams = useSearchParams();
+  const majorIdParam = searchParams.get('majorId') ?? '';
   const { user } = useAuth();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,19 +57,19 @@ export default function SchedulesPage() {
     fetchSchedules();
     fetchClasses();
     fetchSubjects();
-  }, [currentDate, viewMode]);
+  }, [currentDate, viewMode, majorIdParam]);
 
   const fetchSchedules = async () => {
     try {
       setLoading(true);
       const start = getViewStartDate();
       const end = getViewEndDate();
-      const schedulesData = await api.get<Schedule[]>('/schedules', {
-        params: {
-          startDate: start.toISOString(),
-          endDate: end.toISOString()
-        }
-      });
+      const params: Record<string, string> = {
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+      };
+      if (majorIdParam) params.majorId = majorIdParam;
+      const schedulesData = await api.get<Schedule[]>('/schedules', { params });
       setSchedules(schedulesData);
     } catch (error) {
       console.error('Error fetching schedules:', error);
@@ -281,7 +284,10 @@ export default function SchedulesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Jadwal</h1>
-            <p className="text-gray-600 mt-2">Kelola jadwal per mata pelajaran dan kelas. Setiap kelas dapat memiliki jadwal berbeda untuk mata pelajaran yang sama.</p>
+            <p className="text-gray-600 mt-2">
+              {majorIdParam ? 'Jadwal pelajaran per jurusan. ' : ''}
+              Kelola jadwal per mata pelajaran dan kelas.
+            </p>
           </div>
           {canManage && (
             <button
@@ -760,5 +766,13 @@ export default function SchedulesPage() {
         )}
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function SchedulesPage() {
+  return (
+    <Suspense fallback={<ProtectedRoute><div className="p-8 text-center">Memuat...</div></ProtectedRoute>}>
+      <SchedulesPageContent />
+    </Suspense>
   );
 }

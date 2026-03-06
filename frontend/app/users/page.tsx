@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import { UserRole, User, STAFF_ROLES, ROLES_CAN_MANAGE_USERS, ROLE_LABELS, getEffectiveRoles, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,13 +10,14 @@ import { Button } from '@aksara/ui';
 import Link from 'next/link';
 import { Plus, Edit, Trash2, UserCheck, Search, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 
-export default function UsersPage() {
+function UsersPageContent() {
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [roleFilter, setRoleFilter] = useState<string>('');
+  const [roleFilter, setRoleFilter] = useState<string>(() => searchParams.get('role') || '');
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 25;
@@ -42,7 +44,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, [roleFilter]);
+  }, [roleFilter, searchParams.get('majorId')]);
 
   useEffect(() => {
     if (showCreateModal) {
@@ -59,7 +61,11 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const url = roleFilter ? `/users?role=${encodeURIComponent(roleFilter)}` : '/users';
+      const params = new URLSearchParams();
+      if (roleFilter) params.set('role', roleFilter);
+      const majorId = searchParams.get('majorId');
+      if (majorId) params.set('majorId', majorId);
+      const url = params.toString() ? `/users?${params.toString()}` : '/users';
       const usersData = await api.get<User[]>(url);
       setUsers(usersData);
     } catch (error) {
@@ -309,22 +315,36 @@ export default function UsersPage() {
                   {formData.role !== UserRole.STUDENT && formData.role !== UserRole.PARENT && (
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Peran Tambahan (satu user bisa punya banyak peran)
+                        Peran Tambahan
                       </label>
-                      <select
-                        multiple
-                        value={formData.roles}
-                        onChange={(e) => {
-                          const sel = Array.from(e.target.selectedOptions, (o) => o.value);
-                          setFormData({ ...formData, roles: sel });
-                        }}
-                        className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[100px]"
-                      >
-                        {STAFF_ROLES.filter((r) => r !== formData.role).map((r) => (
-                          <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-gray-500 mt-1">Tahan Ctrl (Windows) atau Cmd (Mac) untuk memilih banyak peran tambahan</p>
+                      <p className="text-xs text-gray-500 mb-2">Kosong di awal. Tambah dengan tombol [+] atau centang peran di bawah.</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {STAFF_ROLES.filter((r) => r !== formData.role).map((r) => {
+                          const checked = formData.roles.includes(r);
+                          return (
+                            <label
+                              key={r}
+                              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border cursor-pointer text-sm ${
+                                checked ? 'bg-primary-50 border-primary-300 text-primary-800' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    roles: checked ? prev.roles.filter((x) => x !== r) : [...prev.roles, r]
+                                  }));
+                                }}
+                                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                              />
+                              <span>{ROLE_LABELS[r] ?? r}</span>
+                            </label>
+                          );
+                        })}
+                        <span className="text-xs text-gray-400">(centang untuk tambah, hapus centang untuk lepas)</span>
+                      </div>
                     </div>
                   )}
                   {(formData.role === UserRole.STUDENT) && (
@@ -534,6 +554,9 @@ export default function UsersPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      No
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Nama
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -554,8 +577,11 @@ export default function UsersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {paginatedUsers.map((userItem) => (
+                  {paginatedUsers.map((userItem, index) => (
                     <tr key={userItem._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {(page - 1) * PAGE_SIZE + index + 1}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
@@ -658,6 +684,14 @@ export default function UsersPage() {
         </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function UsersPage() {
+  return (
+    <Suspense fallback={<ProtectedRoute><div className="p-8 text-center">Memuat...</div></ProtectedRoute>}>
+      <UsersPageContent />
+    </Suspense>
   );
 }
 

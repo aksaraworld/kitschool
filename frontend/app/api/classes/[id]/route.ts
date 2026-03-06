@@ -38,6 +38,7 @@ export async function GET(
     const yearId = row.yearId as string | undefined;
     const majorId = row.majorId as string | undefined;
     const homeroomId = row.homeroomTeacherId as string | undefined;
+    const presidentId = row.classPresidentId as string | undefined;
     if (yearId) {
       const y = await yearsCollection().doc(yearId).get();
       row.yearId = y.exists ? docToJson(y) : { _id: yearId, name: 'N/A' };
@@ -51,6 +52,12 @@ export async function GET(
       row.homeroomTeacherId = t.exists
         ? { _id: t.id, name: (t.data() as { name?: string })?.name ?? 'N/A' }
         : { _id: homeroomId, name: 'N/A' };
+    }
+    if (presidentId) {
+      const p = await usersCollection().doc(presidentId).get();
+      row.classPresidentId = p.exists
+        ? { _id: p.id, name: (p.data() as { name?: string })?.name ?? 'N/A' }
+        : { _id: presidentId, name: 'N/A' };
     }
     return NextResponse.json(row);
   } catch (e) {
@@ -94,6 +101,7 @@ export async function PUT(
     const yearId = row.yearId as string | undefined;
     const majorId = row.majorId as string | undefined;
     const homeroomId = row.homeroomTeacherId as string | undefined;
+    const presidentId = row.classPresidentId as string | undefined;
     if (yearId) {
       const y = await yearsCollection().doc(yearId).get();
       row.yearId = y.exists ? docToJson(y) : { _id: yearId, name: 'N/A' };
@@ -107,6 +115,12 @@ export async function PUT(
       row.homeroomTeacherId = t.exists
         ? { _id: t.id, name: (t.data() as { name?: string })?.name ?? 'N/A' }
         : { _id: homeroomId, name: 'N/A' };
+    }
+    if (presidentId) {
+      const p = await usersCollection().doc(presidentId).get();
+      row.classPresidentId = p.exists
+        ? { _id: p.id, name: (p.data() as { name?: string })?.name ?? 'N/A' }
+        : { _id: presidentId, name: 'N/A' };
     }
     return NextResponse.json(row);
   } catch (e) {

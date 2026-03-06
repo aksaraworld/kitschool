@@ -166,7 +166,9 @@ export enum AttendanceStatus {
   PRESENT = 'present',
   ABSENT = 'absent',
   LATE = 'late',
-  EXCUSED = 'excused'
+  EXCUSED = 'excused',
+  /** Cuti (staff) */
+  LEAVE = 'leave',
 }
 
 export enum PaymentStatus {
@@ -212,6 +214,10 @@ export interface User {
   roles?: string[];
   phone?: string;
   avatar?: string;
+  /** Alamat – dapat diubah oleh siswa/ortu di profil/security */
+  address?: string;
+  /** Jika true, email siswa diberikan sekolah dan tidak boleh diubah oleh siswa */
+  emailProvidedBySchool?: boolean;
   isActive: boolean;
   /** NISN – students only (Nomor Induk Siswa Nasional, 10-digit national ID) */
   nisn?: string;
@@ -248,6 +254,8 @@ export interface Class {
   yearId: string;
   majorId: string;
   homeroomTeacherId: string;
+  /** Ketua kelas (student id) */
+  classPresidentId?: string;
   studentIds: string[];
   capacity: number;
   isActive: boolean;
@@ -381,6 +389,8 @@ export interface School {
   accreditation?: string;
   establishedYear?: number;
   description?: string;
+  /** Bobot matrix ranking Top 10: UAS/UTS/PR (persen, total 100) */
+  rankingMatrix?: { wUas?: number; wUts?: number; wPr?: number };
   subscriptionStatus: SubscriptionStatus;
   subscriptionStartDate?: string;
   subscriptionEndDate?: string;

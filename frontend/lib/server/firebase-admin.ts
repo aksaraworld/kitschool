@@ -150,6 +150,10 @@ export function roleDefinitionsCollection() {
   return getFirestore().collection('roleDefinitions');
 }
 
+export function scholarshipsCollection() {
+  return getFirestore().collection('scholarships');
+}
+
 export function subjectCategoriesCollection() {
   return getFirestore().collection('subjectCategories');
 }
@@ -164,6 +168,14 @@ export function subjectGradingConfigsCollection() {
 
 export function gradeComponentsCollection() {
   return getFirestore().collection('gradeComponents');
+}
+
+export function cashFlowCollection() {
+  return getFirestore().collection('cashFlow');
+}
+
+export function pendingProfileChangesCollection() {
+  return getFirestore().collection('pendingProfileChanges');
 }
 
 export function tkDevelopmentAreasCollection() {

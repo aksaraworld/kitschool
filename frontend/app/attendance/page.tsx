@@ -13,10 +13,37 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [status, setStatus] = useState<AttendanceStatus>(AttendanceStatus.PRESENT);
+  const [summaryMonth, setSummaryMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [monthlyCounts, setMonthlyCounts] = useState<{ masuk: number; ijin: number; alpa: number; cuti: number } | null>(null);
 
   useEffect(() => {
     fetchAttendances();
   }, [selectedDate]);
+
+  useEffect(() => {
+    fetchMonthlySummary();
+  }, [summaryMonth, user?._id]);
+
+  const fetchMonthlySummary = async () => {
+    if (!user?._id) return;
+    try {
+      const [y, m] = summaryMonth.split('-').map(Number);
+      const list = await api.get<Attendance[]>('/attendance', {
+        params: { userId: user._id, month: m, year: y },
+      });
+      const arr = Array.isArray(list) ? list : [];
+      const masuk = arr.filter((a: any) => a.status === 'present' || a.status === 'late').length;
+      const ijin = arr.filter((a: any) => a.status === 'excused').length;
+      const alpa = arr.filter((a: any) => a.status === 'absent').length;
+      const cuti = arr.filter((a: any) => a.status === 'leave').length;
+      setMonthlyCounts({ masuk, ijin, alpa, cuti });
+    } catch {
+      setMonthlyCounts(null);
+    }
+  };
 
   const fetchAttendances = async () => {
     try {
@@ -76,6 +103,7 @@ export default function AttendancePage() {
     }
   };
 
+  const isStaff = hasAnyRole(user, [UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.GURU_PRODUKTIF, UserRole.STAFF, UserRole.PRINCIPAL]);
   const canSubmitAttendance = user?.role === UserRole.STUDENT || hasAnyRole(user, [UserRole.TEACHER, UserRole.HOMEROOM_TEACHER, UserRole.GURU_PRODUKTIF]);
   const todayAttendance = attendances.find(
     (a) => a.userId === user?._id && a.date.split('T')[0] === selectedDate
@@ -119,6 +147,7 @@ export default function AttendancePage() {
                   <option value={AttendanceStatus.LATE}>Terlambat</option>
                   <option value={AttendanceStatus.EXCUSED}>Izin</option>
                   <option value={AttendanceStatus.ABSENT}>Tidak Hadir</option>
+                  {isStaff && <option value={AttendanceStatus.LEAVE}>Cuti</option>}
                 </select>
               </div>
               <button
@@ -138,11 +167,53 @@ export default function AttendancePage() {
                 todayAttendance.status === 'present' ? 'Hadir' :
                 todayAttendance.status === 'late' ? 'Terlambat' :
                 todayAttendance.status === 'excused' ? 'Izin' :
+                todayAttendance.status === 'leave' ? 'Cuti' :
                 'Tidak Hadir'
               }
             </p>
           </div>
         )}
+
+        {/* Absensi per Bulan */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-4">Absensi per Bulan</h2>
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <label className="text-sm font-medium text-gray-700">Bulan:</label>
+            <input
+              type="month"
+              value={summaryMonth}
+              onChange={(e) => setSummaryMonth(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          {monthlyCounts !== null ? (
+            <div className="flex flex-wrap gap-6">
+              <div className="px-4 py-2 bg-green-100 text-green-800 rounded-lg">
+                <span className="font-medium">Masuk</span>
+                <span className="ml-2 font-bold">{monthlyCounts.masuk}</span>
+              </div>
+              <div className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg">
+                <span className="font-medium">Ijin</span>
+                <span className="ml-2 font-bold">{monthlyCounts.ijin}</span>
+              </div>
+              <div className="px-4 py-2 bg-red-100 text-red-800 rounded-lg">
+                <span className="font-medium">Alpa</span>
+                <span className="ml-2 font-bold">{monthlyCounts.alpa}</span>
+              </div>
+              {isStaff && (
+                <div className="px-4 py-2 bg-amber-100 text-amber-800 rounded-lg">
+                  <span className="font-medium">Cuti</span>
+                  <span className="ml-2 font-bold">{monthlyCounts.cuti}</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm">Memuat ringkasan...</p>
+          )}
+          {isStaff && (
+            <p className="text-xs text-gray-500 mt-3">Untuk staff: data cuti perlu koordinasi dengan HR.</p>
+          )}
+        </div>
 
         <div className="bg-white rounded-lg shadow">
           <div className="p-6 border-b">
@@ -202,6 +273,7 @@ export default function AttendancePage() {
                           {attendance.status === 'present' ? 'Hadir' :
                            attendance.status === 'late' ? 'Terlambat' :
                            attendance.status === 'excused' ? 'Izin' :
+                           attendance.status === 'leave' ? 'Cuti' :
                            'Tidak Hadir'}
                         </span>
                       </td>

@@ -11,6 +11,7 @@ import {
   schedulesCollection,
   usersCollection,
   docToJson,
+  getFirestore,
 } from '@/lib/server/firebase-admin';
 import { UserRole } from '@/lib/types';
 
@@ -147,6 +148,14 @@ export async function PUT(
     if ((snap.data()?.schoolId as string) !== schoolId) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
 
     const body = await req.json().catch(() => ({}));
+    if (body.isActive === true) {
+      const allSnap = await yearsCollection().where('schoolId', '==', schoolId).get();
+      const batch = getFirestore().batch();
+      allSnap.docs.forEach((d) => {
+        if (d.id !== id) batch.update(d.ref, { isActive: false, updatedAt: new Date() });
+      });
+      if (allSnap.docs.some((d) => d.id !== id)) await batch.commit();
+    }
     await ref.update({ ...body, updatedAt: new Date() });
     const updated = await ref.get();
     return NextResponse.json(docToJson(updated));

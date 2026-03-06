@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
     const col = usersCollection();
     const roleParam = req.nextUrl.searchParams.get('role');
     const parentOfParam = req.nextUrl.searchParams.get('parentOf');
+    const majorIdParam = req.nextUrl.searchParams.get('majorId');
     const schoolIdForQuery = auth.role !== UserRole.SAAS_ADMIN && auth.schoolId ? auth.schoolId : null;
 
     let snapshot;
@@ -65,6 +66,21 @@ export async function GET(req: NextRequest) {
         const d2 = d.data() as { role?: string; roles?: string[] };
         return d2?.role === roleParam || (Array.isArray(d2?.roles) && d2.roles.includes(roleParam));
       });
+    }
+    if (majorIdParam && schoolIdForQuery) {
+      const classesSnap = await classesCollection()
+        .where('schoolId', '==', schoolIdForQuery)
+        .where('majorId', '==', majorIdParam)
+        .get();
+      const classIds = new Set(classesSnap.docs.map((d) => d.id));
+      if (classIds.size > 0) {
+        docs = docs.filter((d) => {
+          const data = d.data() as { homeroomClassId?: string; assignedClasses?: string[] };
+          const homeroom = data.homeroomClassId && classIds.has(data.homeroomClassId);
+          const assigned = Array.isArray(data.assignedClasses) && data.assignedClasses.some((c: string) => classIds.has(c));
+          return homeroom || assigned;
+        });
+      }
     }
     const users = docs.map((doc) => docToUser(doc));
 

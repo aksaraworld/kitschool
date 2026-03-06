@@ -6,7 +6,7 @@ import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import { UserRole, ROLES_CAN_MANAGE_USERS, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
-import { Building2, Plus, Edit, Trash2, X, Save, ChevronRight } from 'lucide-react';
+import { Building2, Plus, Edit, Trash2, X, Save, ChevronRight, Calendar } from 'lucide-react';
 
 interface Major {
   _id: string;
@@ -19,9 +19,16 @@ interface Major {
   updatedAt: string;
 }
 
+interface YearItem {
+  _id: string;
+  name: string;
+}
+
 export default function MajorsPage() {
   const { user } = useAuth();
   const [majors, setMajors] = useState<Major[]>([]);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [years, setYears] = useState<YearItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingMajor, setEditingMajor] = useState<Major | null>(null);
@@ -38,8 +45,14 @@ export default function MajorsPage() {
   const fetchMajors = async () => {
     try {
       setLoading(true);
-      const majorsData = await api.get<Major[]>('/classes/majors');
-      setMajors(majorsData);
+      const [majorsData, classesData, yearsData] = await Promise.all([
+        api.get<Major[]>('/classes/majors'),
+        api.get<any[]>('/classes'),
+        api.get<YearItem[]>('/classes/years'),
+      ]);
+      setMajors(Array.isArray(majorsData) ? majorsData : []);
+      setClasses(Array.isArray(classesData) ? classesData : []);
+      setYears(Array.isArray(yearsData) ? yearsData : []);
     } catch (error) {
       console.error('Error fetching majors:', error);
       alert('Gagal memuat data jurusan');
@@ -95,6 +108,17 @@ export default function MajorsPage() {
 
   const canManage = hasAnyRole(user, ROLES_CAN_MANAGE_USERS.map(String));
 
+  const getYearNamesForMajor = (majorId: string) => {
+    const yearIds = new Set<string>();
+    classes.forEach((c) => {
+      const mid = c.majorId?._id ?? c.majorId;
+      if (mid === majorId && (c.yearId?._id ?? c.yearId)) {
+        yearIds.add(c.yearId?._id ?? c.yearId);
+      }
+    });
+    return years.filter((y) => yearIds.has(y._id)).map((y) => y.name).join(', ') || '-';
+  };
+
   return (
     <ProtectedRoute allowedRoles={[UserRole.STAFF, UserRole.PRINCIPAL]}>
       <div className="space-y-6">
@@ -132,10 +156,16 @@ export default function MajorsPage() {
                       Nama Jurusan
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Tahun Ajaran
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Deskripsi
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Jadwal
                     </th>
                     {canManage && (
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -147,7 +177,7 @@ export default function MajorsPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {majors.length === 0 ? (
                     <tr>
-                      <td colSpan={canManage ? 5 : 4} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={canManage ? 7 : 6} className="px-6 py-8 text-center text-gray-500">
                         Tidak ada data jurusan
                       </td>
                     </tr>
@@ -171,6 +201,9 @@ export default function MajorsPage() {
                             <ChevronRight className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </Link>
                         </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {getYearNamesForMajor(major._id)}
+                        </td>
                         <td className="px-6 py-4">
                           <div className="text-sm text-gray-500">{major.description || '-'}</div>
                         </td>
@@ -182,6 +215,15 @@ export default function MajorsPage() {
                           }`}>
                             {major.isActive ? 'Aktif' : 'Tidak Aktif'}
                           </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Link
+                            href={`/schedules?majorId=${major._id}`}
+                            className="inline-flex items-center gap-1 text-sm text-primary-600 hover:underline"
+                          >
+                            <Calendar className="w-4 h-4" />
+                            Jadwal pelajaran
+                          </Link>
                         </td>
                         {canManage && (
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId, hasAnyRole, hasFullAccess } from '@/lib/server/auth-helpers';
-import { schedulesCollection, docToJson } from '@/lib/server/firebase-admin';
+import { schedulesCollection, docToJson, classesCollection } from '@/lib/server/firebase-admin';
 import { UserRole } from '@/lib/types';
 
 export async function GET(req: NextRequest) {
@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
     const classId = req.nextUrl.searchParams.get('classId');
+    const majorId = req.nextUrl.searchParams.get('majorId');
     const type = req.nextUrl.searchParams.get('type');
     const startDate = req.nextUrl.searchParams.get('startDate');
     const endDate = req.nextUrl.searchParams.get('endDate');
@@ -26,6 +27,11 @@ export async function GET(req: NextRequest) {
 
     const snapshot = await query.get();
     let rows = snapshot.docs.map((d) => docToJson(d));
+    if (majorId) {
+      const classesSnap = await classesCollection().where('schoolId', '==', schoolId).where('majorId', '==', majorId).get();
+      const classIds = new Set(classesSnap.docs.map((d) => d.id));
+      rows = rows.filter((r) => classIds.has(String(r.classId ?? '')));
+    }
     if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);

@@ -5,6 +5,7 @@ import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
 import { Button } from '@aksara/ui';
+import Link from 'next/link';
 import {
   Shield,
   Edit,
@@ -14,6 +15,7 @@ import {
   Trash2,
   ChevronDown,
   ChevronRight,
+  Users,
 } from 'lucide-react';
 import {
   UserRole,
@@ -43,9 +45,22 @@ export default function RoleManagementPage() {
     },
   });
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [usageCount, setUsageCount] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchRoles();
+  }, []);
+
+  useEffect(() => {
+    const fetchUsage = async () => {
+      try {
+        const data = await api.get<Record<string, number>>('/roles/usage');
+        setUsageCount(data ?? {});
+      } catch {
+        setUsageCount({});
+      }
+    };
+    fetchUsage();
   }, []);
 
   const defaultResources = () => {
@@ -225,6 +240,26 @@ export default function RoleManagementPage() {
                           Default
                         </span>
                       )}
+                      {(() => {
+                        const rk = String(role.roleKey ?? '');
+                        const count = usageCount[rk] ?? 0;
+                        return (
+                          <span className="text-sm text-gray-600 flex items-center gap-1">
+                            <Users className="w-4 h-4" />
+                            {count > 0 ? (
+                              <Link
+                                href={`/users?role=${encodeURIComponent(rk)}`}
+                                className="text-primary-600 hover:underline font-medium"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                digunakan oleh {count} orang
+                              </Link>
+                            ) : (
+                              <span>digunakan oleh 0 orang</span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       {!isDefault && (

@@ -24,7 +24,8 @@ import {
   GraduationCap,
   Building2,
   Wallet,
-  FileText
+  FileText,
+  Award,
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -95,7 +96,8 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/majors', label: 'Jurusan', icon: Building2 },
     { href: '/schedules', label: 'Jadwal', icon: Calendar },
     { href: '/attendance', label: 'Kehadiran', icon: ClipboardCheck },
-    { href: '/invoices', label: 'Tagihan', icon: Wallet },
+    { href: '/beasiswa', label: 'Beasiswa', icon: Award },
+    { href: '/cash-flow', label: 'Cash Flow', icon: Wallet },
     { href: '/reports', label: 'Laporan', icon: FileText },
     { href: '/school-profile', label: 'Profil Sekolah', icon: Building2 },
   ],

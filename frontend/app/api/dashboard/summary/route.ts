@@ -13,6 +13,8 @@ import {
   gradesCollection,
   attendanceCollection,
   majorsCollection,
+  scholarshipsCollection,
+  schoolsCollection,
   docToJson,
 } from '@/lib/server/firebase-admin';
 import { UserRole } from '@/lib/types';
@@ -30,14 +32,28 @@ export async function GET(req: NextRequest) {
     const schoolId = getSchoolId(req, auth);
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
-    const [yearsSnap, classesSnap, usersSnap, gradesSnap, attSnap, majorsSnap] = await Promise.all([
+    const [yearsSnap, classesSnap, usersSnap, gradesSnap, attSnap, majorsSnap, scholarSnap, schoolSnap] = await Promise.all([
       yearsCollection().where('schoolId', '==', schoolId).get(),
       classesCollection().where('schoolId', '==', schoolId).get(),
       usersCollection().where('schoolId', '==', schoolId).get(),
       gradesCollection().where('schoolId', '==', schoolId).get(),
       attendanceCollection().where('schoolId', '==', schoolId).get(),
       majorsCollection().where('schoolId', '==', schoolId).get(),
+      scholarshipsCollection().where('schoolId', '==', schoolId).get(),
+      schoolsCollection().doc(schoolId).get(),
     ]);
+    const schoolData = schoolSnap.exists ? (schoolSnap.data() as { rankingMatrix?: { wUas?: number; wUts?: number; wPr?: number } }) : {};
+    const rm = schoolData.rankingMatrix ?? {};
+    const wUas = Math.max(0, Math.min(100, Number(rm.wUas) || 50));
+    const wUts = Math.max(0, Math.min(100, Number(rm.wUts) || 30));
+    const wPr = Math.max(0, Math.min(100, Number(rm.wPr) || 20));
+    const totalW = wUas + wUts + wPr || 1;
+    const activeScholarshipPrograms = scholarSnap.docs
+      .filter((d) => (d.data() as { isActive?: boolean }).isActive !== false)
+      .map((d) => {
+        const data = d.data() as { name?: string };
+        return { _id: d.id, name: data.name ?? 'Beasiswa' };
+      });
 
     const years = yearsSnap.docs.map((d) => docToJson(d) as { _id: string; name: string; isActive?: boolean; startDate?: unknown; endDate?: unknown });
     years.sort((a, b) => String(b.startDate || '').localeCompare(String(a.startDate || '')));
@@ -49,7 +65,6 @@ export async function GET(req: NextRequest) {
       .filter((d) => !yearId || (d.data() as { yearId?: string }).yearId === yearId)
       .map((d) => ({ id: d.id, ...d.data() } as { id: string; yearId?: string; majorId?: string; studentIds?: string[]; homeroomTeacherId?: string }));
 
-    const classIds = new Set(classes.map((c) => c.id));
     const studentIdsInYear = new Set<string>();
     const teacherIdsInYear = new Set<string>();
     const majorTeacherCount: Record<string, number> = { Lainnya: 0 };
@@ -70,19 +85,31 @@ export async function GET(req: NextRequest) {
     const users = usersSnap.docs.map((d) => ({ id: d.id, ...d.data() } as { id: string; name?: string; role?: string }));
     const userMap = new Map(users.map((u) => [u.id, u]));
 
-    const grades = gradesSnap.docs.map((d) => docToJson(d) as { studentId?: string; marksObtained?: number });
-    const gradeByStudent = new Map<string, number[]>();
+    const grades = gradesSnap.docs.map((d) => docToJson(d) as { studentId?: string; marksObtained?: number; componentKey?: string });
+    const byStudent = new Map<string, { uas: number[]; uts: number[]; pr: number[]; all: number[] }>();
+    for (const sid of studentIdsInYear) byStudent.set(sid, { uas: [], uts: [], pr: [], all: [] });
     for (const g of grades) {
       const sid = g.studentId as string | undefined;
       if (!sid || !studentIdsInYear.has(sid)) continue;
-      const arr = gradeByStudent.get(sid) ?? [];
       const m = Number(g.marksObtained);
-      if (!isNaN(m)) arr.push(m);
-      gradeByStudent.set(sid, arr);
+      if (isNaN(m)) continue;
+      const row = byStudent.get(sid)!;
+      row.all.push(m);
+      const key = String(g.componentKey ?? '').toLowerCase();
+      if (key.includes('uas')) row.uas.push(m);
+      else if (key.includes('uts')) row.uts.push(m);
+      else if (key.includes('pr') || key.includes('tugas')) row.pr.push(m);
     }
     const avgByStudent = new Map<string, number>();
-    gradeByStudent.forEach((arr, sid) => {
-      avgByStudent.set(sid, arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
+    byStudent.forEach((v, sid) => {
+      const au = v.uas.length ? v.uas.reduce((a, b) => a + b, 0) / v.uas.length : 0;
+      const at = v.uts.length ? v.uts.reduce((a, b) => a + b, 0) / v.uts.length : 0;
+      const ap = v.pr.length ? v.pr.reduce((a, b) => a + b, 0) / v.pr.length : 0;
+      const hasMatrix = (v.uas.length || v.uts.length || v.pr.length) && totalW > 0;
+      const score = hasMatrix
+        ? (wUas / totalW) * au + (wUts / totalW) * at + (wPr / totalW) * ap
+        : v.all.length ? v.all.reduce((a, b) => a + b, 0) / v.all.length : 0;
+      if (v.all.length || hasMatrix) avgByStudent.set(sid, score);
     });
     const topByGrades = [...avgByStudent.entries()]
       .sort((a, b) => b[1] - a[1])
@@ -123,17 +150,20 @@ export async function GET(req: NextRequest) {
 
     const graphData = Object.entries(majorTeacherCount)
       .filter(([, v]) => v > 0)
-      .map(([major, count]) => ({ label: major, value: count }));
+      .map(([major, count]) => {
+        const majorId = majorsSnap.docs.find((d) => (d.data() as { name?: string }).name === major)?.id;
+        return { label: major, value: count, majorId: majorId ?? '' };
+      });
 
     return NextResponse.json({
       totalStudents: studentIdsInYear.size,
       activeYear: { _id: yearId, name: yearName },
-      top3ByGrades: topByGrades.slice(0, 3),
       top10ByGrades: topByGrades.slice(0, 10),
       top10ByAttendance: topByAttendance,
       teacherCount: teachersInYear.length,
-      teachers: teachersInYear.slice(0, 20).map((t) => ({ _id: t.id, name: t.name })),
       graphTeachersByMajor: graphData,
+      activeScholarshipPrograms,
+      activeScholarshipCount: activeScholarshipPrograms.length,
     });
   } catch (e) {
     console.error('GET /api/dashboard/summary error:', e);

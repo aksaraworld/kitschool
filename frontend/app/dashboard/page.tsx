@@ -15,17 +15,19 @@ import {
   BookOpen,
   Award,
   GraduationCap,
+  Star,
+  Crown,
 } from 'lucide-react';
 
 interface DashboardSummary {
   totalStudents?: number;
   activeYear: { _id: string; name: string };
-  top3ByGrades: { studentId: string; studentName: string; avgGrade: number }[];
   top10ByGrades: { studentId: string; studentName: string; avgGrade: number }[];
   top10ByAttendance: { studentId: string; studentName: string; presentCount: number; totalCount: number; rate: number }[];
   teacherCount: number;
-  teachers: { _id: string; name: string }[];
-  graphTeachersByMajor: { label: string; value: number }[];
+  graphTeachersByMajor: { label: string; value: number; majorId?: string }[];
+  activeScholarshipPrograms?: { _id: string; name: string }[];
+  activeScholarshipCount?: number;
 }
 
 export default function DashboardPage() {
@@ -79,10 +81,10 @@ export default function DashboardPage() {
       case UserRole.STAFF:
       case UserRole.PRINCIPAL:
         return [
-          { label: 'Total Siswa', value: String(summary?.totalStudents ?? '-'), icon: Users, color: 'bg-blue-500' },
-          { label: 'Total Guru', value: String(summary?.teacherCount ?? '-'), icon: Users, color: 'bg-purple-500' },
-          { label: 'Tahun Ajaran', value: summary?.activeYear?.name ?? '-', icon: Calendar, color: 'bg-green-500' },
-          { label: 'Tagihan Tertunda', value: '-', icon: CreditCard, color: 'bg-yellow-500' },
+          { label: 'Total Siswa', value: String(summary?.totalStudents ?? '-'), icon: Users, color: 'bg-blue-500', href: '/users?role=student' },
+          { label: 'Total Guru', value: String(summary?.teacherCount ?? '-'), icon: Users, color: 'bg-purple-500', href: '/users?role=teacher' },
+          { label: 'Tahun Ajaran', value: summary?.activeYear?.name ?? '-', icon: Calendar, color: 'bg-green-500', href: '/years' },
+          { label: user?.role === UserRole.PRINCIPAL ? 'Cash Flow' : 'Tagihan Tertunda', value: '-', icon: CreditCard, color: 'bg-yellow-500', href: user?.role === UserRole.PRINCIPAL ? '/cash-flow' : '/invoices' },
         ];
       case UserRole.FINANCE:
         return [
@@ -105,8 +107,8 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {getRoleSpecificStats().map((stat, index) => {
             const Icon = stat.icon;
-            return (
-              <div key={index} className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+            const card = (
+              <div className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow h-full">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600">{stat.label}</p>
@@ -118,40 +120,50 @@ export default function DashboardPage() {
                 </div>
               </div>
             );
+            if ('href' in stat && stat.href) {
+              return (
+                <Link key={index} href={stat.href} className="block h-full">
+                  {card}
+                </Link>
+              );
+            }
+            return <div key={index}>{card}</div>;
           })}
         </div>
 
         {showDashboardSummary && summary && (
           <>
-            <p className="text-sm text-gray-500">Data untuk tahun ajaran <strong>{summary.activeYear?.name ?? '-'}</strong></p>
+            <p className="text-sm text-gray-500">Data untuk tahun ajaran <strong>{summary.activeYear?.name ?? '-'}</strong> (aktif terbaru)</p>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Award className="w-5 h-5 text-primary-600" />
-                  Top 3 Siswa (Nilai) – {summary.activeYear?.name}
+                  <GraduationCap className="w-5 h-5 text-amber-500" />
+                  Program Beasiswa (Aktif)
                 </h2>
                 {loading ? (
                   <p className="text-gray-500 text-sm">Memuat...</p>
-                ) : summary.top3ByGrades?.length > 0 ? (
-                  <ol className="space-y-2">
-                    {summary.top3ByGrades.map((s, i) => (
-                      <li key={s.studentId} className="flex justify-between items-center py-2 border-b last:border-0">
-                        <Link href={`/profile/${s.studentId}`} className="text-primary-600 hover:underline font-medium">
-                          {i + 1}. {s.studentName}
+                ) : (summary.activeScholarshipCount ?? 0) > 0 ? (
+                  <ul className="space-y-2">
+                    {(summary.activeScholarshipPrograms ?? []).map((p) => (
+                      <li key={p._id}>
+                        <Link href="/beasiswa" className="text-primary-600 hover:underline font-medium">
+                          {p.name}
                         </Link>
-                        <span className="font-semibold text-gray-900">{s.avgGrade}</span>
                       </li>
                     ))}
-                  </ol>
+                  </ul>
                 ) : (
-                  <p className="text-gray-500 text-sm">Belum ada nilai.</p>
+                  <p className="text-gray-500 text-sm mb-2">Belum ada program beasiswa aktif.</p>
                 )}
+                <Link href="/beasiswa" className="text-primary-600 text-sm font-medium hover:underline">
+                  Kelola Beasiswa →
+                </Link>
               </div>
 
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <GraduationCap className="w-5 h-5 text-primary-600" />
+                  <Users className="w-5 h-5 text-primary-600" />
                   Guru per Jurusan – {summary.activeYear?.name}
                 </h2>
                 {loading ? (
@@ -159,16 +171,20 @@ export default function DashboardPage() {
                 ) : summary.graphTeachersByMajor?.length > 0 ? (
                   <div className="space-y-3">
                     {summary.graphTeachersByMajor.map((b) => (
-                      <div key={b.label} className="flex items-center gap-3">
-                        <span className="text-sm w-24">{b.label}</span>
+                      <Link
+                        key={b.label}
+                        href={b.majorId ? `/users?role=teacher&majorId=${b.majorId}` : '/users?role=teacher'}
+                        className="flex items-center gap-3 hover:bg-gray-50 -mx-2 px-2 py-1 rounded"
+                      >
+                        <span className="text-sm w-24 font-medium text-primary-600">{b.label}</span>
                         <div className="flex-1 bg-gray-100 rounded-full h-6 overflow-hidden">
                           <div
                             className="bg-primary-600 h-full rounded-full transition-all"
                             style={{ width: `${Math.min(100, (b.value / (Math.max(...summary.graphTeachersByMajor.map((x) => x.value), 0) || 1)) * 100)}%` }}
                           />
                         </div>
-                        <span className="text-sm font-medium w-8">{b.value}</span>
-                      </div>
+                        <span className="text-sm font-medium w-8 text-primary-600">{b.value}</span>
+                      </Link>
                     ))}
                   </div>
                 ) : (
@@ -188,10 +204,16 @@ export default function DashboardPage() {
                 ) : summary.top10ByGrades?.length > 0 ? (
                   <ol className="space-y-1.5 text-sm">
                     {summary.top10ByGrades.map((s, i) => (
-                      <li key={s.studentId} className="flex justify-between py-1.5 border-b last:border-0">
-                        <Link href={`/profile/${s.studentId}`} className="text-primary-600 hover:underline">
-                          {i + 1}. {s.studentName}
-                        </Link>
+                      <li key={s.studentId} className="flex justify-between items-center py-1.5 border-b last:border-0">
+                        <span className="flex items-center gap-2">
+                          {i + 1 <= 3 && (
+                            i + 1 === 1 ? <Crown className="w-4 h-4 text-amber-500 flex-shrink-0" aria-label="Peringkat 1" />
+                            : <Star className="w-4 h-4 text-amber-400 flex-shrink-0" aria-label={`Peringkat ${i + 1}`} />
+                          )}
+                          <Link href={`/profile/${s.studentId}`} className="text-primary-600 hover:underline">
+                            {i + 1}. {s.studentName}
+                          </Link>
+                        </span>
                         <span className="font-medium">{s.avgGrade}</span>
                       </li>
                     ))}
@@ -199,6 +221,7 @@ export default function DashboardPage() {
                 ) : (
                   <p className="text-gray-500 text-sm">Belum ada nilai.</p>
                 )}
+                <p className="text-xs text-gray-500 mt-2">Penilaian berdasarkan matrix UAS/UTS/PR (bobot dapat diubah di Profil Sekolah)</p>
               </div>
 
               <div className="bg-white rounded-lg shadow p-6">
@@ -223,29 +246,6 @@ export default function DashboardPage() {
                   <p className="text-gray-500 text-sm">Belum ada data kehadiran.</p>
                 )}
               </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Users className="w-5 h-5 text-primary-600" />
-                Guru – {summary.activeYear?.name} ({summary.teacherCount})
-              </h2>
-              {loading ? (
-                <p className="text-gray-500 text-sm">Memuat...</p>
-              ) : summary.teachers?.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {summary.teachers.map((t) => (
-                    <Link key={t._id} href={`/profile/${t._id}`} className="px-3 py-2 bg-gray-50 hover:bg-primary-50 rounded-lg text-sm text-gray-800 hover:text-primary-700">
-                      {t.name}
-                    </Link>
-                  ))}
-                  {summary.teacherCount > summary.teachers.length && (
-                    <span className="text-sm text-gray-500 self-center">+{summary.teacherCount - summary.teachers.length} lainnya</span>
-                  )}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-sm">Belum ada data guru.</p>
-              )}
             </div>
           </>
         )}

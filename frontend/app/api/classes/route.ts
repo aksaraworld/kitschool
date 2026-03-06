@@ -39,9 +39,11 @@ export async function GET(req: NextRequest) {
     });
 
     const teacherIds = [...new Set(classesSnap.docs.map((d) => (d.data() as { homeroomTeacherId?: string })?.homeroomTeacherId).filter(Boolean))] as string[];
+    const presidentIds = [...new Set(classesSnap.docs.map((d) => (d.data() as { classPresidentId?: string })?.classPresidentId).filter(Boolean))] as string[];
+    const allUserIds = [...new Set([...teacherIds, ...presidentIds])];
     const teacherMap = new Map<string, { _id: string; name: string }>();
-    if (teacherIds.length > 0) {
-      const teacherDocs = await Promise.all(teacherIds.map((tid) => usersCollection().doc(tid).get()));
+    if (allUserIds.length > 0) {
+      const teacherDocs = await Promise.all(allUserIds.map((tid) => usersCollection().doc(tid).get()));
       teacherDocs.forEach((d) => {
         if (d.exists) {
           const o = docToJson(d) as { id: string; name?: string };
@@ -62,9 +64,11 @@ export async function GET(req: NextRequest) {
       const yearId = row.yearId as string | undefined;
       const majorId = row.majorId as string | undefined;
       const homeroomId = row.homeroomTeacherId as string | undefined;
+      const presidentId = row.classPresidentId as string | undefined;
       if (yearId) row.yearId = yearMap.get(yearId) ?? { _id: yearId, name: 'N/A' };
       if (majorId) row.majorId = majorMap.get(majorId) ?? { _id: majorId, name: 'N/A' };
       if (homeroomId) row.homeroomTeacherId = teacherMap.get(homeroomId) ?? { _id: homeroomId, name: 'N/A' };
+      if (presidentId) row.classPresidentId = teacherMap.get(presidentId) ?? { _id: presidentId, name: 'N/A' };
       return row;
     });
     return NextResponse.json(classes);

@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId, hasFullAccess } from '@/lib/server/auth-helpers';
-import { yearsCollection, docToJson } from '@/lib/server/firebase-admin';
+import { yearsCollection, docToJson, getFirestore } from '@/lib/server/firebase-admin';
 import { UserRole } from '@/lib/types';
 
 export async function GET(req: NextRequest) {
@@ -37,6 +37,15 @@ export async function POST(req: NextRequest) {
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
     const body = await req.json().catch(() => ({}));
+    const isActive = body.isActive === true;
+    if (isActive) {
+      const allSnap = await yearsCollection().where('schoolId', '==', schoolId).get();
+      const batch = getFirestore().batch();
+      allSnap.docs.forEach((d) => {
+        batch.update(d.ref, { isActive: false, updatedAt: new Date() });
+      });
+      if (!allSnap.empty) await batch.commit();
+    }
     const data = { ...body, schoolId, createdAt: new Date(), updatedAt: new Date() };
     const ref = yearsCollection().doc();
     await ref.set(data);

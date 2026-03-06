@@ -5,17 +5,28 @@ import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import { UserRole, User } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
-import { User as UserIcon, ClipboardCheck, Calendar, FileText } from 'lucide-react';
+import { User as UserIcon, ClipboardCheck, Calendar, FileText, Shield, Check, X, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+
+interface PendingChange {
+  _id: string;
+  studentId: string;
+  studentName?: string;
+  changes: { address?: string; email?: string; phone?: string };
+  requestedAt?: string;
+}
 
 export default function ChildrenPage() {
   const { user } = useAuth();
   const [children, setChildren] = useState<User[]>([]);
+  const [pending, setPending] = useState<PendingChange[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionId, setActionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.children && user.children.length > 0) {
       fetchChildren();
+      fetchPending();
     }
   }, [user]);
 
@@ -33,6 +44,35 @@ export default function ChildrenPage() {
     }
   };
 
+  const fetchPending = async () => {
+    try {
+      const res = await api.get<PendingChange[]>('/pending-profile-changes');
+      setPending(Array.isArray(res) ? res : []);
+    } catch {
+      setPending([]);
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    try {
+      setActionId(id);
+      await api.post(`/pending-profile-changes/${id}/approve`);
+      await fetchPending();
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    try {
+      setActionId(id);
+      await api.post(`/pending-profile-changes/${id}/reject`);
+      await fetchPending();
+    } finally {
+      setActionId(null);
+    }
+  };
+
   return (
     <ProtectedRoute allowedRoles={[UserRole.PARENT]}>
       <div className="space-y-6">
@@ -40,6 +80,52 @@ export default function ChildrenPage() {
           <h1 className="text-3xl font-bold text-gray-900">Anak Saya</h1>
           <p className="text-gray-600 mt-2">Pantau aktivitas dan perkembangan anak Anda</p>
         </div>
+
+        {pending.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-amber-500" />
+              Perubahan Profil Menunggu Persetujuan
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Anak Anda meminta perubahan data. Setujui atau tolak perubahan berikut.
+            </p>
+            <ul className="space-y-4">
+              {pending.map((p) => (
+                <li key={p._id} className="border rounded-lg p-4 bg-gray-50">
+                  <div className="flex justify-between items-start gap-4">
+                    <div>
+                      <p className="font-medium text-gray-900">{p.studentName ?? p.studentId}</p>
+                      <ul className="text-sm text-gray-600 mt-2 space-y-1">
+                        {p.changes?.address != null && <li>Alamat: {String(p.changes.address) || '(kosong)'}</li>}
+                        {p.changes?.email != null && <li>Email: {String(p.changes.email) || '(kosong)'}</li>}
+                        {p.changes?.phone != null && <li>Telepon: {String(p.changes.phone) || '(kosong)'}</li>}
+                      </ul>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleApprove(p._id)}
+                        disabled={actionId === p._id}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
+                      >
+                        {actionId === p._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                        Setujui
+                      </button>
+                      <button
+                        onClick={() => handleReject(p._id)}
+                        disabled={actionId === p._id}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm"
+                      >
+                        {actionId === p._id ? null : <X className="w-4 h-4" />}
+                        Tolak
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {loading ? (
           <div className="p-8 text-center">Memuat...</div>

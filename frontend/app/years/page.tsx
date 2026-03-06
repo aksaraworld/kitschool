@@ -6,7 +6,7 @@ import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import { UserRole, ROLES_CAN_MANAGE_USERS, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
-import { Calendar, Plus, Edit, Trash2, X, Save, ChevronRight, Shuffle } from 'lucide-react';
+import { Calendar, Plus, Edit, Trash2, X, Save, ChevronRight, Shuffle, Database } from 'lucide-react';
 
 interface Year {
   _id: string;
@@ -32,6 +32,7 @@ export default function YearsPage() {
     isActive: true
   });
   const [assigning, setAssigning] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     fetchYears();
@@ -126,6 +127,25 @@ export default function YearsPage() {
     }
   };
 
+  const handleSeedDummy = async () => {
+    if (!confirm('Seed data dummy: nilai (UAS/UTS/PR), cash flow, perubahan profil menunggu ortu, matrix ranking. Lanjut?')) return;
+    try {
+      setSeeding(true);
+      const res = await api.post<{ stats: { grades: number; cashFlow: number; pendingProfileChanges: number; rankingMatrix: boolean } }>('/admin/seed-dummy');
+      const s = res.stats ?? {};
+      const parts: string[] = [];
+      if ((s.grades ?? 0) > 0) parts.push(`${s.grades} nilai`);
+      if ((s.cashFlow ?? 0) > 0) parts.push(`${s.cashFlow} cash flow`);
+      if ((s.pendingProfileChanges ?? 0) > 0) parts.push(`${s.pendingProfileChanges} pending perubahan profil`);
+      if (s.rankingMatrix) parts.push('matrix ranking');
+      alert(parts.length ? `Berhasil: ${parts.join(', ')}` : 'Data sudah ada atau tidak ada siswa di tahun aktif.');
+    } catch (error: any) {
+      alert(error?.message || 'Gagal seed dummy');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('id-ID', {
       year: 'numeric',
@@ -146,10 +166,20 @@ export default function YearsPage() {
             <button
               onClick={handleAssignRandom}
               disabled={assigning}
+              title="Assign acak: menghubungkan siswa→kelas, wali kelas→kelas, kelas→tahun & jurusan, jadwal→guru."
               className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center space-x-2 disabled:opacity-50"
             >
               <Shuffle className="w-5 h-5" />
               <span>{assigning ? 'Memproses...' : 'Assign Acak'}</span>
+            </button>
+            <button
+              onClick={handleSeedDummy}
+              disabled={seeding}
+              title="Seed data dummy: nilai UAS/UTS/PR, cash flow, pending perubahan profil, matrix ranking."
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center space-x-2 disabled:opacity-50"
+            >
+              <Database className="w-5 h-5" />
+              <span>{seeding ? 'Memproses...' : 'Seed Dummy'}</span>
             </button>
             {canManage && (
               <button

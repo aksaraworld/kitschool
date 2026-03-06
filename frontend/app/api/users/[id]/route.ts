@@ -91,13 +91,25 @@ export async function PUT(
     const body = await req.json();
     const existingDoc = await usersCollection().doc(id).get();
     if (!existingDoc.exists) return NextResponse.json({ message: 'User not found' }, { status: 404 });
-    const existing = (existingDoc.data() ?? {}) as { classId?: string; homeroomClassId?: string; schoolId?: string; role?: string };
+    const existing = (existingDoc.data() ?? {}) as { classId?: string; homeroomClassId?: string; schoolId?: string; role?: string; emailProvidedBySchool?: boolean };
 
     const updateData: Record<string, unknown> = { ...body };
     delete updateData.uid;
     delete updateData._id;
-    delete updateData.email;
+    const isOwnProfile = auth.uid === id;
+    const existingRole = (body.role ?? existing.role ?? '') as string;
+    const canChangeEmail = isOwnProfile && (existingRole === UserRole.STUDENT || existingRole === UserRole.PARENT) && !existing.emailProvidedBySchool;
+    if (!canChangeEmail) delete updateData.email;
     updateData.updatedAt = new Date();
+
+    if (updateData.email && typeof updateData.email === 'string') {
+      try {
+        await getAuth().updateUser(id, { email: updateData.email });
+      } catch (e) {
+        console.error('Firebase Auth email update error:', e);
+        return NextResponse.json({ message: 'Gagal mengubah email. Pastikan email valid dan belum dipakai.' }, { status: 400 });
+      }
+    }
 
     const toStr = (v: unknown): string | null => {
       if (typeof v === 'string') return v;

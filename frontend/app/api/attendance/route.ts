@@ -18,6 +18,8 @@ export async function GET(req: NextRequest) {
     const studentId = req.nextUrl.searchParams.get('studentId');
     const userIdParam = req.nextUrl.searchParams.get('userId');
     const date = req.nextUrl.searchParams.get('date');
+    const month = req.nextUrl.searchParams.get('month');
+    const year = req.nextUrl.searchParams.get('year');
 
     let query = attendanceCollection().where('schoolId', '==', schoolId);
     if (studentId) query = query.where('studentId', '==', studentId) as ReturnType<typeof attendanceCollection>;
@@ -25,7 +27,19 @@ export async function GET(req: NextRequest) {
     if (date) query = query.where('date', '==', date) as ReturnType<typeof attendanceCollection>;
 
     const snapshot = await query.get();
-    const rows = snapshot.docs.map((d) => docToJson(d));
+    let rows = snapshot.docs.map((d) => docToJson(d));
+    if (month && year && (userIdParam || studentId)) {
+      const m = parseInt(month, 10);
+      const y = parseInt(year, 10);
+      if (!isNaN(m) && !isNaN(y)) {
+        const start = new Date(y, m - 1, 1);
+        const end = new Date(y, m, 0, 23, 59, 59);
+        rows = rows.filter((r) => {
+          const d = r.date instanceof Date ? r.date : new Date(String(r.date));
+          return d >= start && d <= end;
+        });
+      }
+    }
     return NextResponse.json(rows);
   } catch (e) {
     console.error('GET /api/attendance error:', e);

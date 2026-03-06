@@ -430,6 +430,7 @@ export default function SubjectsPage() {
                       </option>
                     ))}
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">Ekskul: buat kategori &quot;Ekskul&quot; di Kelola Kategori, lalu pilih untuk mata pelajaran ekstrakurikuler.</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Guru</label>
