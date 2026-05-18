@@ -1,0 +1,56 @@
+---
+description: Cognifa school SaaS — project context for continuing work on any machine (especially Mac handoff)
+alwaysApply: true
+---
+
+# Cognifa — project context
+
+**Product:** Cognifa — multi-tenant school management SaaS (Indonesia). Tagline: *Lacak. Terhubung. Percaya. Semua dalam Satu Tempat.*
+
+**Repo:** https://github.com/aksaraworld/cognifa.git · branch `main` · Node **20.x** (`.nvmrc`)
+
+## Machine handoff
+
+If the user moved machines or says "continue on Mac", read **`MAC_HANDOFF.md`** first. Secrets are **not** in git: `frontend/.env.local`, `backend/.env`, `*firebase-adminsdk*.json`.
+
+## Architecture
+
+- **Monorepo** at repo root: `frontend/` (Next.js 14 App Router), `backend/` (Express, seeds/scripts), `packages/*` (Aksara: api, core, context, hooks, ui, formatters, firebase).
+- **Production:** mostly Vercel — Next.js + API routes in `frontend/`; see `VERCEL_SETUP.md`.
+- **Data:** Firebase Auth + Firestore (`cognifa-16209`). MongoDB may exist for legacy scripts; primary path is Firestore.
+- **`aksara-framework/`** is a nested git repo; day-to-day builds use **`packages/`** via `build-packages.sh` (Mac/Linux) or `build-packages.ps1` (Windows).
+
+## Commands (prefer Mac/Linux on MacBook)
+
+```bash
+npm run install:all
+./build-packages.sh
+npm run dev                    # frontend :3000 + backend :5000
+cd backend && npm run seed:firebase   # reset + 50 demo users
+```
+
+## Roles (8)
+
+SaaS Admin, Principal, Staff, Finance, Teacher, Homeroom Teacher, Student, Parent — see `README.md`, `DEMO_ACCOUNTS.md`.
+
+## Important paths
+
+| Area | Path |
+|------|------|
+| Dashboard layout / nav | `frontend/components/Layout/DashboardLayout.tsx` |
+| Firebase client auth | `frontend/lib/firebaseAuth.ts` |
+| Firebase Admin (API) | `frontend/lib/server/firebase-admin.ts` |
+| Auth API | `frontend/app/api/auth/me/route.ts` |
+| Backend seeds | `backend/src/scripts/` |
+| Firestore rules | `firestore.rules`, `storage.rules` |
+
+## Conventions
+
+- Do not commit `.env`, `.env.local`, or Firebase service account JSON.
+- Match existing TypeScript/React patterns; use `@aksara/*` packages after building `packages/`.
+- Only commit when the user explicitly asks.
+- Main features: attendance (GPS), payments/invoices/cash-flow, messaging, calendar/schedules, classes/years/majors/subjects, beasiswa, SaaS multi-school admin, reports, grading (see `GRADING_SYSTEM_DESIGN.md`).
+
+## Docs index
+
+`README.md` · `MAC_HANDOFF.md` · `SETUP_AKSARA.md` · `FIREBASE_CONNECT.md` · `DATABASE_SCHEMA.md` · `DEMO_ACCOUNTS.md`
