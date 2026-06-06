@@ -1,9 +1,9 @@
-# Cognifa - Project Summary
+# Aksara School Management - Project Summary
 
 **Lacak. Terhubung. Percaya. Semua dalam Satu Tempat**
 
 ## Overview
-Cognifa is a comprehensive School Management System (SMS) built as a SaaS platform. It enables schools to manage students, teachers, parents, classes, attendance, payments, schedules, and communications all in one place.
+Aksara School Management is a comprehensive School Management System (SMS) built as a SaaS platform. It enables schools to manage students, teachers, parents, classes, attendance, payments, schedules, and communications all in one place.
 
 ## Tech Stack
 

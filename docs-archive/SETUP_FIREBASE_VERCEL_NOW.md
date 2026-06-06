@@ -49,7 +49,7 @@ You should see: `True`
 3. Scroll to **"Your apps"** section
 4. Click **Web icon** (`</>`)
 5. Register app:
-   - App nickname: `Cognifa Web`
+   - App nickname: `Aksara School Management Web`
    - Firebase Hosting: **No** (we're using Vercel)
 6. Click **"Register app"**
 7. **Copy the `firebaseConfig` object** - you'll need this for Vercel!

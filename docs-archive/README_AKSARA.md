@@ -1,4 +1,4 @@
-# Cognifa with Aksara Framework
+# Aksara School Management with Aksara Framework
 
 This project has been migrated to use the **Aksara Framework** - a comprehensive framework for building multi-tenant SaaS applications.
 

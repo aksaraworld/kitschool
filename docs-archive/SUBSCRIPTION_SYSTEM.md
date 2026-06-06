@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cognifa menggunakan sistem subscription yang disederhanakan dengan satu plan untuk semua sekolah. Perbedaan hanya pada:
+Aksara School Management menggunakan sistem subscription yang disederhanakan dengan satu plan untuk semua sekolah. Perbedaan hanya pada:
 1. **Admin Fee Percentage** - Persentase biaya admin (default: 10%)
 2. **Subscription Fee Per Student** - Biaya subscription per murid (default: 0 rupiah)
 
@@ -124,7 +124,7 @@ Hanya SaaS Admin yang dapat mengubah `subscriptionFeePerStudent` per sekolah.
 
 Admin fee 10% dibagi menjadi:
 - **3% Payment Gateway** - Biaya untuk payment gateway provider
-- **4% Platform** - Biaya untuk platform Cognifa
+- **4% Platform** - Biaya untuk platform Aksara School Management
 - **3% Tax** - Pajak yang harus dibayar
 
 Total: 3% + 4% + 3% = 10% dari admin fee amount

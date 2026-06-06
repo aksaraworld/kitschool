@@ -1,11 +1,11 @@
 ---
-description: Cognifa school SaaS — project context for continuing work on any machine (especially Mac handoff)
+description: Aksara School Management SaaS — project context for continuing work on any machine (especially Mac handoff)
 alwaysApply: true
 ---
 
-# Cognifa — project context
+# Aksara School Management — project context
 
-**Product:** Cognifa — multi-tenant school management SaaS (Indonesia). Tagline: *Lacak. Terhubung. Percaya. Semua dalam Satu Tempat.*
+**Product:** Aksara School Management — multi-tenant school management SaaS (Indonesia). Tagline: *Lacak. Terhubung. Percaya. Semua dalam Satu Tempat.*
 
 **Repo:** https://github.com/aksaraworld/cognifa.git · branch `main` · Node **20.x** (`.nvmrc`)
 

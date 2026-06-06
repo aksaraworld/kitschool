@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cognifa is a multi-tenant SaaS application where:
+Aksara School Management is a multi-tenant SaaS application where:
 - **SaaS Admin** manages the platform and all schools
 - **Schools** are the clients (tenants)
 - Each school has its own users, classes, students, payments, etc.

@@ -21,7 +21,7 @@ After configuring Git, create the initial commit:
 
 ```bash
 git add .
-git commit -m "Initial commit: Cognifa School Management System with Aksara Framework integration
+git commit -m "Initial commit: Aksara School Management School Management System with Aksara Framework integration
 
 - Complete school management system with multi-tenant SaaS support
 - Integrated Aksara Framework (API client, context, hooks, UI components)

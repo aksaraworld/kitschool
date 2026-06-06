@@ -33,7 +33,7 @@ git push -u origin main --force
 
 ## What's Being Pushed
 
-- ✅ Complete Cognifa School Management System
+- ✅ Complete Aksara School Management School Management System
 - ✅ Aksara Framework integration
 - ✅ All source code (frontend + backend)
 - ✅ Documentation

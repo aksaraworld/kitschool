@@ -130,7 +130,7 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 
 2. **Check Backend:**
    - Visit `https://your-backend-url/api/health`
-   - Should return: `{"status":"ok","message":"Cognifa API is running"}`
+   - Should return: `{"status":"ok","message":"Aksara School Management API is running"}`
 
 3. **Test Authentication:**
    - Try to login

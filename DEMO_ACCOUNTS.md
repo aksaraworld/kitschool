@@ -1,4 +1,4 @@
-# Demo Accounts (50 total) – Cognifa
+# Demo Accounts (50 total) – Aksara School Management
 
 After running **reset + seed 50** you have exactly these accounts.
 

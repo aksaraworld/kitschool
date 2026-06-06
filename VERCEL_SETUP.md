@@ -1,4 +1,4 @@
-# Vercel setup (Cognifa)
+# Vercel setup (Aksara School Management)
 
 Single deployment: Next.js app + API routes in `frontend/`. No separate backend.
 

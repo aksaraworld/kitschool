@@ -2,7 +2,7 @@
 
 ## Migration Status: **COMPLETE** ✓
 
-The Cognifa School Management System has been successfully migrated to use the Aksara Framework.
+The Aksara School Management School Management System has been successfully migrated to use the Aksara Framework.
 
 ## What Was Done
 

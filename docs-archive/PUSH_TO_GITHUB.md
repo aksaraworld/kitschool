@@ -12,7 +12,7 @@ git config user.email "your.email@example.com"
 ## Step 2: Create Commit
 
 ```bash
-git commit -m "Initial commit: Cognifa School Management System with Aksara Framework
+git commit -m "Initial commit: Aksara School Management School Management System with Aksara Framework
 
 Features:
 - Complete school management system with multi-tenant SaaS support

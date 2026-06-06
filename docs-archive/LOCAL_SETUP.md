@@ -1,4 +1,4 @@
-# Setup Lokal Cognifa
+# Setup Lokal Aksara School Management
 
 ## Overview
 Setup untuk development lokal dengan MongoDB. Siap untuk migrasi ke Firebase di masa depan.

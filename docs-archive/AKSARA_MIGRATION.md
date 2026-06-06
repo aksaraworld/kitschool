@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the migration of Cognifa School Management System to use the Aksara Framework.
+This document describes the migration of Aksara School Management School Management System to use the Aksara Framework.
 
 ## What Changed
 

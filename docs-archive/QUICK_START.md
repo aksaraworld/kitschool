@@ -1,4 +1,4 @@
-# Quick Start - Cognifa
+# Quick Start - Aksara School Management
 
 ## 🚀 Jalankan dalam 5 Menit
 

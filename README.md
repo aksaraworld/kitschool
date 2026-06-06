@@ -1,4 +1,4 @@
-# Cognifa - School Management System
+# Aksara School Management
 
 **Lacak. Terhubung. Percaya. Semua dalam Satu Tempat**
 
@@ -37,7 +37,7 @@ A comprehensive SaaS platform for school management with multi-role support, bui
 ## 📁 Project Structure
 
 ```
-cognifa/
+<repo>/
 ├── frontend/          # Next.js frontend application
 ├── backend/           # Express backend API
 ├── packages/          # Aksara Framework packages

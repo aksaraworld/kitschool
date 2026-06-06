@@ -1,6 +1,6 @@
 # Serverless setup (Vercel + Firebase)
 
-Cognifa runs **fully serverless** on Vercel: no separate Express/Cloud Run backend. API lives in **Next.js Route Handlers** under `frontend/app/api/`, following the Aksara pattern.
+Aksara School Management runs **fully serverless** on Vercel: no separate Express/Cloud Run backend. API lives in **Next.js Route Handlers** under `frontend/app/api/`, following the Aksara pattern.
 
 ## What’s implemented
 

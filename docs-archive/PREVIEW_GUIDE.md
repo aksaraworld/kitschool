@@ -1,4 +1,4 @@
-# Panduan Preview Cognifa
+# Panduan Preview Aksara School Management
 
 ## Prerequisites
 Sebelum menjalankan aplikasi, pastikan sudah terinstall:

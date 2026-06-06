@@ -59,7 +59,7 @@
 2. Scroll to **"Your apps"** section
 3. Click the **Web icon** (`</>`)
 4. Register app:
-   - App nickname: `Cognifa Web`
+   - App nickname: `Aksara School Management Web`
    - (Optional) Firebase Hosting: No
 5. Click **"Register app"**
 6. Copy the `firebaseConfig` object

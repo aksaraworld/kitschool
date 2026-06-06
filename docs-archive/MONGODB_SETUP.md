@@ -1,4 +1,4 @@
-# Setup MongoDB untuk Cognifa
+# Setup MongoDB untuk Aksara School Management
 
 ## Error yang Terjadi
 ```

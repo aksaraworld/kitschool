@@ -1,4 +1,4 @@
-# Cognifa Setup Guide
+# Aksara School Management Setup Guide
 
 ## Prerequisites
 - Node.js 18+ and npm

@@ -1,4 +1,4 @@
-# Cognifa — Continue on MacBook
+# Aksara School Management — Continue on MacBook
 
 Use this checklist when moving from Windows to macOS. **Code syncs via Git; secrets and env files do not.**
 
@@ -25,7 +25,7 @@ Use this checklist when moving from Windows to macOS. **Code syncs via Git; secr
 ```bash
 # Node 20 (repo has .nvmrc)
 brew install nvm   # or use fnm / volta
-cd ~/path/to/cognifa   # after clone
+cd ~/path/to/<repo>   # after clone (folder name from git clone)
 nvm install
 nvm use
 
@@ -102,8 +102,8 @@ Requires `backend/.env` + service account JSON.
 
 ## Cursor on Mac
 
-1. **File → Open Folder** → select the `cognifa` repo root (not only `frontend/`).
-2. Project rule **`.cursor/rules/cognifa-project.mdc`** loads automatically — tells the agent about stack, paths, and Mac commands.
+1. **File → Open Folder** → select the repo root (not only `frontend/`).
+2. Project rule **`.cursor/rules/aksara-school-management.mdc`** loads automatically — tells the agent about stack, paths, and Mac commands.
 3. In chat, you can say: *“Read MAC_HANDOFF.md and continue where I left off.”*
 
 ## Mac vs Windows commands

@@ -1,7 +1,7 @@
-# Cognifa Database Schema
+# Aksara School Management — Database Schema
 
 ## Overview
-MongoDB database schema for Cognifa school management system.
+MongoDB database schema for Aksara School Management.
 
 ## Collections
 

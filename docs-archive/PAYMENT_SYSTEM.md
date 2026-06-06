@@ -1,4 +1,4 @@
-# Sistem Pembayaran Cognifa
+# Sistem Pembayaran Aksara School Management
 
 ## Overview
 Sistem pembayaran yang dapat digunakan kembali dengan tracking lengkap untuk semua transaksi pembayaran.
