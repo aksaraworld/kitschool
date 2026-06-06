@@ -3,7 +3,9 @@ export enum UserRole {
   STUDENT = 'student',
   PARENT = 'parent',
   // Staff hierarchy (org chart) – staff can have multiple roles
-  PRINCIPAL = 'principal',                    // Kepala Sekolah
+  PRINCIPAL = 'principal',                    // Kepala Sekolah (per unit MTs/MA)
+  KETUA_PESANTREN = 'ketua_pesantren',        // Ketua Pesantren
+  KETUA_YAYASAN = 'ketua_yayasan',            // Ketua Yayasan
   WAKASEK_KURIKULUM = 'wakasek_kurikulum',   // Wakasek Kurikulum
   WAKASEK_KESISWAAN = 'wakasek_kesiswaan',   // Wakasek Kesiswaan
   WAKASEK_SARANA = 'wakasek_sarana',         // Wakasek Sarana Prasarana
@@ -20,6 +22,8 @@ export enum UserRole {
 
 /** Staff roles only – students and parents have a single role. */
 export const STAFF_ROLES: UserRole[] = [
+  UserRole.KETUA_YAYASAN,
+  UserRole.KETUA_PESANTREN,
   UserRole.PRINCIPAL,
   UserRole.WAKASEK_KURIKULUM,
   UserRole.WAKASEK_KESISWAAN,
@@ -37,6 +41,8 @@ export const STAFF_ROLES: UserRole[] = [
 
 /** Roles that can manage users (Pengguna page). */
 export const ROLES_CAN_MANAGE_USERS: UserRole[] = [
+  UserRole.KETUA_YAYASAN,
+  UserRole.KETUA_PESANTREN,
   UserRole.PRINCIPAL,
   UserRole.WAKASEK_KURIKULUM,
   UserRole.WAKASEK_KESISWAAN,
@@ -53,6 +59,8 @@ export const ROLE_LABELS: Record<string, string> = {
   [UserRole.STUDENT]: 'Siswa',
   [UserRole.PARENT]: 'Orang Tua',
   [UserRole.PRINCIPAL]: 'Kepala Sekolah',
+  [UserRole.KETUA_PESANTREN]: 'Ketua Pesantren',
+  [UserRole.KETUA_YAYASAN]: 'Ketua Yayasan',
   [UserRole.WAKASEK_KURIKULUM]: 'Wakasek Kurikulum',
   [UserRole.WAKASEK_KESISWAAN]: 'Wakasek Kesiswaan',
   [UserRole.WAKASEK_SARANA]: 'Wakasek Sarana Prasarana',
@@ -83,9 +91,23 @@ export function hasAnyRole(user: { role?: string; roles?: string[] } | null, all
   return effective.some((r) => allowed.includes(r));
 }
 
-/** Kepala Sekolah has full access to all pages and functions. */
+/** School leadership with full access to management pages. */
 export function hasFullAccess(user: { role?: string; roles?: string[] } | null): boolean {
-  return hasAnyRole(user, [UserRole.PRINCIPAL]);
+  return hasAnyRole(user, [UserRole.PRINCIPAL, UserRole.KETUA_PESANTREN, UserRole.KETUA_YAYASAN]);
+}
+
+/** Jenjang unit within a school (e.g. MTs, MA). */
+export interface SchoolUnit {
+  id: string;
+  name: string;
+  label: string;
+  principalUserId?: string;
+  principalEmail?: string;
+}
+
+export interface SchoolLeadership {
+  ketuaPesantrenUserId?: string;
+  ketuaYayasanUserId?: string;
 }
 
 /** Resource CRUD permission. */
@@ -366,9 +388,85 @@ export interface Communication {
   createdAt: string;
 }
 
+/** Public school landing page (optional per school). */
+export interface SchoolLandingPage {
+  enabled: boolean;
+  slug: string;
+  heroTitle?: string;
+  heroSubtitle?: string;
+  showContact?: boolean;
+}
+
+/** Enabled optional modules per school. */
+export interface SchoolModules {
+  boardingSchool?: boolean;
+}
+
+/** Phone rules for boarding students on school days. */
+export interface BoardingPhonePolicy {
+  /** Students may not hold phones during school days. */
+  restrictOnSchoolDays: boolean;
+  /** Room captain / representative may hold phone for the room. */
+  roomCaptainCanHoldPhone: boolean;
+}
+
+export interface BoardingSchoolConfig {
+  phonePolicy: BoardingPhonePolicy;
+}
+
+export type BoardingGender = 'male' | 'female';
+
+/** Sleep wing or programme area (musholla, sports field, etc.). */
+export interface BoardingArea {
+  _id: string;
+  schoolId: string;
+  name: string;
+  gender?: BoardingGender;
+  description?: string;
+  /** sleep = dormitory wing; programme = non-class activity zone */
+  areaType: 'sleep' | 'programme';
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface BoardingRoom {
+  _id: string;
+  schoolId: string;
+  areaId: string;
+  name: string;
+  gender: BoardingGender;
+  capacity: number;
+  roomCaptainId?: string;
+  studentIds: string[];
+  floor?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type BoardingActivityType = 'tadarus' | 'kajian' | 'dzikir' | 'programme' | 'other';
+
+/** Evening / off-timetable boarding activities. */
+export interface BoardingActivitySchedule {
+  _id: string;
+  schoolId: string;
+  title: string;
+  activityType: BoardingActivityType;
+  areaId?: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  description?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface School {
   _id: string;
   name: string;
+  shortName?: string;
   address: string;
   city: string;
   province: string;
@@ -377,6 +475,17 @@ export interface School {
   email: string;
   website?: string;
   logo?: string;
+  /** Custom domain for public landing (e.g. ppst-alum.sch.id) */
+  customDomain?: string;
+  landingPage?: SchoolLandingPage;
+  modules?: SchoolModules;
+  boardingConfig?: BoardingSchoolConfig;
+  /** MTs / MA units — each can have its own kepala sekolah */
+  units?: SchoolUnit[];
+  leadership?: SchoolLeadership;
+  schoolType?: string;
+  jenjang?: string[];
+  district?: string;
   principalName?: string;
   principalEmail?: string;
   principalPhone?: string;

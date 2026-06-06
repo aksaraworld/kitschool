@@ -12,40 +12,39 @@ module.exports = {
         body: ['var(--font-body)', 'Source Sans 3', 'sans-serif'],
       },
       colors: {
-        // Cognifa brand (Primary Blue, Dark Blue, Light Blue)
         primary: {
-          50: '#E8F2FA',   // Light Blue – background sections
-          100: '#d4e6f5',
-          200: '#a8cceb',
+          50: 'var(--color-primary-50)',
+          100: 'var(--color-primary-100)',
+          200: 'var(--color-primary-200)',
           300: '#7bb3e0',
           400: '#4f99d6',
-          500: '#2D74A8',  // Primary Blue – buttons, links, headings
-          600: '#2D74A8',
-          700: '#1F5E8A',  // Dark Blue – hover, active
-          800: '#1F5E8A',
+          500: 'var(--color-primary-500)',
+          600: 'var(--color-primary-600)',
+          700: 'var(--color-primary-700)',
+          800: 'var(--color-primary-700)',
           900: '#184a6d',
         },
-        // Accent system (from logo nodes) – use 2–3 per page
+        accent: {
+          DEFAULT: 'var(--color-accent)',
+          500: 'var(--color-accent)',
+        },
         cognifa: {
           blue: '#2D74A8',
-          orange: '#F28C28',  // CTAs, highlights
-          pink: '#C93A8B',   // Feature icons, badges
-          yellow: '#F2C230', // Warnings, highlights
-          green: '#4CAF50', // Success
-          teal: '#3DB7B3',  // Secondary buttons, info
+          orange: '#F28C28',
+          pink: '#C93A8B',
+          yellow: '#F2C230',
+          green: '#4CAF50',
+          teal: '#3DB7B3',
         },
-        // Neutrals – premium/modern
         cognifaNeutral: {
-          dark: '#1A1A1A',    // Main body text
-          secondary: '#5F6B7A', // Subtext
-          border: '#E5EAF0',   // Cards, dividers
+          dark: '#1A1A1A',
+          secondary: '#5F6B7A',
+          border: '#E5EAF0',
           bg: '#FFFFFF',
-          altBg: '#F7F9FC',    // Section separation
+          altBg: 'var(--cognifa-alt-bg)',
         },
       },
     },
   },
   plugins: [],
 }
-
-

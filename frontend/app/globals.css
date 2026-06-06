@@ -2,9 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* Cognifa neutrals */
-  --foreground-rgb: 26, 26, 26; /* #1A1A1A dark text */
+:root,
+[data-theme="default"] {
+  --color-primary-50: #E8F2FA;
+  --color-primary-100: #d4e6f5;
+  --color-primary-200: #a8cceb;
+  --color-primary-500: #2D74A8;
+  --color-primary-600: #2D74A8;
+  --color-primary-700: #1F5E8A;
+  --color-accent: #3DB7B3;
+  --foreground-rgb: 26, 26, 26;
   --cognifa-primary: #2D74A8;
   --cognifa-primary-hover: #1F5E8A;
   --cognifa-light: #E8F2FA;
@@ -14,7 +21,20 @@
   --cognifa-secondary-text: #5F6B7A;
 }
 
-/* Force light mode for inputs */
+[data-theme="kitschool"] {
+  --color-primary-50: #EDFCF3;
+  --color-primary-100: #D6F9E4;
+  --color-primary-200: #B2F0CC;
+  --color-primary-500: #64DB85;
+  --color-primary-600: #64DB85;
+  --color-primary-700: #4BC972;
+  --color-accent: #3ACCBC;
+  --cognifa-primary: #64DB85;
+  --cognifa-primary-hover: #4BC972;
+  --cognifa-light: #EDFCF3;
+  --cognifa-alt-bg: #F4FDF8;
+}
+
 input, textarea, select {
   color: #1A1A1A !important;
   background-color: #ffffff !important;
@@ -26,21 +46,20 @@ input::placeholder, textarea::placeholder {
 
 body {
   color: #1A1A1A;
-  background: #F7F9FC;
+  background: var(--cognifa-alt-bg);
   min-height: 100vh;
 }
 
-/* Cognifa: no gradients on buttons – solid primary blue */
 button[class*="from-primary-600"],
 button[class*="from-primary-700"],
 button.bg-gradient-to-r {
   background-image: none !important;
-  background-color: #2D74A8 !important;
+  background-color: var(--color-primary-600) !important;
 }
 button[class*="from-primary-600"]:hover,
 button[class*="from-primary-700"]:hover,
 button.bg-gradient-to-r:hover {
-  background-color: #1F5E8A !important;
+  background-color: var(--color-primary-700) !important;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -51,5 +70,10 @@ h1, h2, h3, h4, h5, h6 {
   .text-balance {
     text-wrap: balance;
   }
+  .text-accent {
+    color: var(--color-accent);
+  }
+  .bg-accent {
+    background-color: var(--color-accent);
+  }
 }
-

@@ -89,7 +89,7 @@ export function hasAnyRole(auth: AuthUser | null, allowed: string[]): boolean {
   return effective.some((r) => allowed.includes(r));
 }
 
-/** Kepala Sekolah has full access to all pages and functions. */
+/** School leadership with full management access. */
 export function hasFullAccess(auth: AuthUser | null): boolean {
-  return hasAnyRole(auth, ['principal']);
+  return hasAnyRole(auth, ['principal', 'ketua_pesantren', 'ketua_yayasan']);
 }

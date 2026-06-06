@@ -44,7 +44,7 @@ export default function DashboardPage() {
       try {
         setLoading(true);
         if (showDashboardSummary) {
-          const data = await api.get<DashboardSummary>('/dashboard/summary');
+          const data = await api.getCached<DashboardSummary>('/dashboard/summary');
           setSummary(data);
           setStats({ students: data.top10ByGrades?.length ?? 0, teachers: data.teacherCount ?? 0 });
         }

@@ -251,6 +251,111 @@ export default function SchoolProfilePage() {
                 />
               </div>
 
+              <div className="border-t pt-4 space-y-4">
+                <h3 className="text-lg font-semibold">Modul & Domain</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Custom domain</label>
+                    <input
+                      type="text"
+                      placeholder="ppst-alum.sch.id"
+                      value={formData.customDomain || ''}
+                      onChange={(e) => setFormData({ ...formData, customDomain: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Arahkan DNS domain ke deployment Vercel.</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Landing slug</label>
+                    <input
+                      type="text"
+                      placeholder="ppst-alum"
+                      value={formData.landingPage?.slug || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          landingPage: { ...formData.landingPage, enabled: formData.landingPage?.enabled ?? false, slug: e.target.value },
+                        })
+                      }
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={formData.landingPage?.enabled ?? false}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        landingPage: {
+                          ...formData.landingPage,
+                          slug: formData.landingPage?.slug || '',
+                          enabled: e.target.checked,
+                        },
+                      })
+                    }
+                  />
+                  Aktifkan halaman profil publik
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={formData.modules?.boardingSchool ?? false}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        modules: { ...formData.modules, boardingSchool: e.target.checked },
+                      })
+                    }
+                  />
+                  Aktifkan modul asrama (boarding school)
+                </label>
+                {formData.modules?.boardingSchool && (
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+                    <p className="font-medium">Kebijakan HP asrama</p>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.boardingConfig?.phonePolicy?.restrictOnSchoolDays ?? true}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            boardingConfig: {
+                              phonePolicy: {
+                                restrictOnSchoolDays: e.target.checked,
+                                roomCaptainCanHoldPhone:
+                                  formData.boardingConfig?.phonePolicy?.roomCaptainCanHoldPhone ?? true,
+                              },
+                            },
+                          })
+                        }
+                      />
+                      Hari sekolah: santri tidak boleh membawa HP
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.boardingConfig?.phonePolicy?.roomCaptainCanHoldPhone ?? true}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            boardingConfig: {
+                              phonePolicy: {
+                                restrictOnSchoolDays:
+                                  formData.boardingConfig?.phonePolicy?.restrictOnSchoolDays ?? true,
+                                roomCaptainCanHoldPhone: e.target.checked,
+                              },
+                            },
+                          })
+                        }
+                      />
+                      Perwakilan kamar boleh menyimpan HP
+                    </label>
+                  </div>
+                )}
+              </div>
+
               <div className="border-t pt-4">
                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                   <Award className="w-5 h-5 text-primary-600" />

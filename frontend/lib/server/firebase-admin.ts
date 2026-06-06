@@ -178,6 +178,18 @@ export function pendingProfileChangesCollection() {
   return getFirestore().collection('pendingProfileChanges');
 }
 
+export function boardingAreasCollection() {
+  return getFirestore().collection('boardingAreas');
+}
+
+export function boardingRoomsCollection() {
+  return getFirestore().collection('boardingRooms');
+}
+
+export function boardingSchedulesCollection() {
+  return getFirestore().collection('boardingSchedules');
+}
+
 export function tkDevelopmentAreasCollection() {
   return getFirestore().collection('tkDevelopmentAreas');
 }

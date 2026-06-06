@@ -56,6 +56,12 @@ export class APICache {
       '/subscriptions/',
       '/plans',
       '/modules',
+      '/schools',
+      '/config',
+      '/saas/summary',
+      '/boarding/summary',
+      '/dashboard/summary',
+      '/public/school/',
     ];
     
     if (staticEndpoints.some(staticPath => endpoint.includes(staticPath))) {

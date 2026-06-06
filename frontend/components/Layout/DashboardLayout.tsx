@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
+import SchoolLogo from '@/components/Brand/SchoolLogo';
+import PoweredByFooter from '@/components/Brand/PoweredByFooter';
+import { brand } from '@/lib/branding';
+import { useDisplaySchool } from '@/hooks/useDisplaySchool';
 import { useRouter, usePathname } from 'next/navigation';
 import { firebaseAuthService } from '@/lib/firebaseAuth';
 import { UserRole, getEffectiveRoles, ROLE_LABELS } from '@/lib/types';
@@ -26,6 +29,7 @@ import {
   Wallet,
   FileText,
   Award,
+  BedDouble,
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -84,6 +88,21 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/attendance', label: 'Kehadiran', icon: ClipboardCheck },
     { href: '/invoices', label: 'Tagihan', icon: Wallet },
     { href: '/school-profile', label: 'Profil Sekolah', icon: Building2 },
+    { href: '/boarding', label: 'Asrama', icon: BedDouble },
+  ],
+  [UserRole.KETUA_YAYASAN]: [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/users', label: 'Pengguna', icon: Users },
+    { href: '/school-profile', label: 'Profil Sekolah', icon: Building2 },
+    { href: '/boarding', label: 'Asrama', icon: BedDouble },
+    { href: '/reports', label: 'Laporan', icon: FileText },
+  ],
+  [UserRole.KETUA_PESANTREN]: [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/users', label: 'Pengguna', icon: Users },
+    { href: '/school-profile', label: 'Profil Sekolah', icon: Building2 },
+    { href: '/boarding', label: 'Asrama', icon: BedDouble },
+    { href: '/reports', label: 'Laporan', icon: FileText },
   ],
   [UserRole.PRINCIPAL]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -100,6 +119,7 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/cash-flow', label: 'Cash Flow', icon: Wallet },
     { href: '/reports', label: 'Laporan', icon: FileText },
     { href: '/school-profile', label: 'Profil Sekolah', icon: Building2 },
+    { href: '/boarding', label: 'Asrama', icon: BedDouble },
   ],
   [UserRole.FINANCE]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -111,6 +131,8 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
 
 const MENU_PRIORITY: UserRole[] = [
   UserRole.SAAS_ADMIN,
+  UserRole.KETUA_YAYASAN,
+  UserRole.KETUA_PESANTREN,
   UserRole.PRINCIPAL,
   UserRole.WAKASEK_KURIKULUM,
   UserRole.WAKASEK_KESISWAAN,
@@ -139,7 +161,6 @@ function getPrimaryMenuRole(user: { role?: string; roles?: string[] }): UserRole
 export default function DashboardLayout({ children, user: layoutUser }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [logoError, setLogoError] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -152,6 +173,7 @@ export default function DashboardLayout({ children, user: layoutUser }: Dashboar
     router.push('/login');
   };
 
+  const { logo: schoolLogo, name: schoolName } = useDisplaySchool();
   const primaryRole = getPrimaryMenuRole(layoutUser);
   const staffMenu = menuItems[UserRole.STAFF] ?? [];
   const teacherMenu = menuItems[UserRole.TEACHER] ?? [];
@@ -181,12 +203,17 @@ export default function DashboardLayout({ children, user: layoutUser }: Dashboar
       >
         <div className="flex flex-col h-full">
           <div className="p-6 border-b border-cognifaNeutral-border bg-cognifaNeutral-bg">
-            {!logoError ? (
-              <Image src="/logo.png" alt="Cognifa" width={140} height={36} className="h-9 w-auto object-contain" style={{ width: 'auto', height: '2.25rem' }} unoptimized onError={() => setLogoError(true)} />
-            ) : (
-              <h1 className="font-heading text-xl font-bold text-primary-500">Cognifa</h1>
+            <SchoolLogo
+              logo={schoolLogo}
+              name={schoolName}
+              width={120}
+              height={48}
+              className="h-12 w-auto object-contain mx-auto"
+              textClassName="font-heading text-base font-bold text-primary-600 text-center leading-tight"
+            />
+            {schoolName && (
+              <p className="text-xs text-center text-gray-600 mt-2 font-medium">{schoolName}</p>
             )}
-            <p className="text-sm text-gray-600 mt-2">Lacak. Terhubung. Percaya. Semua dalam Satu Tempat</p>
           </div>
 
           <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
@@ -265,7 +292,10 @@ export default function DashboardLayout({ children, user: layoutUser }: Dashboar
         </header>
 
         {/* Page content */}
-        <main className="p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="min-h-[calc(100vh-4rem)] flex flex-col">
+          <div className="flex-1 p-4 sm:p-6 lg:p-8">{children}</div>
+          <PoweredByFooter schoolName={schoolName} />
+        </main>
       </div>
     </div>
   );

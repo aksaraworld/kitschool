@@ -31,14 +31,14 @@ export default function SaasDashboardPage() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const [schoolsData, statsData, configData] = await Promise.all([
-          api.get<School[]>('/schools'),
-          api.get<TransactionFeeStatistics>('/transaction-fees/statistics'),
-          api.get<Configuration[]>('/config'),
-        ]);
-        setSchools(schoolsData);
-        setStats(statsData);
-        setConfig(configData);
+        const data = await api.getCached<{
+          schools: School[];
+          stats: TransactionFeeStatistics;
+          config: Configuration[];
+        }>('/saas/summary');
+        setSchools(data.schools);
+        setStats(data.stats);
+        setConfig(data.config);
       } catch (error) {
         console.error('Error fetching SaaS dashboard data:', error);
       } finally {
@@ -183,19 +183,19 @@ export default function SaasDashboardPage() {
                     <div className="bg-primary-50 rounded-lg p-4">
                       <p className="text-xs text-gray-600">Payment Gateway</p>
                       <p className="text-lg font-semibold text-primary-700">
-                        {formatCurrency(stats?.feeBreakdown.paymentGateway || 0)}
+                        {formatCurrency(stats?.feeBreakdown?.paymentGateway ?? 0)}
                       </p>
                     </div>
                     <div className="bg-emerald-50 rounded-lg p-4">
                       <p className="text-xs text-gray-600">Platform</p>
                       <p className="text-lg font-semibold text-emerald-700">
-                        {formatCurrency(stats?.feeBreakdown.platform || 0)}
+                        {formatCurrency(stats?.feeBreakdown?.platform ?? 0)}
                       </p>
                     </div>
                     <div className="bg-indigo-50 rounded-lg p-4">
                       <p className="text-xs text-gray-600">Pajak</p>
                       <p className="text-lg font-semibold text-indigo-700">
-                        {formatCurrency(stats?.feeBreakdown.tax || 0)}
+                        {formatCurrency(stats?.feeBreakdown?.tax ?? 0)}
                       </p>
                     </div>
                   </div>
