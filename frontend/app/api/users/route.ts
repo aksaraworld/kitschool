@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, hasAnyRole, hasFullAccess, normalizeSchoolId } from '@/lib/server/auth-helpers';
+import { getUnitId, loadSchoolUnits, recordMatchesUnit, resolveUnit } from '@/lib/server/unit-helpers';
 import {
   getAuth,
   usersCollection,
@@ -65,6 +66,17 @@ export async function GET(req: NextRequest) {
       docs = docs.filter((d) => {
         const d2 = d.data() as { role?: string; roles?: string[] };
         return d2?.role === roleParam || (Array.isArray(d2?.roles) && d2.roles.includes(roleParam));
+      });
+    }
+    const unitId = getUnitId(req, auth);
+    if (unitId && schoolIdForQuery) {
+      const units = await loadSchoolUnits(schoolIdForQuery);
+      const unit = resolveUnit(units, unitId);
+      docs = docs.filter((d) => {
+        const data = d.data() as Record<string, unknown>;
+        const hasUnitMarker = data.unitId || data.jenjang || data.unitLabel;
+        if (!hasUnitMarker) return true;
+        return recordMatchesUnit(data, unitId, unit);
       });
     }
     if (majorIdParam && schoolIdForQuery) {

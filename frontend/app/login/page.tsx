@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Input } from '@aksara/ui';
-import SchoolLogo from '@/components/Brand/SchoolLogo';
+import BrandLogo from '@/components/Brand/BrandLogo';
 import PoweredByFooter from '@/components/Brand/PoweredByFooter';
 import { brand } from '@/lib/branding';
 import { firebaseAuthService } from '@/lib/firebaseAuth';
@@ -39,12 +39,9 @@ export default function LoginPage() {
         <div className="max-w-md w-full bg-cognifaNeutral-bg rounded-2xl shadow-lg p-8 border border-cognifaNeutral-border">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-3 min-h-[72px] items-center">
-              <SchoolLogo width={160} height={72} className="h-[72px] w-auto object-contain" />
+              <BrandLogo width={200} height={72} className="h-[72px] w-auto object-contain" />
             </div>
-            {brand.schoolName && (
-              <p className="text-base font-semibold text-gray-900">{brand.schoolName}</p>
-            )}
-            <p className="text-cognifaNeutral-secondary text-sm font-medium mt-2">{brand.tagline}</p>
+            <p className="text-cognifaNeutral-secondary text-sm font-medium">{brand.tagline}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

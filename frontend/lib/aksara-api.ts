@@ -5,6 +5,7 @@
 
 import { APIClient } from '@aksara/api';
 import { firebaseAuthService } from './firebaseAuth';
+import { getStoredSchoolId, getStoredUnitId } from './school-context-storage';
 
 // In production, default to same-origin to avoid accidentally calling localhost.
 // If your backend is deployed elsewhere, set NEXT_PUBLIC_API_URL to its origin (no trailing /api).
@@ -23,11 +24,15 @@ export const aksaraApi = new APIClient({
       headers['Authorization'] = `Bearer ${token}`;
     }
     
-    // Add school context header
+    // Add school / unit context headers
     if (typeof window !== 'undefined') {
-      const selectedSchoolId = localStorage.getItem('selectedSchoolId');
-      if (selectedSchoolId) {
-        headers['x-school-id'] = selectedSchoolId;
+      const schoolId = getStoredSchoolId();
+      if (schoolId) {
+        headers['x-school-id'] = schoolId;
+        const unitId = getStoredUnitId(schoolId);
+        if (unitId) {
+          headers['x-unit-id'] = unitId;
+        }
       }
     }
     

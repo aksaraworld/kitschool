@@ -5,7 +5,8 @@ import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import { SubscriptionStatus, UserRole } from '@/lib/types';
 import { useSchoolContext } from '@/hooks/useSchoolContext';
 import api from '@/lib/aksara-api';
-import { Search, RefreshCw, CheckCircle2, AlertTriangle, Building2 } from 'lucide-react';
+import SchoolEditModal from '@/components/SaaS/SchoolEditModal';
+import { Search, RefreshCw, CheckCircle2, AlertTriangle, Building2, Pencil } from 'lucide-react';
 
 const statusBadge = (status: SubscriptionStatus) => {
   switch (status) {
@@ -31,6 +32,7 @@ export default function SaasSchoolsPage() {
   } = useSchoolContext();
   const [search, setSearch] = useState('');
   const [activatingId, setActivatingId] = useState<string | null>(null);
+  const [editingSchoolId, setEditingSchoolId] = useState<string | null>(null);
 
   const filteredSchools = useMemo(() => {
     if (!search) return schools;
@@ -119,6 +121,9 @@ export default function SaasSchoolsPage() {
                       <td className="px-4 py-4">
                         <p className="text-sm font-semibold text-gray-900">{school.name}</p>
                         <p className="text-xs text-gray-500">{school.email}</p>
+                        {school.jenjang?.length ? (
+                          <p className="text-xs text-primary-600 mt-0.5">{school.jenjang.join(' · ')}</p>
+                        ) : null}
                       </td>
                       <td className="px-4 py-4 text-sm text-gray-600">{school.city}</td>
                       <td className="px-4 py-4">
@@ -142,6 +147,13 @@ export default function SaasSchoolsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-4 text-right space-x-2">
+                        <button
+                          onClick={() => setEditingSchoolId(school._id)}
+                          className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-700 hover:bg-gray-50"
+                        >
+                          <Pencil className="w-4 h-4 mr-2" />
+                          Edit
+                        </button>
                         <button
                           onClick={() => selectSchool(school._id)}
                           className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium ${
@@ -174,6 +186,12 @@ export default function SaasSchoolsPage() {
             </table>
           </div>
         </div>
+
+        <SchoolEditModal
+          schoolId={editingSchoolId}
+          onClose={() => setEditingSchoolId(null)}
+          onSaved={refreshSchools}
+        />
       </div>
     </ProtectedRoute>
   );

@@ -6,6 +6,7 @@ import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import { UserRole, User, STAFF_ROLES, ROLES_CAN_MANAGE_USERS, ROLE_LABELS, getEffectiveRoles, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
+import { UNIT_CONTEXT_CHANGE_EVENT } from '@/context/SchoolContext';
 import { Button } from '@aksara/ui';
 import Link from 'next/link';
 import { Plus, Edit, Trash2, UserCheck, Search, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -44,6 +45,12 @@ function UsersPageContent() {
 
   useEffect(() => {
     fetchUsers();
+  }, [roleFilter, searchParams.get('majorId')]);
+
+  useEffect(() => {
+    const refresh = () => fetchUsers();
+    window.addEventListener(UNIT_CONTEXT_CHANGE_EVENT, refresh);
+    return () => window.removeEventListener(UNIT_CONTEXT_CHANGE_EVENT, refresh);
   }, [roleFilter, searchParams.get('majorId')]);
 
   useEffect(() => {

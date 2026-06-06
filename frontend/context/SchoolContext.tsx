@@ -4,8 +4,11 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { createContextWithHook } from '@aksara/context';
 import { useLocalStorage } from '@aksara/hooks';
 import api from '@/lib/aksara-api';
-import { School, UserRole } from '@/lib/types';
+import { School, SchoolUnit, UserRole, hasAnyRole } from '@/lib/types';
 import { firebaseAuthService, AUTH_CHANGE_EVENT } from '@/lib/firebaseAuth';
+import { getStoredUnitId, setStoredUnitId } from '@/lib/school-context-storage';
+
+export const UNIT_CONTEXT_CHANGE_EVENT = 'unit-context-changed';
 
 interface SchoolContextValue {
   schools: School[];
@@ -13,7 +16,13 @@ interface SchoolContextValue {
   selectedSchool: School | null;
   isLoading: boolean;
   isSaasAdmin: boolean;
+  canSwitchUnits: boolean;
+  units: SchoolUnit[];
+  selectedUnitId: string | null;
+  selectedUnit: SchoolUnit | null;
+  isUnitsLoading: boolean;
   selectSchool: (schoolId: string | null) => void;
+  selectUnit: (unitId: string | null) => void;
   refreshSchools: () => Promise<void>;
 }
 
@@ -27,10 +36,17 @@ export const SchoolProvider = ({ children }: { children: React.ReactNode }) => {
   const [selectedSchoolId, setSelectedSchoolId, removeSelectedSchoolId] = useLocalStorage<string | null>('selectedSchoolId', null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaasAdmin, setIsSaasAdmin] = useState(false);
+  const [canSwitchUnits, setCanSwitchUnits] = useState(false);
+  const [units, setUnits] = useState<SchoolUnit[]>([]);
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const [isUnitsLoading, setIsUnitsLoading] = useState(false);
 
   const updateSaasAdminStatus = useCallback(() => {
     const currentUser = firebaseAuthService.getCurrentUser();
     setIsSaasAdmin(currentUser?.role === UserRole.SAAS_ADMIN);
+    setCanSwitchUnits(
+      hasAnyRole(currentUser, [UserRole.KETUA_YAYASAN, UserRole.KETUA_PESANTREN])
+    );
   }, []);
 
   useEffect(() => {
@@ -92,6 +108,57 @@ export const SchoolProvider = ({ children }: { children: React.ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSaasAdmin]);
 
+  const loadUnits = useCallback(async () => {
+    if (!canSwitchUnits) {
+      setUnits([]);
+      setSelectedUnitId(null);
+      return;
+    }
+    setIsUnitsLoading(true);
+    try {
+      const school = await api.get<School>('/school');
+      const list =
+        school.units?.length
+          ? school.units
+          : (school.jenjang || []).map((j) => ({
+              id: j.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+              name: j,
+              label: j,
+            }));
+      setUnits(list);
+      const stored = getStoredUnitId(school._id);
+      const initial =
+        stored && list.some((u) => u.id === stored) ? stored : null;
+      setSelectedUnitId(initial);
+      if (initial) {
+        setStoredUnitId(school._id, initial);
+      }
+    } catch (error) {
+      console.error('Error loading school units:', error);
+      setUnits([]);
+    } finally {
+      setIsUnitsLoading(false);
+    }
+  }, [canSwitchUnits]);
+
+  useEffect(() => {
+    loadUnits();
+  }, [loadUnits]);
+
+  const selectUnit = useCallback(
+    (unitId: string | null) => {
+      setSelectedUnitId(unitId);
+      const schoolId =
+        selectedSchoolId ||
+        (firebaseAuthService.getCurrentUser() as { schoolId?: string })?.schoolId;
+      if (schoolId) {
+        setStoredUnitId(schoolId, unitId);
+        window.dispatchEvent(new Event(UNIT_CONTEXT_CHANGE_EVENT));
+      }
+    },
+    [selectedSchoolId]
+  );
+
   const selectSchool = useCallback((schoolId: string | null) => {
     if (schoolId) {
       setSelectedSchoolId(schoolId);
@@ -108,10 +175,27 @@ export const SchoolProvider = ({ children }: { children: React.ReactNode }) => {
       selectedSchool: schools.find((school) => school._id === selectedSchoolId) || null,
       isLoading,
       isSaasAdmin,
+      canSwitchUnits,
+      units,
+      selectedUnitId,
+      selectedUnit: units.find((unit) => unit.id === selectedUnitId) || null,
+      isUnitsLoading,
       selectSchool,
+      selectUnit,
       refreshSchools: fetchSchools,
     }),
-    [schools, selectedSchoolId, isLoading, isSaasAdmin, fetchSchools]
+    [
+      schools,
+      selectedSchoolId,
+      isLoading,
+      isSaasAdmin,
+      canSwitchUnits,
+      units,
+      selectedUnitId,
+      isUnitsLoading,
+      fetchSchools,
+      selectUnit,
+    ]
   );
 
   return <SchoolContext.Provider value={value}>{children}</SchoolContext.Provider>;

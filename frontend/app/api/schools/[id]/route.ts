@@ -7,6 +7,35 @@ import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
 import { schoolsCollection, docToJson } from '@/lib/server/firebase-admin';
 import { UserRole } from '@/lib/types';
 
+const SAAS_PROFILE_FIELDS = [
+  'name',
+  'shortName',
+  'address',
+  'city',
+  'district',
+  'province',
+  'postalCode',
+  'phone',
+  'email',
+  'website',
+  'logo',
+  'description',
+  'schoolType',
+  'jenjang',
+  'units',
+  'leadership',
+  'principalName',
+  'principalEmail',
+  'principalPhone',
+  'establishedYear',
+  'accreditation',
+  'taxId',
+  'customDomain',
+  'landingPage',
+  'modules',
+  'boardingConfig',
+] as const;
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -60,6 +89,22 @@ export async function PUT(
       if (auth.role !== UserRole.SAAS_ADMIN) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
       await schoolsCollection().doc(id).update({ isActive: body.isActive, updatedAt: new Date() });
       return NextResponse.json({ message: 'Updated' });
+    }
+
+    // Full school profile (SaaS Admin only)
+    const hasProfileUpdate = SAAS_PROFILE_FIELDS.some((field) => body[field] !== undefined);
+    if (hasProfileUpdate) {
+      if (auth.role !== UserRole.SAAS_ADMIN) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+      const ref = schoolsCollection().doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) return NextResponse.json({ message: 'School not found' }, { status: 404 });
+      const update: Record<string, unknown> = { updatedAt: new Date() };
+      for (const field of SAAS_PROFILE_FIELDS) {
+        if (body[field] !== undefined) update[field] = body[field];
+      }
+      await ref.update(update);
+      const updated = await ref.get();
+      return NextResponse.json(docToJson(updated));
     }
 
     return NextResponse.json({ message: 'No valid update' }, { status: 400 });

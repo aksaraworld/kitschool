@@ -36,7 +36,7 @@ export default function SchoolLogo({
       width={width}
       height={height}
       className={className}
-      style={{ width: 'auto', maxHeight: className.includes('h-14') ? '3.5rem' : `${height}px` }}
+      style={{ width: 'auto', maxHeight: `${height}px` }}
       unoptimized
       onError={() => setLogoError(true)}
       priority

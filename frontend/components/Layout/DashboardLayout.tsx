@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import SchoolLogo from '@/components/Brand/SchoolLogo';
+import BrandLogo from '@/components/Brand/BrandLogo';
 import PoweredByFooter from '@/components/Brand/PoweredByFooter';
 import { brand } from '@/lib/branding';
 import { useDisplaySchool } from '@/hooks/useDisplaySchool';
@@ -10,6 +11,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { firebaseAuthService } from '@/lib/firebaseAuth';
 import { UserRole, getEffectiveRoles, ROLE_LABELS } from '@/lib/types';
 import SchoolSwitcher from '../SaaS/SchoolSwitcher';
+import UnitSwitcher from './UnitSwitcher';
 import {
   LayoutDashboard,
   Users,
@@ -173,7 +175,7 @@ export default function DashboardLayout({ children, user: layoutUser }: Dashboar
     router.push('/login');
   };
 
-  const { logo: schoolLogo, name: schoolName } = useDisplaySchool();
+  const { logo: schoolLogo, name: schoolName, isPlatformAdmin } = useDisplaySchool();
   const primaryRole = getPrimaryMenuRole(layoutUser);
   const staffMenu = menuItems[UserRole.STAFF] ?? [];
   const teacherMenu = menuItems[UserRole.TEACHER] ?? [];
@@ -203,16 +205,30 @@ export default function DashboardLayout({ children, user: layoutUser }: Dashboar
       >
         <div className="flex flex-col h-full">
           <div className="p-6 border-b border-cognifaNeutral-border bg-cognifaNeutral-bg">
-            <SchoolLogo
-              logo={schoolLogo}
-              name={schoolName}
-              width={120}
-              height={48}
-              className="h-12 w-auto object-contain mx-auto"
-              textClassName="font-heading text-base font-bold text-primary-600 text-center leading-tight"
-            />
-            {schoolName && (
-              <p className="text-xs text-center text-gray-600 mt-2 font-medium">{schoolName}</p>
+            {isPlatformAdmin ? (
+              <>
+                <BrandLogo
+                  width={120}
+                  height={40}
+                  className="h-10 w-auto object-contain mx-auto"
+                  textClassName="font-heading text-base font-bold text-primary-600 text-center leading-tight"
+                />
+                <p className="text-xs text-center text-gray-600 mt-2 font-medium">{brand.name}</p>
+              </>
+            ) : (
+              <>
+                <SchoolLogo
+                  logo={schoolLogo}
+                  name={schoolName}
+                  width={120}
+                  height={48}
+                  className="h-12 w-auto object-contain mx-auto"
+                  textClassName="font-heading text-base font-bold text-primary-600 text-center leading-tight"
+                />
+                {schoolName && (
+                  <p className="text-xs text-center text-gray-600 mt-2 font-medium">{schoolName}</p>
+                )}
+              </>
             )}
           </div>
 
@@ -267,8 +283,10 @@ export default function DashboardLayout({ children, user: layoutUser }: Dashboar
             >
               {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
-            <div className="flex-1" />
-            <div className="flex flex-wrap items-center gap-4 justify-end">
+            <div className="flex-1 flex items-center min-w-0 px-2 lg:px-4">
+              <UnitSwitcher />
+            </div>
+            <div className="flex flex-wrap items-center gap-4 justify-end shrink-0">
               {layoutUser && getEffectiveRoles(layoutUser).includes(UserRole.SAAS_ADMIN) && <SchoolSwitcher />}
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium text-gray-900">{user?.name}</p>

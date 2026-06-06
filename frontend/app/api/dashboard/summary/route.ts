@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId, hasFullAccess, hasAnyRole } from '@/lib/server/auth-helpers';
+import { getUnitId, classMatchesUnit } from '@/lib/server/unit-helpers';
 import {
   yearsCollection,
   classesCollection,
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
 
     const schoolId = getSchoolId(req, auth);
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
+    const unitId = getUnitId(req, auth);
 
     const [yearsSnap, classesSnap, usersSnap, gradesSnap, attSnap, majorsSnap, scholarSnap, schoolSnap] = await Promise.all([
       yearsCollection().where('schoolId', '==', schoolId).get(),
@@ -42,7 +44,13 @@ export async function GET(req: NextRequest) {
       scholarshipsCollection().where('schoolId', '==', schoolId).get(),
       schoolsCollection().doc(schoolId).get(),
     ]);
-    const schoolData = schoolSnap.exists ? (schoolSnap.data() as { rankingMatrix?: { wUas?: number; wUts?: number; wPr?: number } }) : {};
+    const schoolData = schoolSnap.exists
+      ? (schoolSnap.data() as {
+          rankingMatrix?: { wUas?: number; wUts?: number; wPr?: number };
+          units?: { id: string; name: string; label?: string }[];
+        })
+      : {};
+    const schoolUnits = schoolData.units ?? [];
     const rm = schoolData.rankingMatrix ?? {};
     const wUas = Math.max(0, Math.min(100, Number(rm.wUas) || 50));
     const wUts = Math.max(0, Math.min(100, Number(rm.wUts) || 30));
@@ -63,6 +71,9 @@ export async function GET(req: NextRequest) {
 
     const classes = classesSnap.docs
       .filter((d) => !yearId || (d.data() as { yearId?: string }).yearId === yearId)
+      .filter((d) =>
+        !unitId || classMatchesUnit({ id: d.id, ...d.data() }, unitId, schoolUnits)
+      )
       .map((d) => ({ id: d.id, ...d.data() } as { id: string; yearId?: string; majorId?: string; studentIds?: string[]; homeroomTeacherId?: string }));
 
     const studentIdsInYear = new Set<string>();

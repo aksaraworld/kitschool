@@ -28,9 +28,16 @@ export function useDisplaySchool() {
       .catch(() => setSchool(null));
   }, [user, selectedSchool, isSaasAdmin]);
 
-  const logo = school?.logo || brand.schoolLogo || undefined;
-  const name =
-    school?.shortName || school?.name || user?.school?.name || brand.schoolName || undefined;
+  const isPlatformAdmin = Boolean(
+    isSaasAdmin || user?.role === UserRole.SAAS_ADMIN
+  );
 
-  return { school, logo, name };
+  const logo = isPlatformAdmin
+    ? undefined
+    : school?.logo || brand.schoolLogo || undefined;
+  const name = isPlatformAdmin
+    ? undefined
+    : school?.shortName || school?.name || user?.school?.name || brand.schoolName || undefined;
+
+  return { school, logo, name, isPlatformAdmin };
 }

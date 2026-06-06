@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId, hasAnyRole, hasFullAccess } from '@/lib/server/auth-helpers';
+import { getUnitId, loadSchoolUnits, classMatchesUnit } from '@/lib/server/unit-helpers';
 import {
   classesCollection,
   yearsCollection,
@@ -20,12 +21,20 @@ export async function GET(req: NextRequest) {
 
     const schoolId = getSchoolId(req, auth);
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
+    const unitId = getUnitId(req, auth);
+    const schoolUnits = unitId ? await loadSchoolUnits(schoolId) : [];
 
     const [classesSnap, yearsSnap, majorsSnap] = await Promise.all([
       classesCollection().where('schoolId', '==', schoolId).get(),
       yearsCollection().where('schoolId', '==', schoolId).get(),
       majorsCollection().where('schoolId', '==', schoolId).get(),
     ]);
+
+    const classDocs = unitId
+      ? classesSnap.docs.filter((d) =>
+          classMatchesUnit({ id: d.id, ...d.data() }, unitId, schoolUnits)
+        )
+      : classesSnap.docs;
 
     const yearMap = new Map<string, { _id: string; name: string }>();
     yearsSnap.docs.forEach((d) => {
@@ -38,8 +47,8 @@ export async function GET(req: NextRequest) {
       majorMap.set(o.id, { _id: o.id, name: o.name ?? '' });
     });
 
-    const teacherIds = [...new Set(classesSnap.docs.map((d) => (d.data() as { homeroomTeacherId?: string })?.homeroomTeacherId).filter(Boolean))] as string[];
-    const presidentIds = [...new Set(classesSnap.docs.map((d) => (d.data() as { classPresidentId?: string })?.classPresidentId).filter(Boolean))] as string[];
+    const teacherIds = [...new Set(classDocs.map((d) => (d.data() as { homeroomTeacherId?: string })?.homeroomTeacherId).filter(Boolean))] as string[];
+    const presidentIds = [...new Set(classDocs.map((d) => (d.data() as { classPresidentId?: string })?.classPresidentId).filter(Boolean))] as string[];
     const allUserIds = [...new Set([...teacherIds, ...presidentIds])];
     const teacherMap = new Map<string, { _id: string; name: string }>();
     if (allUserIds.length > 0) {
@@ -53,7 +62,7 @@ export async function GET(req: NextRequest) {
     }
 
     const hidePending = !hasFullAccess(auth);
-    const classes = classesSnap.docs
+    const classes = classDocs
       .filter((d) => {
         if (!hidePending) return true;
         const status = (d.data() as { approvalStatus?: string })?.approvalStatus;

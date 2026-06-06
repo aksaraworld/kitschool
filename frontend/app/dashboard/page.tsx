@@ -6,6 +6,7 @@ import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import { UserRole, hasFullAccess, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
+import { UNIT_CONTEXT_CHANGE_EVENT } from '@/context/SchoolContext';
 import {
   Users,
   Calendar,
@@ -56,6 +57,15 @@ export default function DashboardPage() {
       }
     };
     fetchData();
+  }, [user, showDashboardSummary]);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (!user || !showDashboardSummary) return;
+      api.getCached<DashboardSummary>('/dashboard/summary', { skipCache: true }).then(setSummary).catch(() => setSummary(null));
+    };
+    window.addEventListener(UNIT_CONTEXT_CHANGE_EVENT, refresh);
+    return () => window.removeEventListener(UNIT_CONTEXT_CHANGE_EVENT, refresh);
   }, [user, showDashboardSummary]);
 
   const getRoleSpecificStats = () => {
