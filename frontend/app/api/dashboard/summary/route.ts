@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId, hasFullAccess, hasAnyRole } from '@/lib/server/auth-helpers';
-import { getUnitId, classMatchesUnit } from '@/lib/server/unit-helpers';
+import { getUnitId, classMatchesUnit, loadSchoolUnits } from '@/lib/server/unit-helpers';
 import {
   yearsCollection,
   classesCollection,
@@ -45,12 +45,9 @@ export async function GET(req: NextRequest) {
       schoolsCollection().doc(schoolId).get(),
     ]);
     const schoolData = schoolSnap.exists
-      ? (schoolSnap.data() as {
-          rankingMatrix?: { wUas?: number; wUts?: number; wPr?: number };
-          units?: { id: string; name: string; label?: string }[];
-        })
+      ? (schoolSnap.data() as { rankingMatrix?: { wUas?: number; wUts?: number; wPr?: number } })
       : {};
-    const schoolUnits = schoolData.units ?? [];
+    const schoolUnits = unitId ? await loadSchoolUnits(schoolId) : [];
     const rm = schoolData.rankingMatrix ?? {};
     const wUas = Math.max(0, Math.min(100, Number(rm.wUas) || 50));
     const wUts = Math.max(0, Math.min(100, Number(rm.wUts) || 30));

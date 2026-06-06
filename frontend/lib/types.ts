@@ -100,7 +100,7 @@ export function hasFullAccess(user: { role?: string; roles?: string[] } | null):
 export interface SchoolUnit {
   id: string;
   name: string;
-  label: string;
+  label?: string;
   principalUserId?: string;
   principalEmail?: string;
 }
