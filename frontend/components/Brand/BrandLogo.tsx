@@ -14,7 +14,7 @@ type BrandLogoProps = {
 export default function BrandLogo({
   width = 200,
   height = 52,
-  className = 'h-[52px] w-auto object-contain',
+  className = '',
   textClassName = 'font-heading text-3xl font-bold text-primary-500',
 }: BrandLogoProps) {
   const [logoError, setLogoError] = useState(false);
@@ -24,16 +24,21 @@ export default function BrandLogo({
   }
 
   return (
-    <Image
-      src={brand.logo}
-      alt={brand.name}
-      width={width}
-      height={height}
-      className={className}
-      style={{ width: 'auto', height: className.includes('h-9') ? '2.25rem' : `${height}px` }}
-      unoptimized
-      onError={() => setLogoError(true)}
-      priority
-    />
+    <div
+      className="flex items-center justify-center"
+      style={{ maxHeight: `${height}px`, maxWidth: `${width}px` }}
+    >
+      <Image
+        src={brand.logo}
+        alt={brand.name}
+        width={width}
+        height={height}
+        className={`max-h-full max-w-full object-contain ${className}`.trim()}
+        style={{ width: 'auto', height: 'auto' }}
+        unoptimized
+        onError={() => setLogoError(true)}
+        priority
+      />
+    </div>
   );
 }

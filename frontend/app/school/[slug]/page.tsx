@@ -74,8 +74,7 @@ export default function SchoolLandingPage({ params }: { params: { slug: string }
             logo={school.logo}
             name={school.shortName || school.name}
             width={100}
-            height={48}
-            className="h-12 w-auto object-contain"
+            height={40}
             textClassName="text-sm font-bold text-primary-600"
           />
           <Link href="/login" className="text-sm font-medium text-primary-600 hover:underline shrink-0">

@@ -7,7 +7,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node -e \"process.exit(process.env.VERCEL ? 0 : 1)\" || (cd .. && npm run build:packages)",
+    "predev": "node scripts/write-fcm-sw.mjs",
+    "prebuild": "node scripts/write-fcm-sw.mjs && node -e \"process.exit(process.env.VERCEL ? 0 : 1)\" || (cd .. && npm run build:packages)",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -27,6 +28,7 @@
     "@aksara/ui": "file:../packages/ui",
     "@aksara/formatters": "file:../packages/formatters",
     "@aksara/firebase": "file:../packages/firebase",
+    "firebase": "^10.14.1",
     "tailwindcss": "^3.4.0",
     "postcss": "^8.4.32",
     "autoprefixer": "^10.4.16",

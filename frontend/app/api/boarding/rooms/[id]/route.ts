@@ -40,6 +40,12 @@ export async function PUT(
         { merge: true }
       );
     }
+    if (body.roomHeadStaffId) {
+      await usersCollection().doc(body.roomHeadStaffId).set(
+        { boardingRoomHeadId: params.id, updatedAt: new Date() },
+        { merge: true }
+      );
+    }
 
     const updated = await ref.get();
     return NextResponse.json(docToJson(updated));

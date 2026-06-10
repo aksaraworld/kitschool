@@ -39,7 +39,7 @@ export default function LoginPage() {
         <div className="max-w-md w-full bg-cognifaNeutral-bg rounded-2xl shadow-lg p-8 border border-cognifaNeutral-border">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-3 min-h-[72px] items-center">
-              <BrandLogo width={200} height={72} className="h-[72px] w-auto object-contain" />
+              <BrandLogo width={200} height={72} />
             </div>
             <p className="text-cognifaNeutral-secondary text-sm font-medium">{brand.tagline}</p>
           </div>

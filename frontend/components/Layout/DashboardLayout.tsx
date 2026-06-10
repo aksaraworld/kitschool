@@ -12,6 +12,8 @@ import { firebaseAuthService } from '@/lib/firebaseAuth';
 import { UserRole, getEffectiveRoles, ROLE_LABELS } from '@/lib/types';
 import SchoolSwitcher from '../SaaS/SchoolSwitcher';
 import UnitSwitcher from './UnitSwitcher';
+import NotificationBell from './NotificationBell';
+import ChatFab from '@/components/Chat/ChatFab';
 import {
   LayoutDashboard,
   Users,
@@ -91,6 +93,7 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/invoices', label: 'Tagihan', icon: Wallet },
     { href: '/school-profile', label: 'Profil Sekolah', icon: Building2 },
     { href: '/boarding', label: 'Asrama', icon: BedDouble },
+    { href: '/messages', label: 'Pesan', icon: MessageSquare },
   ],
   [UserRole.KETUA_YAYASAN]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -98,6 +101,7 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/school-profile', label: 'Profil Sekolah', icon: Building2 },
     { href: '/boarding', label: 'Asrama', icon: BedDouble },
     { href: '/reports', label: 'Laporan', icon: FileText },
+    { href: '/messages', label: 'Pesan', icon: MessageSquare },
   ],
   [UserRole.KETUA_PESANTREN]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -105,6 +109,7 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/school-profile', label: 'Profil Sekolah', icon: Building2 },
     { href: '/boarding', label: 'Asrama', icon: BedDouble },
     { href: '/reports', label: 'Laporan', icon: FileText },
+    { href: '/messages', label: 'Pesan', icon: MessageSquare },
   ],
   [UserRole.PRINCIPAL]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -122,12 +127,14 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/reports', label: 'Laporan', icon: FileText },
     { href: '/school-profile', label: 'Profil Sekolah', icon: Building2 },
     { href: '/boarding', label: 'Asrama', icon: BedDouble },
+    { href: '/messages', label: 'Pesan', icon: MessageSquare },
   ],
   [UserRole.FINANCE]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/profile', label: 'Profil', icon: User },
     { href: '/invoices', label: 'Tagihan', icon: CreditCard },
     { href: '/reports', label: 'Laporan', icon: FileText },
+    { href: '/messages', label: 'Pesan', icon: MessageSquare },
   ],
 };
 
@@ -210,7 +217,6 @@ export default function DashboardLayout({ children, user: layoutUser }: Dashboar
                 <BrandLogo
                   width={120}
                   height={40}
-                  className="h-10 w-auto object-contain mx-auto"
                   textClassName="font-heading text-base font-bold text-primary-600 text-center leading-tight"
                 />
                 <p className="text-xs text-center text-gray-600 mt-2 font-medium">{brand.name}</p>
@@ -222,7 +228,6 @@ export default function DashboardLayout({ children, user: layoutUser }: Dashboar
                   name={schoolName}
                   width={120}
                   height={48}
-                  className="h-12 w-auto object-contain mx-auto"
                   textClassName="font-heading text-base font-bold text-primary-600 text-center leading-tight"
                 />
                 {schoolName && (
@@ -286,7 +291,8 @@ export default function DashboardLayout({ children, user: layoutUser }: Dashboar
             <div className="flex-1 flex items-center min-w-0 px-2 lg:px-4">
               <UnitSwitcher />
             </div>
-            <div className="flex flex-wrap items-center gap-4 justify-end shrink-0">
+            <div className="flex flex-wrap items-center gap-3 justify-end shrink-0">
+              <NotificationBell />
               {layoutUser && getEffectiveRoles(layoutUser).includes(UserRole.SAAS_ADMIN) && <SchoolSwitcher />}
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium text-gray-900">{user?.name}</p>
@@ -315,6 +321,8 @@ export default function DashboardLayout({ children, user: layoutUser }: Dashboar
           <PoweredByFooter schoolName={schoolName} />
         </main>
       </div>
+
+      {layoutUser && <ChatFab user={layoutUser} />}
     </div>
   );
 }

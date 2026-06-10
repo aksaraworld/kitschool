@@ -9,16 +9,14 @@ import {
   initializeFirebaseAdminFromEnv,
   getFirebaseAdminAuth,
   getFirebaseAdminDb,
+  getFirebaseAdminApp,
 } from '@aksara/firebase/admin';
-import admin from 'firebase-admin';
+import type admin from 'firebase-admin';
 
 let initDone = false;
 function ensureInit() {
   if (initDone) return;
-  const result = initializeFirebaseAdminFromEnv();
-  if (!result.initialized && admin.apps.length === 0 && process.env.FIREBASE_PROJECT_ID) {
-    admin.initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID });
-  }
+  initializeFirebaseAdminFromEnv();
   initDone = true;
 }
 
@@ -30,6 +28,13 @@ export function getAuth() {
 export function getFirestore() {
   ensureInit();
   return getFirebaseAdminDb();
+}
+
+export function getMessaging() {
+  ensureInit();
+  // Must use the app from @aksara/firebase — a separate `firebase-admin` import
+  // is a different module instance in Next.js and won't be initialized.
+  return getFirebaseAdminApp().messaging();
 }
 
 export async function verifyIdToken(idToken: string): Promise<admin.auth.DecodedIdToken | null> {
@@ -88,6 +93,14 @@ export function paymentsCollection() {
 
 export function communicationsCollection() {
   return getFirestore().collection('communications');
+}
+
+export function chatConversationsCollection() {
+  return getFirestore().collection('chatConversations');
+}
+
+export function chatMessagesCollection(conversationId: string) {
+  return chatConversationsCollection().doc(conversationId).collection('messages');
 }
 
 export function configCollection() {

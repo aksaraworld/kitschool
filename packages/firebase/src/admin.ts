@@ -166,6 +166,13 @@ export function getFirebaseAdminAuth() {
 }
 
 /**
+ * Get Firebase Admin Messaging instance (FCM push)
+ */
+export function getFirebaseAdminMessaging() {
+  return getFirebaseAdminApp().messaging();
+}
+
+/**
  * Verify Firebase ID token
  */
 export async function verifyIdToken(token: string): Promise<admin.auth.DecodedIdToken | null> {

@@ -262,6 +262,14 @@ export interface User {
   employeeId?: string;
   department?: string;
   schoolId?: string;
+  /** Boarding: student room assignment */
+  boardingRoomId?: string;
+  /** Boarding: perwakilan kamar (student, wakil) */
+  isRoomCaptain?: boolean;
+  /** Boarding: kepala kamar staff assignment */
+  boardingRoomHeadId?: string;
+  /** FCM device tokens for push notifications */
+  fcmTokens?: string[];
   school?: {
     id: string;
     name: string;
@@ -388,6 +396,87 @@ export interface Communication {
   createdAt: string;
 }
 
+/** Chat participant snapshot stored on conversation. */
+export interface ChatParticipant {
+  uid: string;
+  name: string;
+  role: string;
+  avatar?: string;
+}
+
+export interface ChatConversation {
+  _id: string;
+  schoolId: string;
+  participantIds: string[];
+  participants: Record<string, ChatParticipant>;
+  lastMessage?: string;
+  lastMessageAt?: string;
+  lastSenderId?: string;
+  unreadCount?: Record<string, number>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatMessage {
+  _id: string;
+  conversationId: string;
+  schoolId: string;
+  senderId: string;
+  text: string;
+  createdAt: string;
+  readBy?: Record<string, string>;
+}
+
+export type AppNotificationType = 'chat' | 'communication';
+
+export interface AppNotification {
+  id: string;
+  type: AppNotificationType;
+  title: string;
+  body: string;
+  createdAt: string;
+  href: string;
+  unread: boolean;
+  count?: number;
+  conversationId?: string;
+}
+
+/** Roles allowed to use school chat. */
+export const CHAT_ROLES: UserRole[] = [
+  UserRole.PARENT,
+  UserRole.TEACHER,
+  UserRole.HOMEROOM_TEACHER,
+  UserRole.GURU_PRODUKTIF,
+  UserRole.STAFF,
+  UserRole.FINANCE,
+  UserRole.PRINCIPAL,
+  UserRole.KETUA_PESANTREN,
+  UserRole.KETUA_YAYASAN,
+  UserRole.WAKASEK_KURIKULUM,
+  UserRole.WAKASEK_KESISWAAN,
+  UserRole.WAKASEK_SARANA,
+  UserRole.KEPALA_PROGRAM_KEAHLIAN,
+  UserRole.KOORDINATOR_BK_ESKUL,
+  UserRole.KOORDINATOR_LAB_PERPUS,
+  UserRole.KAPRODI,
+];
+
+/** Staff roles that may message any parent (TU, billing, etc.). */
+export const CHAT_BROADCAST_STAFF_ROLES: UserRole[] = [
+  UserRole.STAFF,
+  UserRole.FINANCE,
+  UserRole.PRINCIPAL,
+  UserRole.KETUA_PESANTREN,
+  UserRole.KETUA_YAYASAN,
+  UserRole.WAKASEK_KURIKULUM,
+  UserRole.WAKASEK_KESISWAAN,
+  UserRole.WAKASEK_SARANA,
+  UserRole.KEPALA_PROGRAM_KEAHLIAN,
+  UserRole.KOORDINATOR_BK_ESKUL,
+  UserRole.KOORDINATOR_LAB_PERPUS,
+  UserRole.KAPRODI,
+];
+
 /** Public school landing page (optional per school). */
 export interface SchoolLandingPage {
   enabled: boolean;
@@ -438,6 +527,8 @@ export interface BoardingRoom {
   gender: BoardingGender;
   capacity: number;
   roomCaptainId?: string;
+  /** Kepala kamar — staff (bukan siswa perwakilan) */
+  roomHeadStaffId?: string;
   studentIds: string[];
   floor?: string;
   isActive: boolean;

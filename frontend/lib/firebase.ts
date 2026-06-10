@@ -1,41 +1,45 @@
 /**
- * Firebase Client SDK Configuration
- * Initialize Firebase Client for frontend operations
+ * Firebase Client SDK — single firebase package instance for browser.
  */
 
 'use client';
 
-// Import only client-side Firebase (not admin)
-// Using package.json exports to import only client code
-import { initializeFirebaseClient, getFirebaseConfigFromEnv } from '@aksara/firebase/client';
+import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
+import { getAuth, type Auth } from 'firebase/auth';
+import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
+import { getFirebaseConfigFromEnv } from '@aksara/firebase/client';
 
-// Get Firebase config from environment variables
 const firebaseConfig = getFirebaseConfigFromEnv();
 
-// Only initialize if we have required config (during build, env vars might not be available)
-let app: any = null;
-let auth: any = null;
-let db: any = null;
-let storage: any = null;
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
 
 if (firebaseConfig.apiKey && firebaseConfig.projectId) {
   try {
-    const firebase = initializeFirebaseClient(firebaseConfig);
-    app = firebase.app;
-    auth = firebase.auth;
-    db = firebase.db;
-    storage = firebase.storage;
+    app = getApps().length > 0 ? getApps()[0]! : initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    if (typeof window !== 'undefined') {
+      try {
+        if (
+          window.isSecureContext ||
+          window.location.hostname === 'localhost' ||
+          window.location.hostname.includes('vercel.app')
+        ) {
+          storage = getStorage(app);
+        }
+      } catch {
+        storage = null;
+      }
+    }
   } catch (error) {
-    console.warn('Firebase initialization failed (this is OK during build):', error);
+    console.warn('Firebase initialization failed:', error);
   }
 }
 
 export { app, auth, db, storage };
 
-// Export Firebase services
-export default {
-  app,
-  auth,
-  db,
-  storage
-};
+export default { app, auth, db, storage };

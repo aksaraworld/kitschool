@@ -78,11 +78,38 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
     
-    // Communications collection
+    // Communications collection (legacy)
     match /communications/{communicationId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update, delete: if isOwner(resource.data.senderId) || isAdmin();
+    }
+
+    // School chat
+    match /chatConversations/{conversationId} {
+      allow read, update: if isAuthenticated() &&
+        request.auth.uid in resource.data.participantIds;
+      allow create: if isAuthenticated();
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() &&
+          request.auth.uid in get(/databases/$(database)/documents/chatConversations/$(conversationId)).data.participantIds;
+        allow create: if isAuthenticated() &&
+          request.auth.uid in get(/databases/$(database)/documents/chatConversations/$(conversationId)).data.participantIds &&
+          request.resource.data.senderId == request.auth.uid;
+      }
+    }
+
+    match /boardingAreas/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    match /boardingRooms/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    match /boardingSchedules/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
     
     // Years collection
