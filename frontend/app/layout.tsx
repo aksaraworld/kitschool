@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Source_Sans_3 } from 'next/font/google'
 import './globals.css'
 import { SchoolProvider } from '@/context/SchoolContext'
+import FcmRejectionGuard from '@/components/FcmRejectionGuard'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-heading' })
 const sourceSans = Source_Sans_3({ subsets: ['latin'], variable: '--font-body' })
@@ -23,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en" data-theme={theme} className={`${inter.variable} ${sourceSans.variable}`}>
       <body className="font-body antialiased" suppressHydrationWarning>
+        <FcmRejectionGuard />
         <SchoolProvider>{children}</SchoolProvider>
       </body>
     </html>

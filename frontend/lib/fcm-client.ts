@@ -1,5 +1,6 @@
 'use client';
 
+import './fcm-rejection-guard';
 import type { Messaging } from 'firebase/messaging';
 
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
@@ -8,28 +9,16 @@ const SW_URL = '/firebase-messaging-sw.js';
 let messagingInstance: Messaging | null = null;
 let swRegistration: ServiceWorkerRegistration | null = null;
 let fcmInitPromise: Promise<{ messaging: Messaging; token: string } | null> | null = null;
-let swResetDone = false;
 
-function installPushManagerRejectionGuard() {
-  if (typeof window === 'undefined') return;
-  const key = '__fcmRejectionGuard';
-  if ((window as unknown as Record<string, boolean>)[key]) return;
-  (window as unknown as Record<string, boolean>)[key] = true;
-
-  window.addEventListener('unhandledrejection', (event) => {
-    const reason = event.reason;
-    const text =
-      reason instanceof Error
-        ? `${reason.message}\n${reason.stack ?? ''}`
-        : String(reason ?? '');
-    if (text.includes('pushManager') || text.includes('deleteTokenInternal')) {
-      event.preventDefault();
-    }
-  });
+function isFcmRegistration(reg: ServiceWorkerRegistration | undefined | null): boolean {
+  const script = reg?.active?.scriptURL ?? reg?.installing?.scriptURL ?? reg?.waiting?.scriptURL ?? '';
+  return script.includes('firebase-messaging-sw.js');
 }
 
-async function waitForActiveWorker(registration: ServiceWorkerRegistration): Promise<void> {
-  if (registration.active?.state === 'activated') return;
+async function waitForActiveWorker(registration: ServiceWorkerRegistration): Promise<ServiceWorkerRegistration> {
+  if (registration.active?.state === 'activated') {
+    return registration;
+  }
 
   const worker = registration.installing || registration.waiting;
   if (worker) {
@@ -45,16 +34,17 @@ async function waitForActiveWorker(registration: ServiceWorkerRegistration): Pro
         }
       };
       worker.addEventListener('statechange', onState);
-      setTimeout(resolve, 10_000);
+      setTimeout(resolve, 12_000);
     });
   }
 
-  await navigator.serviceWorker.ready;
+  const ready = await navigator.serviceWorker.ready;
+  return ready;
 }
 
-/** One-time clean SW install — avoids stale controllers that break deleteToken. */
+/** Register or reuse FCM SW — never unregister existing workers (triggers deleteToken crash). */
 async function registerFcmServiceWorker(): Promise<ServiceWorkerRegistration> {
-  if (swRegistration?.active?.scriptURL.includes('firebase-messaging-sw.js')) {
+  if (swRegistration?.pushManager && isFcmRegistration(swRegistration)) {
     return swRegistration;
   }
 
@@ -62,25 +52,17 @@ async function registerFcmServiceWorker(): Promise<ServiceWorkerRegistration> {
     throw new Error('Service worker tidak didukung');
   }
 
-  installPushManagerRejectionGuard();
+  let registration = await navigator.serviceWorker.getRegistration('/');
 
-  if (!swResetDone) {
-    swResetDone = true;
-    const regs = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(regs.map((r) => r.unregister()));
-    await new Promise((r) => setTimeout(r, 300));
+  if (!isFcmRegistration(registration)) {
+    registration = await navigator.serviceWorker.register(SW_URL, { scope: '/' });
   }
 
-  const registration = await navigator.serviceWorker.register(SW_URL, {
-    scope: '/',
-    updateViaCache: 'none',
-  });
-
-  if (registration.waiting) {
-    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+  if (registration!.waiting) {
+    registration!.waiting.postMessage({ type: 'SKIP_WAITING' });
   }
 
-  await waitForActiveWorker(registration);
+  registration = await waitForActiveWorker(registration!);
 
   if (!registration.pushManager) {
     throw new Error('Push messaging tidak tersedia');
@@ -93,6 +75,7 @@ async function registerFcmServiceWorker(): Promise<ServiceWorkerRegistration> {
 async function createMessagingInstance(): Promise<Messaging> {
   if (messagingInstance) return messagingInstance;
 
+  // SW must be active before getMessaging() attaches listeners.
   await registerFcmServiceWorker();
 
   const { getMessaging, isSupported } = await import('firebase/messaging');
