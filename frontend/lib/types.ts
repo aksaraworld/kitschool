@@ -494,6 +494,17 @@ export const CHAT_BROADCAST_STAFF_ROLES: UserRole[] = [
   UserRole.KAPRODI,
 ];
 
+export interface SchoolLandingHighlight {
+  title: string;
+  description: string;
+}
+
+export interface SchoolLandingProgram {
+  title: string;
+  description: string;
+  badge?: string;
+}
+
 /** Public school landing page (optional per school). */
 export interface SchoolLandingPage {
   enabled: boolean;
@@ -501,6 +512,10 @@ export interface SchoolLandingPage {
   heroTitle?: string;
   heroSubtitle?: string;
   showContact?: boolean;
+  highlights?: SchoolLandingHighlight[];
+  programs?: SchoolLandingProgram[];
+  ctaTitle?: string;
+  ctaSubtitle?: string;
 }
 
 /** Enabled optional modules per school. */

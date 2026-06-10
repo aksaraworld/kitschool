@@ -142,7 +142,8 @@ firebase deploy --only firestore:indexes --project kitschool-b86dd
 |-----|-----|----------|
 | [kitschool.vercel.app/login](https://kitschool.vercel.app/login) | Internal Kitschool team (SaaS admin) | Kitschool logo + "Portal Admin Kitschool" |
 | [al-um.kithome.id/login](https://al-um.kithome.id/login) | PPST staff, parents, students | PPST logo + "Portal PPST Al UM" |
-| [al-um.kithome.id](https://al-um.kithome.id) | Public | School landing page |
+| [al-um.kithome.id](https://al-um.kithome.id) | Public | PPST Al UM dummy landing (hero, programs, CTA) |
+| [kitschool.vercel.app/school/ppst-alum](https://kitschool.vercel.app/school/ppst-alum) | Preview | Same landing on platform URL |
 
 SaaS admin logging in on `al-um.kithome.id` → redirected to `kitschool.vercel.app/saas/dashboard`.
 

@@ -48,7 +48,7 @@ export default function LoginPage() {
             <div className="flex justify-center mb-3 min-h-[72px] items-center">
               <TenantLoginBrand />
             </div>
-            {tenant.isCustomDomain ? (
+            {tenant.isSchoolTenant ? (
               <>
                 <p className="text-lg font-semibold text-gray-900">Portal {tenant.name}</p>
                 <p className="text-cognifaNeutral-secondary text-sm mt-1">{tenant.tagline}</p>
@@ -104,7 +104,7 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
-      <PoweredByFooter schoolName={tenant.isCustomDomain ? tenant.name : undefined} />
+      <PoweredByFooter schoolName={tenant.isSchoolTenant ? tenant.name : undefined} />
     </div>
   );
 }

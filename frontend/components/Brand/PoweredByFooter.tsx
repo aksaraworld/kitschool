@@ -12,7 +12,7 @@ type PoweredByFooterProps = {
 export default function PoweredByFooter({ className = '', schoolName }: PoweredByFooterProps) {
   const [logoError, setLogoError] = useState(false);
   const year = new Date().getFullYear();
-  const label = schoolName || brand.schoolName;
+  const label = schoolName;
 
   return (
     <footer

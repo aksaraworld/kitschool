@@ -47,6 +47,12 @@ async function main() {
         ...(snap.data()?.landingPage || {}),
         enabled: true,
         slug: snap.data()?.landingPage?.slug || SCHOOL_ID,
+        heroTitle: 'PPST Al UM',
+        heroSubtitle:
+          'Pondok Pesantren Salafiyah Terpadu — pendidikan Islam berkualitas jenjang MTs & MA di Loji, Bogor.',
+        ctaTitle: 'Portal PPST Al UM',
+        ctaSubtitle: 'Masuk untuk staf, guru, orang tua, dan santri yang sudah terdaftar.',
+        showContact: true,
       },
       updatedAt: new Date(),
     },

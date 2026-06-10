@@ -170,9 +170,12 @@ async function main() {
       landingPage: {
         enabled: true,
         slug: 'ppst-alum',
-        heroTitle: 'PPST Al UM — Pondok Pesantren Salafiyah Terpadu',
-        heroSubtitle: 'Pendidikan Islam terpadu MTs & MA di Loji, Bogor',
+        heroTitle: 'PPST Al UM',
+        heroSubtitle:
+          'Pondok Pesantren Salafiyah Terpadu — pendidikan Islam berkualitas jenjang MTs & MA di Loji, Bogor.',
         showContact: true,
+        ctaTitle: 'Portal PPST Al UM',
+        ctaSubtitle: 'Masuk untuk staf, guru, orang tua, dan santri yang sudah terdaftar.',
       },
       modules: { boardingSchool: true },
       boardingConfig: {
