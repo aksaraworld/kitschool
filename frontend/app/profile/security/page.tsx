@@ -2,7 +2,8 @@
 
 import { useAuth } from '@/hooks/useAuth';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole } from '@/lib/types';
+import ChatHistoryExport from '@/components/Profile/ChatHistoryExport';
+import { CHAT_ROLES, UserRole, hasAnyRole } from '@/lib/types';
 import Link from 'next/link';
 import { Shield, ArrowLeft, User } from 'lucide-react';
 
@@ -63,6 +64,8 @@ export default function ProfileSecurityPage() {
               Ubah data kontak di halaman Profil
             </Link>
           </div>
+
+          {hasAnyRole(user, CHAT_ROLES.map(String)) && <ChatHistoryExport />}
         </div>
       </div>
     </ProtectedRoute>

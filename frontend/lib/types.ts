@@ -427,6 +427,23 @@ export interface ChatMessage {
   readBy?: Record<string, string>;
 }
 
+/** Monthly chat archive for a user (messages older than retention window). */
+export interface ChatBackupMonth {
+  userId: string;
+  schoolId: string;
+  yearMonth: string;
+  messageCount: number;
+  updatedAt: string;
+}
+
+export interface ChatBackupEntry {
+  conversationId: string;
+  with: string;
+  direction: 'sent' | 'received';
+  text: string;
+  createdAt: string;
+}
+
 export type AppNotificationType = 'chat' | 'communication';
 
 export interface AppNotification {
@@ -566,7 +583,9 @@ export interface School {
   email: string;
   website?: string;
   logo?: string;
-  /** Custom domain for public landing (e.g. ppst-alum.sch.id) */
+  /** Subdomain on SCHOOL_DOMAIN_BASE (e.g. al-um → al-um.kithome.id) */
+  subdomain?: string;
+  /** Optional full custom domain later (e.g. ppst-alum.sch.id) */
   customDomain?: string;
   landingPage?: SchoolLandingPage;
   modules?: SchoolModules;

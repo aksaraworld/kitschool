@@ -4,7 +4,7 @@ Firebase project: `kitschool-b86dd`
 School: **PPST Al UM** — Pondok Pesantren Salafiyah Terpadu Al-Um, Bogor
 
 **Public landing:** https://kitschool.vercel.app/school/ppst-alum  
-**Custom domain (when DNS set):** `ppst-alum.sch.id` → same landing page
+**School subdomain:** `https://al-um.kithome.id` (set `subdomain: al-um` in school profile). Platform admin: `https://kitschool.vercel.app` only (`kithome.id` = KitHome property app). See `CUSTOM_DOMAINS.md`.
 
 ## Platform admin
 

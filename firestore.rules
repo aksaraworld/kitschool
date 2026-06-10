@@ -85,6 +85,17 @@ service cloud.firestore {
       allow update, delete: if isOwner(resource.data.senderId) || isAdmin();
     }
 
+    // Chat monthly backups (per user, downloadable from settings)
+    match /chatBackups/{backupId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+      match /entries/{entryId} {
+        allow read: if isAuthenticated() &&
+          get(/databases/$(database)/documents/chatBackups/$(backupId)).data.userId == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
     // School chat
     match /chatConversations/{conversationId} {
       allow read, update: if isAuthenticated() &&

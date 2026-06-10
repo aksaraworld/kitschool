@@ -107,6 +107,7 @@ export default function SchoolEditModal({ schoolId, onClose, onSaved }: SchoolEd
         establishedYear: formData.establishedYear,
         accreditation: formData.accreditation,
         taxId: formData.taxId,
+        subdomain: formData.subdomain,
         customDomain: formData.customDomain,
         landingPage: formData.landingPage,
         modules: formData.modules,
@@ -414,13 +415,18 @@ export default function SchoolEditModal({ schoolId, onClose, onSaved }: SchoolEd
                 <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Modul & Publik</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Custom domain</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Subdomain</label>
                     <input
                       className={inputClass}
-                      placeholder="sekolah.sch.id"
-                      value={formData.customDomain || ''}
-                      onChange={(e) => setFormData({ ...formData, customDomain: e.target.value })}
+                      placeholder="al-um"
+                      value={formData.subdomain || ''}
+                      onChange={(e) => setFormData({ ...formData, subdomain: e.target.value })}
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {formData.subdomain
+                        ? `https://${formData.subdomain}.${process.env.NEXT_PUBLIC_SCHOOL_DOMAIN_BASE || 'kithome.id'}`
+                        : 'al-um.kithome.id'}
+                    </p>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Landing slug</label>

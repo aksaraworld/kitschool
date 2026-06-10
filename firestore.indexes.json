@@ -1,4 +1,29 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "schools",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "subdomain", "order": "ASCENDING" },
+        { "fieldPath": "landingPage.enabled", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "schools",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "customDomain", "order": "ASCENDING" },
+        { "fieldPath": "landingPage.enabled", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "schools",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "landingPage.slug", "order": "ASCENDING" },
+        { "fieldPath": "landingPage.enabled", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

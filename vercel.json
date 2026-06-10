@@ -3,5 +3,11 @@
   "buildCommand": "if [ -f build-packages.js ]; then node build-packages.js && cd frontend; else cd .. && npm install --include=dev && node build-packages.js && cd frontend; fi && npm install && npm run build",
   "outputDirectory": ".next",
   "installCommand": "if [ -f ../package.json ] && [ ! -f build-packages.js ]; then cd .. && npm install --include=dev && npm install tailwindcss postcss autoprefixer --save-dev --no-package-lock; else npm install --include=dev; fi",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/chat/retention",
+      "schedule": "0 3 * * *"
+    }
+  ]
 }

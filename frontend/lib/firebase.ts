@@ -24,11 +24,7 @@ if (firebaseConfig.apiKey && firebaseConfig.projectId) {
     db = getFirestore(app);
     if (typeof window !== 'undefined') {
       try {
-        if (
-          window.isSecureContext ||
-          window.location.hostname === 'localhost' ||
-          window.location.hostname.includes('vercel.app')
-        ) {
+        if (window.isSecureContext) {
           storage = getStorage(app);
         }
       } catch {

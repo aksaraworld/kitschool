@@ -255,15 +255,19 @@ export default function SchoolProfilePage() {
                 <h3 className="text-lg font-semibold">Modul & Domain</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Custom domain</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Subdomain</label>
                     <input
                       type="text"
-                      placeholder="ppst-alum.sch.id"
-                      value={formData.customDomain || ''}
-                      onChange={(e) => setFormData({ ...formData, customDomain: e.target.value })}
+                      placeholder="al-um"
+                      value={formData.subdomain || ''}
+                      onChange={(e) => setFormData({ ...formData, subdomain: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Arahkan DNS domain ke deployment Vercel.</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {formData.subdomain
+                        ? `https://${formData.subdomain}.${process.env.NEXT_PUBLIC_SCHOOL_DOMAIN_BASE || 'kithome.id'}`
+                        : 'Contoh: al-um → al-um.kithome.id'}
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Landing slug</label>

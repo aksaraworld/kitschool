@@ -1,36 +1,32 @@
 /**
- * Resolve custom domain → school landing slug (for middleware).
+ * Resolve custom domain → school (landing slug + branding for login).
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { schoolsCollection } from '@/lib/server/firebase-admin';
-
-const PLATFORM_HOSTS = new Set([
-  'localhost',
-  '127.0.0.1',
-  'kitschool.vercel.app',
-  'kitschool-frontend.vercel.app',
-]);
+import { resolveSchoolByHost } from '@/lib/server/custom-domain';
+import { isPlatformHost, normalizeHost } from '@/lib/platform-hosts';
 
 export async function GET(req: NextRequest) {
   try {
-    const host = (req.nextUrl.searchParams.get('host') || '').toLowerCase().split(':')[0];
-    if (!host || PLATFORM_HOSTS.has(host) || host.endsWith('.vercel.app')) {
-      return NextResponse.json({ slug: null });
+    const host = normalizeHost(req.nextUrl.searchParams.get('host') || '');
+    if (!host || isPlatformHost(host)) {
+      return NextResponse.json({ slug: null, schoolId: null });
     }
 
-    const snap = await schoolsCollection()
-      .where('customDomain', '==', host)
-      .where('landingPage.enabled', '==', true)
-      .limit(1)
-      .get();
+    const school = await resolveSchoolByHost(host);
+    if (!school) {
+      return NextResponse.json({ slug: null, schoolId: null });
+    }
 
-    if (snap.empty) return NextResponse.json({ slug: null });
-
-    const data = snap.docs[0].data();
-    const slug = data.landingPage?.slug;
-    return NextResponse.json({ slug: slug || null });
+    return NextResponse.json({
+      slug: school.slug,
+      schoolId: school.schoolId,
+      name: school.name,
+      shortName: school.shortName ?? null,
+      logo: school.logo ?? null,
+      tagline: school.tagline ?? null,
+    });
   } catch (e) {
     console.error('GET /api/public/resolve-host error:', e);
-    return NextResponse.json({ slug: null });
+    return NextResponse.json({ slug: null, schoolId: null });
   }
 }

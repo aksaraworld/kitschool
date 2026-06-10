@@ -4,6 +4,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId, hasFullAccess } from '@/lib/server/auth-helpers';
+import {
+  assertUniqueCustomDomain,
+  assertUniqueSubdomain,
+  normalizeCustomDomain,
+  normalizeSubdomain,
+} from '@/lib/server/custom-domain';
 import { schoolsCollection, docToJson } from '@/lib/server/firebase-admin';
 import { UserRole } from '@/lib/types';
 
@@ -45,6 +51,23 @@ export async function PUT(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const updateData = { ...body };
+    try {
+      if (updateData.subdomain !== undefined) {
+        updateData.subdomain = await assertUniqueSubdomain(
+          normalizeSubdomain(String(updateData.subdomain ?? '')),
+          schoolId
+        );
+      }
+      if (updateData.customDomain !== undefined) {
+        updateData.customDomain = await assertUniqueCustomDomain(
+          normalizeCustomDomain(String(updateData.customDomain ?? '')),
+          schoolId
+        );
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Domain tidak valid';
+      return NextResponse.json({ message: msg }, { status: 409 });
+    }
     delete updateData.subscriptionStatus;
     delete updateData.subscriptionStartDate;
     delete updateData.subscriptionEndDate;

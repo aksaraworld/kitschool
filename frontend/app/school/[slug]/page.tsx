@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { firebaseAuthService } from '@/lib/firebaseAuth';
 import { MapPin, Phone, Mail, Globe, BedDouble, Clock } from 'lucide-react';
 import SchoolLogo from '@/components/Brand/SchoolLogo';
 import PoweredByFooter from '@/components/Brand/PoweredByFooter';
@@ -34,8 +36,15 @@ type PublicSchool = {
 const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
 export default function SchoolLandingPage({ params }: { params: { slug: string } }) {
+  const router = useRouter();
   const [school, setSchool] = useState<PublicSchool | null>(null);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (firebaseAuthService.isAuthenticated()) {
+      router.replace('/dashboard');
+    }
+  }, [router]);
 
   useEffect(() => {
     fetch(`/api/public/school/${params.slug}`)

@@ -165,6 +165,7 @@ async function main() {
       jenjang: ['MTs', 'MA'],
       accreditation: 'A',
       logo: '/ppst-alum-logo.png',
+      subdomain: 'al-um',
       customDomain: 'ppst-alum.sch.id',
       landingPage: {
         enabled: true,

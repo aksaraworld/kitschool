@@ -4,6 +4,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
+import {
+  assertUniqueCustomDomain,
+  assertUniqueSubdomain,
+  normalizeCustomDomain,
+  normalizeSubdomain,
+} from '@/lib/server/custom-domain';
 import { schoolsCollection, docToJson } from '@/lib/server/firebase-admin';
 import { UserRole } from '@/lib/types';
 
@@ -30,6 +36,7 @@ const SAAS_PROFILE_FIELDS = [
   'establishedYear',
   'accreditation',
   'taxId',
+  'subdomain',
   'customDomain',
   'landingPage',
   'modules',
@@ -101,6 +108,23 @@ export async function PUT(
       const update: Record<string, unknown> = { updatedAt: new Date() };
       for (const field of SAAS_PROFILE_FIELDS) {
         if (body[field] !== undefined) update[field] = body[field];
+      }
+      try {
+        if (update.subdomain !== undefined) {
+          update.subdomain = await assertUniqueSubdomain(
+            normalizeSubdomain(String(update.subdomain ?? '')),
+            id
+          );
+        }
+        if (update.customDomain !== undefined) {
+          update.customDomain = await assertUniqueCustomDomain(
+            normalizeCustomDomain(String(update.customDomain ?? '')),
+            id
+          );
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Domain tidak valid';
+        return NextResponse.json({ message: msg }, { status: 409 });
       }
       await ref.update(update);
       const updated = await ref.get();

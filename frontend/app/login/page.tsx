@@ -3,14 +3,16 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Input } from '@aksara/ui';
-import BrandLogo from '@/components/Brand/BrandLogo';
+import TenantLoginBrand from '@/components/Brand/TenantLoginBrand';
 import PoweredByFooter from '@/components/Brand/PoweredByFooter';
-import { brand } from '@/lib/branding';
+import { useTenantBranding } from '@/hooks/useTenantBranding';
+import { getPlatformUrl, isPlatformHost } from '@/lib/platform-hosts';
 import { firebaseAuthService } from '@/lib/firebaseAuth';
 import { UserRole, hasAnyRole } from '@/lib/types';
 
 export default function LoginPage() {
   const router = useRouter();
+  const tenant = useTenantBranding();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -23,9 +25,14 @@ export default function LoginPage() {
 
     try {
       const response = await firebaseAuthService.login({ email, password });
-      const targetRoute =
-        hasAnyRole(response.user, [UserRole.SAAS_ADMIN]) ? '/saas/dashboard' : '/dashboard';
-      router.push(targetRoute);
+      const isSaasAdmin = hasAnyRole(response.user, [UserRole.SAAS_ADMIN]);
+
+      if (isSaasAdmin && typeof window !== 'undefined' && !isPlatformHost(window.location.hostname)) {
+        window.location.href = `${getPlatformUrl()}/saas/dashboard`;
+        return;
+      }
+
+      router.push(isSaasAdmin ? '/saas/dashboard' : '/dashboard');
     } catch (err: any) {
       setError(err.message || 'Login gagal. Silakan coba lagi.');
     } finally {
@@ -39,9 +46,19 @@ export default function LoginPage() {
         <div className="max-w-md w-full bg-cognifaNeutral-bg rounded-2xl shadow-lg p-8 border border-cognifaNeutral-border">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-3 min-h-[72px] items-center">
-              <BrandLogo width={200} height={72} />
+              <TenantLoginBrand />
             </div>
-            <p className="text-cognifaNeutral-secondary text-sm font-medium">{brand.tagline}</p>
+            {tenant.isCustomDomain ? (
+              <>
+                <p className="text-lg font-semibold text-gray-900">Portal {tenant.name}</p>
+                <p className="text-cognifaNeutral-secondary text-sm mt-1">{tenant.tagline}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-lg font-semibold text-gray-900">Portal Admin Kitschool</p>
+                <p className="text-cognifaNeutral-secondary text-sm mt-1">{tenant.tagline}</p>
+              </>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -87,7 +104,7 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
-      <PoweredByFooter />
+      <PoweredByFooter schoolName={tenant.isCustomDomain ? tenant.name : undefined} />
     </div>
   );
 }
