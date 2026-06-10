@@ -97,17 +97,18 @@ export async function POST(
       updatedAt: now,
     });
 
+    const created = await msgRef.get();
+
     if (recipientId) {
-      const senderSnap = await usersCollection().doc(auth.uid).get();
-      const senderName = (senderSnap.data() as { name?: string })?.name ?? 'Pesan baru';
-      await sendChatPush(recipientId, {
+      const senderName =
+        (conv.participants as Record<string, { name?: string }> | undefined)?.[auth.uid]?.name ??
+        'Pesan baru';
+      void sendChatPush(recipientId, {
         title: senderName,
         body: text.slice(0, 120),
         conversationId: id,
       });
     }
-
-    const created = await msgRef.get();
     return NextResponse.json(docToJson(created), { status: 201 });
   } catch (e) {
     console.error('POST chat message error:', e);

@@ -59,7 +59,7 @@ export function useFCM() {
 
         if (permission !== 'granted') {
           setNotificationStatus('denied');
-          setNotificationMessage('Notifikasi tidak diizinkan. Chat tetap berfungsi tanpa push.');
+          setNotificationMessage('Notifikasi tidak diizinkan.');
           return;
         }
 
@@ -74,17 +74,19 @@ export function useFCM() {
 
         const { onMessage } = await import('firebase/messaging');
         onMessage(result.messaging, (payload) => {
+          console.info('[FCM] onMessage received', payload);
           showForegroundNotification(payload);
           dispatchNotificationsRefresh();
         });
 
         setNotificationStatus('active');
         setNotificationMessage(null);
+        console.info('[FCM] Push aktif, token terdaftar');
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'Gagal mendaftarkan notifikasi';
         setNotificationStatus('error');
-        setNotificationMessage(`Notifikasi nonaktif: ${msg}. Chat tetap berfungsi.`);
-        console.warn('FCM registration skipped:', e);
+        setNotificationMessage(`Push nonaktif: ${msg}`);
+        console.warn('[FCM] registration failed:', e);
       }
     })();
   }, []);

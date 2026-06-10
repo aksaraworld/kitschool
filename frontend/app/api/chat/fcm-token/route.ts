@@ -16,14 +16,14 @@ export async function POST(req: NextRequest) {
     if (!snap.exists) return NextResponse.json({ message: 'User not found' }, { status: 404 });
 
     const existing = (snap.data() as { fcmTokens?: string[] })?.fcmTokens ?? [];
-    if (!existing.includes(token)) {
-      await ref.update({
-        fcmTokens: [...existing, token],
-        updatedAt: new Date(),
-      });
-    }
+    const fcmTokens = [token, ...existing.filter((t) => t !== token)].slice(0, 5);
 
-    return NextResponse.json({ message: 'OK', registered: true });
+    await ref.update({
+      fcmTokens,
+      updatedAt: new Date(),
+    });
+
+    return NextResponse.json({ message: 'OK', registered: true, tokenCount: fcmTokens.length });
   } catch (e) {
     console.error('POST /api/chat/fcm-token error:', e);
     const message = e instanceof Error ? e.message : 'Server error';

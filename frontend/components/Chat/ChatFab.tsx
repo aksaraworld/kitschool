@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { MessageSquare } from 'lucide-react';
 import { CHAT_ROLES, hasAnyRole } from '@/lib/types';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useNotificationsContext } from '@/context/NotificationsContext';
 
 type ChatFabProps = {
   user: { role?: string; roles?: string[] };
@@ -12,7 +12,7 @@ type ChatFabProps = {
 
 export default function ChatFab({ user }: ChatFabProps) {
   const pathname = usePathname();
-  const { unreadCount } = useNotifications(hasAnyRole(user, CHAT_ROLES.map(String)));
+  const { unreadCount } = useNotificationsContext();
 
   if (!hasAnyRole(user, CHAT_ROLES.map(String))) return null;
   if (pathname === '/messages' || pathname.startsWith('/messages/')) return null;

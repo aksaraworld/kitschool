@@ -22,7 +22,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" data-theme={theme} className={`${inter.variable} ${sourceSans.variable}`}>
-      <body className="font-body antialiased">
+      <body className="font-body antialiased" suppressHydrationWarning>
         <SchoolProvider>{children}</SchoolProvider>
       </body>
     </html>

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bell, MessageSquare, Mail, Loader2 } from 'lucide-react';
 import api from '@/lib/aksara-api';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useNotificationsContext } from '@/context/NotificationsContext';
 import { useFCM } from '@/hooks/useFCM';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import type { AppNotification } from '@/lib/types';
@@ -12,7 +12,7 @@ import type { AppNotification } from '@/lib/types';
 export default function NotificationBell() {
   useFCM();
   const router = useRouter();
-  const { notifications, unreadCount, loading, refresh } = useNotifications();
+  const { notifications, unreadCount, loading, refresh } = useNotificationsContext();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -50,7 +50,7 @@ export default function NotificationBell() {
         type="button"
         onClick={() => {
           setOpen((v) => !v);
-          if (!open) refresh();
+          if (!open) refresh(true);
         }}
         className="relative p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
         aria-label="Notifikasi"

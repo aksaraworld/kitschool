@@ -32,6 +32,7 @@ export default function ChatApp() {
   const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [recipientsLoading, setRecipientsLoading] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
@@ -44,19 +45,6 @@ export default function ChatApp() {
   const [chatError, setChatError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const filteredRecipients = useMemo(() => {
-    const q = recipientSearch.trim().toLowerCase();
-    return recipients.filter((r) => {
-      if (recipientRoleFilter !== 'all' && r.role !== recipientRoleFilter) return false;
-      if (!q) return true;
-      const haystack = [r.name, r.email, r.roleLabel, ROLE_LABELS[r.role], r.role]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [recipients, recipientSearch, recipientRoleFilter]);
-
   const filteredConversations = useMemo(() => {
     const q = conversationSearch.trim().toLowerCase();
     if (!q) return conversations;
@@ -67,15 +55,25 @@ export default function ChatApp() {
     });
   }, [conversations, conversationSearch, currentUserId]);
 
-  const loadConversations = useCallback(async () => {
-    const data = await api.get<ChatConversation[]>('/chat/conversations');
+  const loadConversations = useCallback(async (skipCache = false) => {
+    const data = skipCache
+      ? await api.get<ChatConversation[]>('/chat/conversations', { skipCache: true })
+      : await api.getCached<ChatConversation[]>('/chat/conversations');
     setConversations(data);
     dispatchNotificationsRefresh();
   }, []);
 
-  const loadRecipients = useCallback(async () => {
-    const data = await api.get<Recipient[]>('/chat/recipients');
-    setRecipients(data);
+  const loadRecipients = useCallback(async (q = '', role = 'all') => {
+    setRecipientsLoading(true);
+    try {
+      const data = await api.get<Recipient[]>('/chat/recipients', {
+        params: { q: q || undefined, role: role !== 'all' ? role : undefined, limit: 80 },
+        skipCache: Boolean(q),
+      });
+      setRecipients(data);
+    } finally {
+      setRecipientsLoading(false);
+    }
   }, []);
 
   const loadMessagesApi = useCallback(async (conversationId: string) => {
@@ -84,10 +82,19 @@ export default function ChatApp() {
   }, []);
 
   useEffect(() => {
-    Promise.all([loadConversations(), loadRecipients()])
+    loadConversations()
       .catch((e) => setChatError(e instanceof Error ? e.message : 'Gagal memuat chat'))
       .finally(() => setLoading(false));
-  }, [loadConversations, loadRecipients]);
+  }, [loadConversations]);
+
+  useEffect(() => {
+    if (!showNewChat) return;
+    const q = recipientSearch.trim();
+    const timer = window.setTimeout(() => {
+      loadRecipients(q, recipientRoleFilter).catch(() => {});
+    }, q ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [showNewChat, recipientSearch, recipientRoleFilter, loadRecipients]);
 
   useEffect(() => {
     const c = searchParams.get('c');
@@ -110,10 +117,7 @@ export default function ChatApp() {
     try {
       unsub = subscribeToChatMessages(
         activeId,
-        (msgs) => {
-          setMessages(msgs);
-          dispatchNotificationsRefresh();
-        },
+        (msgs) => setMessages(msgs),
         () => loadMessagesApi(activeId).catch(() => {})
       );
     } catch {
@@ -121,11 +125,13 @@ export default function ChatApp() {
     }
 
     loadMessagesApi(activeId).catch(() => {});
-    const poll = setInterval(() => loadMessagesApi(activeId).catch(() => {}), unsub ? 15000 : 4000);
+    const poll = unsub
+      ? null
+      : setInterval(() => loadMessagesApi(activeId).catch(() => {}), 30_000);
 
     return () => {
       unsub?.();
-      clearInterval(poll);
+      if (poll) clearInterval(poll);
     };
   }, [activeId, loadMessagesApi]);
 
@@ -157,8 +163,7 @@ export default function ChatApp() {
       setChatError(null);
       await api.post(`/chat/conversations/${activeId}/messages`, { text: text.trim() });
       setText('');
-      await loadConversations();
-      await loadMessagesApi(activeId);
+      await loadConversations(true);
     } catch (err: unknown) {
       setChatError(err instanceof Error ? err.message : 'Gagal mengirim');
     } finally {
@@ -240,16 +245,16 @@ export default function ChatApp() {
                   ))}
                 </div>
                 <p className="text-xs text-gray-500">
-                  {filteredRecipients.length} dari {recipients.length} kontak
+                  {recipientsLoading ? 'Mencari...' : `${recipients.length} kontak`}
                 </p>
               </div>
               <div className="flex-1 overflow-y-auto p-2">
-                {recipients.length === 0 ? (
+                {recipientsLoading && recipients.length === 0 ? (
+                  <p className="text-sm text-gray-400 p-2">Memuat kontak...</p>
+                ) : recipients.length === 0 ? (
                   <p className="text-sm text-gray-400 p-2">Tidak ada kontak tersedia</p>
-                ) : filteredRecipients.length === 0 ? (
-                  <p className="text-sm text-gray-400 p-2">Tidak ada hasil untuk pencarian ini</p>
                 ) : (
-                  filteredRecipients.map((r) => (
+                  recipients.map((r) => (
                     <button
                       key={r._id}
                       type="button"

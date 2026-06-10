@@ -13,7 +13,9 @@ export async function GET(req: NextRequest) {
     }
 
     const result = await getUserNotifications(auth, schoolId);
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 'private, max-age=10' },
+    });
   } catch (e) {
     console.error('GET /api/notifications error:', e);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });

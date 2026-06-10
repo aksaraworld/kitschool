@@ -12,17 +12,27 @@ export async function GET(req: NextRequest) {
     const schoolId = getSchoolId(req, auth);
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
-    const recipients = await getChatRecipients(auth, schoolId);
+    const q = req.nextUrl.searchParams.get('q') ?? undefined;
+    const role = req.nextUrl.searchParams.get('role') ?? undefined;
+    const limit = Number(req.nextUrl.searchParams.get('limit') ?? 100);
+
+    const recipients = await getChatRecipients(auth, schoolId, { q, role, limit });
+
     return NextResponse.json(
       recipients.map((u) => ({
         _id: u.uid,
         uid: u.uid,
         name: u.name ?? 'Pengguna',
-        email: (u as { email?: string }).email,
+        email: u.email,
         role: u.role,
         roleLabel: ROLE_LABELS[u.role ?? ''] ?? u.role,
-        avatar: (u as { avatar?: string }).avatar,
-      }))
+        avatar: u.avatar,
+      })),
+      {
+        headers: {
+          'Cache-Control': 'private, max-age=60',
+        },
+      }
     );
   } catch (e) {
     console.error('GET /api/chat/recipients error:', e);

@@ -116,7 +116,7 @@ export const SchoolProvider = ({ children }: { children: React.ReactNode }) => {
     }
     setIsUnitsLoading(true);
     try {
-      const school = await api.get<School>('/school');
+      const school = await api.getCached<School>('/school');
       const list =
         school.units?.length
           ? school.units

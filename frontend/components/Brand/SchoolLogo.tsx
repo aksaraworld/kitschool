@@ -1,14 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { brand } from '@/lib/branding';
 
 type SchoolLogoProps = {
   logo?: string | null;
   name?: string | null;
-  width?: number;
+  /** Max display height in px */
   height?: number;
+  /** Max display width in px */
+  width?: number;
   className?: string;
   textClassName?: string;
 };
@@ -16,8 +17,8 @@ type SchoolLogoProps = {
 export default function SchoolLogo({
   logo,
   name,
-  width = 140,
-  height = 48,
+  width = 96,
+  height = 32,
   className = '',
   textClassName = 'font-heading text-lg font-bold text-primary-600 text-center',
 }: SchoolLogoProps) {
@@ -30,21 +31,12 @@ export default function SchoolLogo({
   }
 
   return (
-    <div
-      className="flex items-center justify-center mx-auto"
-      style={{ maxHeight: `${height}px`, maxWidth: `${width}px` }}
-    >
-      <Image
-        src={src}
-        alt={label}
-        width={width}
-        height={height}
-        className={`max-h-full max-w-full object-contain ${className}`.trim()}
-        style={{ width: 'auto', height: 'auto' }}
-        unoptimized
-        onError={() => setLogoError(true)}
-        priority
-      />
-    </div>
+    <img
+      src={src}
+      alt={label}
+      className={`object-contain mx-auto block ${className}`.trim()}
+      style={{ height: `${height}px`, width: 'auto', maxWidth: `${width}px` }}
+      onError={() => setLogoError(true)}
+    />
   );
 }

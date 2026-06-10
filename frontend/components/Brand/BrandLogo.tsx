@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { brand } from '@/lib/branding';
 
 type BrandLogoProps = {
@@ -12,8 +11,8 @@ type BrandLogoProps = {
 };
 
 export default function BrandLogo({
-  width = 200,
-  height = 52,
+  width = 120,
+  height = 36,
   className = '',
   textClassName = 'font-heading text-3xl font-bold text-primary-500',
 }: BrandLogoProps) {
@@ -24,21 +23,12 @@ export default function BrandLogo({
   }
 
   return (
-    <div
-      className="flex items-center justify-center"
-      style={{ maxHeight: `${height}px`, maxWidth: `${width}px` }}
-    >
-      <Image
-        src={brand.logo}
-        alt={brand.name}
-        width={width}
-        height={height}
-        className={`max-h-full max-w-full object-contain ${className}`.trim()}
-        style={{ width: 'auto', height: 'auto' }}
-        unoptimized
-        onError={() => setLogoError(true)}
-        priority
-      />
-    </div>
+    <img
+      src={brand.logo}
+      alt={brand.name}
+      className={`object-contain mx-auto block ${className}`.trim()}
+      style={{ height: `${height}px`, width: 'auto', maxWidth: `${width}px` }}
+      onError={() => setLogoError(true)}
+    />
   );
 }

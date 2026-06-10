@@ -30,6 +30,9 @@ export async function sendChatPush(
       },
     });
 
+    if (response.successCount > 0) {
+      console.info(`FCM push sent: ${response.successCount}/${validTokens.length}`);
+    }
     if (response.failureCount > 0) {
       console.warn(
         `FCM push partial failure: ${response.successCount}/${validTokens.length} sent`,

@@ -32,7 +32,9 @@ export async function GET(req: NextRequest) {
         String(b.lastMessageAt ?? '').localeCompare(String(a.lastMessageAt ?? ''))
       );
 
-    return NextResponse.json(rows);
+    return NextResponse.json(rows, {
+      headers: { 'Cache-Control': 'private, max-age=15' },
+    });
   } catch (e) {
     console.error('GET /api/chat/conversations error:', e);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });

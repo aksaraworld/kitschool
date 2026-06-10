@@ -1,4 +1,9 @@
 /* Auto-generated — do not edit. Run: node scripts/write-fcm-sw.mjs */
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
 importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
 firebase.initializeApp({"apiKey":"AIzaSyBwV9D4DTsUjw1cbNWdnIjjAeT2dAuTkfA","authDomain":"kitschool-b86dd.firebaseapp.com","projectId":"kitschool-b86dd","storageBucket":"kitschool-b86dd.firebasestorage.app","messagingSenderId":"597056593218","appId":"1:597056593218:web:cac8fd2d3fd8b4a149fcdb"});

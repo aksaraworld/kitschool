@@ -14,6 +14,7 @@ import SchoolSwitcher from '../SaaS/SchoolSwitcher';
 import UnitSwitcher from './UnitSwitcher';
 import NotificationBell from './NotificationBell';
 import ChatFab from '@/components/Chat/ChatFab';
+import { NotificationsProvider } from '@/context/NotificationsContext';
 import {
   LayoutDashboard,
   Users,
@@ -195,6 +196,7 @@ export default function DashboardLayout({ children, user: layoutUser }: Dashboar
         : staffMenu);
 
   return (
+    <NotificationsProvider>
     <div className="min-h-screen bg-cognifaNeutral-altBg">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
@@ -215,8 +217,8 @@ export default function DashboardLayout({ children, user: layoutUser }: Dashboar
             {isPlatformAdmin ? (
               <>
                 <BrandLogo
-                  width={120}
-                  height={40}
+                  width={100}
+                  height={32}
                   textClassName="font-heading text-base font-bold text-primary-600 text-center leading-tight"
                 />
                 <p className="text-xs text-center text-gray-600 mt-2 font-medium">{brand.name}</p>
@@ -226,8 +228,8 @@ export default function DashboardLayout({ children, user: layoutUser }: Dashboar
                 <SchoolLogo
                   logo={schoolLogo}
                   name={schoolName}
-                  width={120}
-                  height={48}
+                  width={88}
+                  height={32}
                   textClassName="font-heading text-base font-bold text-primary-600 text-center leading-tight"
                 />
                 {schoolName && (
@@ -324,6 +326,7 @@ export default function DashboardLayout({ children, user: layoutUser }: Dashboar
 
       {layoutUser && <ChatFab user={layoutUser} />}
     </div>
+    </NotificationsProvider>
   );
 }
 
