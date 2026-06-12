@@ -11,9 +11,10 @@ import {
   getFirebaseAdminDb,
   getFirebaseAdminApp,
 } from '@aksara/firebase/admin';
-import type admin from 'firebase-admin';
+import type { auth } from 'firebase-admin';
 
 let initDone = false;
+
 function ensureInit() {
   if (initDone) return;
   initializeFirebaseAdminFromEnv();
@@ -32,12 +33,10 @@ export function getFirestore() {
 
 export function getMessaging() {
   ensureInit();
-  // Must use the app from @aksara/firebase — a separate `firebase-admin` import
-  // is a different module instance in Next.js and won't be initialized.
   return getFirebaseAdminApp().messaging();
 }
 
-export async function verifyIdToken(idToken: string): Promise<admin.auth.DecodedIdToken | null> {
+export async function verifyIdToken(idToken: string): Promise<auth.DecodedIdToken | null> {
   try {
     const auth = getAuth();
     return await auth.verifyIdToken(idToken);

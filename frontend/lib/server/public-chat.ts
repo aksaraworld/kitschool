@@ -12,6 +12,10 @@ import {
   usersCollection,
 } from '@/lib/server/firebase-admin';
 import { sendChatPush } from '@/lib/server/fcm';
+import {
+  createPublicChatCrmTicket,
+  syncPublicChatMessageToTicket,
+} from '@/lib/server/tickets';
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_SESSIONS_PER_IP_HOUR = 5;
@@ -57,6 +61,7 @@ type PublicChatSession = {
   ipHash: string;
   messageCount: number;
   csStaffId: string;
+  ticketId?: string;
   createdAt: FirebaseFirestore.Timestamp | Date;
   expiresAt: FirebaseFirestore.Timestamp | Date;
   isActive: boolean;
@@ -103,7 +108,10 @@ export async function createPublicChatSession(input: {
   contact: string;
   ip: string;
   honeypot?: string;
-}): Promise<{ token: string; sessionId: string; conversationId: string } | { error: string }> {
+}): Promise<
+  | { token: string; sessionId: string; conversationId: string; ticketId: string; ticketNumber: string }
+  | { error: string }
+> {
   if (input.honeypot?.trim()) {
     return { error: 'Permintaan ditolak' };
   }
@@ -138,6 +146,17 @@ export async function createPublicChatSession(input: {
   const guestUid = guestId(sessionId);
   const now = new Date();
   const staffData = staffSnap.data() as Record<string, unknown>;
+  const csStaffName = String(staffData.name ?? 'Customer Service');
+
+  const { ticketId, ticketNumber } = await createPublicChatCrmTicket({
+    schoolId: school.id,
+    sessionId,
+    conversationId: convId,
+    visitorName: name,
+    visitorContact: contact,
+    csStaffId,
+    csStaffName,
+  });
 
   await publicChatSessionsCollection().doc(sessionId).set({
     schoolId: school.id,
@@ -149,6 +168,8 @@ export async function createPublicChatSession(input: {
     ipHash: hashIp(input.ip),
     messageCount: 0,
     csStaffId,
+    ticketId,
+    ticketNumber,
     createdAt: now,
     expiresAt: new Date(now.getTime() + SESSION_TTL_MS),
     isActive: true,
@@ -158,6 +179,8 @@ export async function createPublicChatSession(input: {
     schoolId: school.id,
     kind: 'public_inquiry',
     publicSessionId: sessionId,
+    ticketId,
+    ticketNumber,
     visitorName: name,
     visitorContact: contact,
     participantIds: [csStaffId, guestUid],
@@ -178,7 +201,7 @@ export async function createPublicChatSession(input: {
     updatedAt: now,
   });
 
-  return { token, sessionId, conversationId: convId };
+  return { token, sessionId, conversationId: convId, ticketId, ticketNumber };
 }
 
 async function getSession(sessionId: string, token: string): Promise<PublicChatSession | null> {
@@ -270,6 +293,15 @@ export async function sendPublicChatMessage(
     messageCount: (session.messageCount ?? 0) + 1,
     updatedAt: now,
   });
+
+  const ticketId = session.ticketId as string | undefined;
+  if (ticketId) {
+    void syncPublicChatMessageToTicket(
+      ticketId,
+      trimmed,
+      (session.messageCount ?? 0) + 1
+    );
+  }
 
   void sendChatPush(csStaffId, {
     title: `${session.visitorName} (Pengunjung Web)`,

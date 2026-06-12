@@ -17,9 +17,14 @@ let authAvailable = false;
  */
 export function initializeFirebaseAdmin(options: FirebaseAdminOptions): FirebaseAdminInitResult {
   if (isInitialized || admin.apps.length > 0) {
+    if (!adminApp && admin.apps.length > 0) {
+      adminApp = admin.apps[0]!;
+      authAvailable = true;
+      isInitialized = true;
+    }
     return {
       initialized: true,
-      authAvailable
+      authAvailable,
     };
   }
 
@@ -106,27 +111,58 @@ export function initializeFirebaseAdmin(options: FirebaseAdminOptions): Firebase
         credential: admin.credential.cert({
           projectId,
           clientEmail,
-          privateKey: privateKey.replace(/\\n/g, '\n')
+          privateKey: privateKey.replace(/\\n/g, '\n'),
         }),
-        storageBucket: options.storageBucket || `${projectId}.firebasestorage.app`
+        storageBucket: options.storageBucket || `${projectId}.firebasestorage.app`,
       });
-      
+
       authAvailable = true;
       isInitialized = true;
-      
+
       return {
         initialized: true,
-        authAvailable: true
+        authAvailable: true,
       };
     }
 
-    throw new Error('No Firebase credentials found');
+    // Application Default Credentials (local: gcloud auth application-default login)
+    if (projectId) {
+      try {
+        adminApp = admin.initializeApp({
+          projectId,
+          storageBucket: options.storageBucket || `${projectId}.firebasestorage.app`,
+        });
+        authAvailable = true;
+        isInitialized = true;
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Firebase Admin: using Application Default Credentials');
+        }
+        return {
+          initialized: true,
+          authAvailable: true,
+        };
+      } catch {
+        // fall through to failure below
+      }
+    }
+
+    const err = new Error('No Firebase credentials found');
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        'Firebase Admin not initialized. Set FIREBASE_SERVICE_ACCOUNT_PATH, FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY, or run: gcloud auth application-default login'
+      );
+    }
+    return {
+      initialized: false,
+      authAvailable: false,
+      error: err,
+    };
   } catch (error) {
     console.error('Firebase Admin initialization error:', error);
     return {
       initialized: false,
       authAvailable: false,
-      error: error as Error
+      error: error as Error,
     };
   }
 }
@@ -145,10 +181,9 @@ export function initializeFirebaseAdminFromEnv(projectId?: string): FirebaseAdmi
  * Get initialized Firebase Admin app
  */
 export function getFirebaseAdminApp(): app.App {
-  if (!adminApp) {
-    throw new Error('Firebase Admin not initialized. Call initializeFirebaseAdmin first.');
-  }
-  return adminApp;
+  if (adminApp) return adminApp;
+  if (admin.apps.length > 0) return admin.apps[0]!;
+  throw new Error('Firebase Admin not initialized. Call initializeFirebaseAdmin first.');
 }
 
 /**

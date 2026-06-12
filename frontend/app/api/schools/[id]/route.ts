@@ -10,6 +10,10 @@ import {
   normalizeCustomDomain,
   normalizeSubdomain,
 } from '@/lib/server/custom-domain';
+import {
+  validateCustomerServiceStaff,
+  validatePublicChatSettings,
+} from '@/lib/server/public-chat-config';
 import { schoolsCollection, docToJson } from '@/lib/server/firebase-admin';
 import { UserRole } from '@/lib/types';
 
@@ -109,6 +113,22 @@ export async function PUT(
       const update: Record<string, unknown> = { updatedAt: new Date() };
       for (const field of SAAS_PROFILE_FIELDS) {
         if (body[field] !== undefined) update[field] = body[field];
+      }
+      try {
+        const landing = update.landingPage as { publicChatEnabled?: boolean } | undefined;
+        validatePublicChatSettings({
+          publicChatEnabled: landing?.publicChatEnabled,
+          customerServiceStaffId: update.customerServiceStaffId as string | undefined,
+        });
+        if (update.customerServiceStaffId !== undefined) {
+          update.customerServiceStaffId = await validateCustomerServiceStaff(
+            id,
+            update.customerServiceStaffId as string | null
+          );
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Konfigurasi chat tidak valid';
+        return NextResponse.json({ message: msg }, { status: 400 });
       }
       try {
         if (update.subdomain !== undefined) {

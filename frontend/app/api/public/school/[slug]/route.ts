@@ -2,6 +2,7 @@
  * Public school profile for landing pages (no auth).
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { getPublicSchoolDummy } from '@/lib/school-landing-dummies';
 import {
   schoolsCollection,
   boardingAreasCollection,
@@ -9,14 +10,19 @@ import {
   docToJson,
 } from '@/lib/server/firebase-admin';
 
+function devDummyFallback(slug: string) {
+  if (process.env.NODE_ENV !== 'development') return null;
+  return getPublicSchoolDummy(slug);
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: { slug: string } }
 ) {
-  try {
-    const slug = params.slug?.toLowerCase();
-    if (!slug) return NextResponse.json({ message: 'Not found' }, { status: 404 });
+  const slug = params.slug?.toLowerCase();
+  if (!slug) return NextResponse.json({ message: 'Not found' }, { status: 404 });
 
+  try {
     const snap = await schoolsCollection()
       .where('landingPage.enabled', '==', true)
       .where('landingPage.slug', '==', slug)
@@ -24,6 +30,8 @@ export async function GET(
       .get();
 
     if (snap.empty) {
+      const dummy = devDummyFallback(slug);
+      if (dummy) return NextResponse.json(dummy);
       return NextResponse.json({ message: 'School not found' }, { status: 404 });
     }
 
@@ -70,6 +78,8 @@ export async function GET(
     return NextResponse.json(publicSchool);
   } catch (e) {
     console.error('GET /api/public/school/[slug] error:', e);
+    const dummy = devDummyFallback(slug);
+    if (dummy) return NextResponse.json(dummy);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });
   }
 }

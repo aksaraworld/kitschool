@@ -10,6 +10,10 @@ import {
   normalizeCustomDomain,
   normalizeSubdomain,
 } from '@/lib/server/custom-domain';
+import {
+  validateCustomerServiceStaff,
+  validatePublicChatSettings,
+} from '@/lib/server/public-chat-config';
 import { schoolsCollection, docToJson } from '@/lib/server/firebase-admin';
 import { UserRole } from '@/lib/types';
 
@@ -51,6 +55,25 @@ export async function PUT(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const updateData = { ...body };
+
+    const landing = updateData.landingPage as { publicChatEnabled?: boolean } | undefined;
+    const publicChatEnabled = landing?.publicChatEnabled;
+    try {
+      validatePublicChatSettings({
+        publicChatEnabled,
+        customerServiceStaffId: updateData.customerServiceStaffId as string | undefined,
+      });
+      if (updateData.customerServiceStaffId !== undefined) {
+        updateData.customerServiceStaffId = await validateCustomerServiceStaff(
+          schoolId,
+          updateData.customerServiceStaffId as string | null
+        );
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Konfigurasi chat tidak valid';
+      return NextResponse.json({ message: msg }, { status: 400 });
+    }
+
     try {
       if (updateData.subdomain !== undefined) {
         updateData.subdomain = await assertUniqueSubdomain(

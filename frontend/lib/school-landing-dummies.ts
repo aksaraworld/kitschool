@@ -52,6 +52,37 @@ export const SCHOOL_LANDING_DUMMY: Record<string, Partial<SchoolLandingPage>> = 
   },
 };
 
+/** Full public school payload for local preview when Firestore is unavailable. */
+export function getPublicSchoolDummy(slug: string) {
+  if (slug !== 'ppst-alum') return null;
+
+  const landing = mergeLandingContent(slug, { enabled: true, slug });
+  return {
+    id: 'ppst-alum',
+    name: 'PPST Al UM',
+    shortName: 'PPST Al UM',
+    address: 'Jl. Sirnagalih II No.03, RT.01/RW.06, Loji',
+    city: 'Kota Bogor',
+    province: 'Jawa Barat',
+    postalCode: '16117',
+    phone: '+62 251 838 4200',
+    email: 'info@ppst-alum.sch.id',
+    website: 'https://ppst-alum.sch.id',
+    logo: '/ppst-alum-logo.png',
+    description:
+      'Pondok Pesantren Salafiyah Terpadu Al-Um — sekolah Islam terpadu dengan jenjang MTs dan MA di Loji, Bogor.',
+    schoolType: 'islamic',
+    jenjang: ['MTs', 'MA'],
+    accreditation: 'A',
+    establishedYear: 1998,
+    landingPage: landing,
+    publicChatEnabled: landing.publicChatEnabled ?? false,
+    modules: { boardingSchool: true },
+    boardingAreas: [],
+    boardingSchedules: [],
+  };
+}
+
 export function mergeLandingContent(
   slug: string,
   fromDb?: Partial<SchoolLandingPage> | null

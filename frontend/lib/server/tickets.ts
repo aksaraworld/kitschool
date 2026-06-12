@@ -31,18 +31,95 @@ export function canHandleTickets(auth: AuthUser): boolean {
   return hasAnyRole(auth, TICKET_HANDLER_ROLES.map(String));
 }
 
-async function nextTicketNumber(schoolId: string): Promise<string> {
+async function nextTicketNumber(schoolId: string, prefix = 'TKT'): Promise<string> {
   const year = new Date().getFullYear();
-  const prefix = `TKT-${year}-`;
+  const fullPrefix = `${prefix}-${year}-`;
   const snap = await ticketsCollection().where('schoolId', '==', schoolId).get();
   let seq = 0;
   for (const doc of snap.docs) {
     const num = String(doc.data().ticketNumber ?? '');
-    if (!num.startsWith(prefix)) continue;
-    const n = parseInt(num.slice(prefix.length), 10);
+    if (!num.startsWith(fullPrefix)) continue;
+    const n = parseInt(num.slice(fullPrefix.length), 10);
     if (!Number.isNaN(n) && n > seq) seq = n;
   }
-  return `${prefix}${String(seq + 1).padStart(4, '0')}`;
+  return `${fullPrefix}${String(seq + 1).padStart(4, '0')}`;
+}
+
+function isGuestCreator(creatorId: string): boolean {
+  return creatorId.startsWith('guest_');
+}
+
+/** CRM ticket when a visitor starts public landing chat. */
+export async function createPublicChatCrmTicket(input: {
+  schoolId: string;
+  sessionId: string;
+  conversationId: string;
+  visitorName: string;
+  visitorContact: string;
+  csStaffId: string;
+  csStaffName: string;
+}) {
+  const now = new Date();
+  const ticketNumber = await nextTicketNumber(input.schoolId, 'CRM');
+  const guestUid = `guest_${input.sessionId}`;
+  const ref = ticketsCollection().doc();
+
+  const ticket = {
+    schoolId: input.schoolId,
+    ticketNumber,
+    category: 'general' as TicketCategory,
+    source: 'public_chat' as const,
+    subject: `Chat Web: ${input.visitorName}`,
+    description: `Kontak: ${input.visitorContact}\n\nPengunjung memulai live chat dari halaman landing sekolah.`,
+    status: 'open' as TicketStatus,
+    creatorId: guestUid,
+    creatorName: `${input.visitorName} (Pengunjung Web)`,
+    visitorContact: input.visitorContact,
+    publicSessionId: input.sessionId,
+    conversationId: input.conversationId,
+    chatMessageCount: 0,
+    assigneeRoles: [UserRole.STAFF].map(String),
+    assignedToId: input.csStaffId,
+    assignedToName: input.csStaffName,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await ref.set(ticket);
+
+  void sendChatPush(input.csStaffId, {
+    title: `CRM baru: ${ticketNumber}`,
+    body: `${input.visitorName} · ${input.visitorContact}`,
+    href: '/tickets',
+  });
+
+  return { ticketId: ref.id, ticketNumber };
+}
+
+export async function syncPublicChatMessageToTicket(
+  ticketId: string,
+  messageText: string,
+  messageCount: number
+) {
+  const ref = ticketsCollection().doc(ticketId);
+  const snap = await ref.get();
+  if (!snap.exists) return;
+
+  const ticket = snap.data()!;
+  if (ticket.source !== 'public_chat') return;
+  if (ticket.status === 'resolved' || ticket.status === 'closed') return;
+
+  const snippet = messageText.trim().slice(0, 500);
+  const now = new Date();
+  const baseDesc = String(ticket.description ?? '').split('\n\n--- Percakapan ---')[0];
+
+  await ref.update({
+    lastChatMessage: snippet,
+    chatMessageCount: messageCount,
+    description: `${baseDesc}\n\n--- Percakapan ---\n${snippet}`,
+    updatedAt: now,
+    ...(ticket.status === 'open' ? { status: 'in_progress' } : {}),
+  });
 }
 
 async function findAssignee(schoolId: string, category: TicketCategory) {
@@ -81,13 +158,14 @@ export async function createTicket(
 
   const assignee = await findAssignee(schoolId, category);
   const now = new Date();
-  const ticketNumber = await nextTicketNumber(schoolId);
+  const ticketNumber = await nextTicketNumber(schoolId, 'TKT');
 
   const ref = ticketsCollection().doc();
   const ticket = {
     schoolId,
     ticketNumber,
     category,
+    source: 'parent' as const,
     subject,
     description,
     status: 'open' as TicketStatus,
@@ -195,17 +273,22 @@ export async function updateTicket(
 
   if (status === 'resolved' || status === 'closed') {
     const creatorId = String(ticket.creatorId);
-    void sendChatPush(creatorId, {
-      title: `Tiket ${ticket.ticketNumber} selesai`,
-      body: input.resolutionNote?.slice(0, 120) || String(ticket.subject),
-      href: '/tickets',
-    });
+    if (!isGuestCreator(creatorId)) {
+      void sendChatPush(creatorId, {
+        title: `Tiket ${ticket.ticketNumber} selesai`,
+        body: input.resolutionNote?.slice(0, 120) || String(ticket.subject),
+        href: '/tickets',
+      });
+    }
   } else if (status === 'acknowledged') {
-    void sendChatPush(String(ticket.creatorId), {
-      title: `Tiket ${ticket.ticketNumber} diterima`,
-      body: `Ditangani oleh ${handlerName}`,
-      href: '/tickets',
-    });
+    const creatorId = String(ticket.creatorId);
+    if (!isGuestCreator(creatorId)) {
+      void sendChatPush(creatorId, {
+        title: `Tiket ${ticket.ticketNumber} diterima`,
+        body: `Ditangani oleh ${handlerName}`,
+        href: '/tickets',
+      });
+    }
   }
 
   return updated;

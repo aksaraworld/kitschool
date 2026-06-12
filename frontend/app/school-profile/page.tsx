@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole, School, ROLES_CAN_MANAGE_USERS, hasAnyRole } from '@/lib/types';
+import { UserRole, School, User, ROLES_CAN_MANAGE_USERS, CHAT_BROADCAST_STAFF_ROLES, ROLE_LABELS, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
-import { Building2, MapPin, Phone, Mail, Globe, User, Edit, Save, X, Award } from 'lucide-react';
+import { Building2, MapPin, Phone, Mail, Globe, User as UserIcon, Edit, Save, X, Award, MessageSquare } from 'lucide-react';
 
 export default function SchoolProfilePage() {
   const { user } = useAuth();
@@ -14,8 +14,11 @@ export default function SchoolProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<School>>({});
   const [saving, setSaving] = useState(false);
+  const [chatStaffOptions, setChatStaffOptions] = useState<User[]>([]);
+  const [chatStaffName, setChatStaffName] = useState<string | null>(null);
 
   const canEdit = hasAnyRole(user, ROLES_CAN_MANAGE_USERS.map(String));
+  const publicChatEnabled = formData.landingPage?.publicChatEnabled ?? false;
 
   useEffect(() => {
     // SaaS Admin should not access school profile page
@@ -24,6 +27,30 @@ export default function SchoolProfilePage() {
     }
     fetchSchoolProfile();
   }, [user]);
+
+  useEffect(() => {
+    if (!isEditing || !canEdit) return;
+    api
+      .get<User[]>('/users')
+      .then((users) => {
+        const eligible = users.filter(
+          (u) => u.isActive !== false && hasAnyRole(u, CHAT_BROADCAST_STAFF_ROLES.map(String))
+        );
+        setChatStaffOptions(eligible);
+      })
+      .catch(() => setChatStaffOptions([]));
+  }, [isEditing, canEdit]);
+
+  useEffect(() => {
+    if (!school?.customerServiceStaffId) {
+      setChatStaffName(null);
+      return;
+    }
+    api
+      .get<User>(`/users/${school.customerServiceStaffId}`)
+      .then((u) => setChatStaffName(u.name || u.email || school.customerServiceStaffId!))
+      .catch(() => setChatStaffName(school.customerServiceStaffId ?? null));
+  }, [school?.customerServiceStaffId]);
 
   const fetchSchoolProfile = async () => {
     // Skip if SaaS Admin
@@ -43,6 +70,10 @@ export default function SchoolProfilePage() {
   };
 
   const handleSave = async () => {
+    if (publicChatEnabled && !formData.customerServiceStaffId) {
+      alert('Pilih staf penerima chat sebelum mengaktifkan chat pengunjung');
+      return;
+    }
     try {
       setSaving(true);
       if (school?._id) {
@@ -315,6 +346,71 @@ export default function SchoolProfilePage() {
                   />
                   Aktifkan modul asrama (boarding school)
                 </label>
+
+                <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-emerald-700" />
+                    <p className="font-medium text-gray-900">Chat Pengunjung (Landing Page)</p>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Pengunjung halaman publik sekolah dapat chat via tombol &quot;Tanya CS&quot;. Pesan masuk ke
+                    staf yang dipilih di menu Pesan.
+                  </p>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={publicChatEnabled}
+                      disabled={!formData.landingPage?.enabled}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          landingPage: {
+                            ...formData.landingPage,
+                            slug: formData.landingPage?.slug || '',
+                            enabled: formData.landingPage?.enabled ?? false,
+                            publicChatEnabled: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    Aktifkan chat pengunjung di landing page
+                  </label>
+                  {!formData.landingPage?.enabled && (
+                    <p className="text-xs text-amber-700">Aktifkan halaman profil publik terlebih dahulu.</p>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Staf penerima chat (Customer Service)
+                    </label>
+                    <select
+                      value={formData.customerServiceStaffId || ''}
+                      disabled={!publicChatEnabled}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          customerServiceStaffId: e.target.value || undefined,
+                        })
+                      }
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white disabled:bg-gray-100"
+                    >
+                      <option value="">— Pilih staf —</option>
+                      {chatStaffOptions.map((s) => (
+                        <option key={s._id} value={s._id}>
+                          {s.name}
+                          {s.email ? ` (${s.email})` : ''}
+                          {' — '}
+                          {ROLE_LABELS[s.role] || s.role}
+                        </option>
+                      ))}
+                    </select>
+                    {publicChatEnabled && chatStaffOptions.length === 0 && (
+                      <p className="text-xs text-amber-700 mt-1">
+                        Belum ada akun staf. Buat akun staf di menu Pengguna.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 {formData.modules?.boardingSchool && (
                   <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
                     <p className="font-medium">Kebijakan HP asrama</p>
@@ -536,7 +632,7 @@ export default function SchoolProfilePage() {
                 )}
                 {school?.principalName && (
                   <div className="flex items-start space-x-3">
-                    <User className="w-5 h-5 text-primary-600 mt-1" />
+                    <UserIcon className="w-5 h-5 text-primary-600 mt-1" />
                     <div>
                       <p className="font-medium text-gray-900">Kepala Sekolah</p>
                       <p className="text-gray-600">{school.principalName}</p>
@@ -562,6 +658,29 @@ export default function SchoolProfilePage() {
                   <p className="text-gray-600">{school.description}</p>
                 </div>
               )}
+
+              <div className="border-t pt-6">
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-emerald-600" />
+                  Chat Pengunjung
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600">Status</p>
+                    <p className="font-medium text-gray-900">
+                      {school?.landingPage?.publicChatEnabled ? 'Aktif' : 'Nonaktif'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Staf penerima</p>
+                    <p className="font-medium text-gray-900">
+                      {school?.landingPage?.publicChatEnabled
+                        ? chatStaffName || school?.customerServiceStaffId || '—'
+                        : '—'}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
               {school?.bankAccount && (
                 <div className="border-t pt-6">

@@ -172,3 +172,10 @@ Schools cannot use: `www`, `app`, `admin`, `api`, `mail`, `staging`, `dev`, `cdn
 Subdomain routing does not run on `localhost`. Preview landing:
 
 `http://localhost:3000/school/ppst-alum`
+
+Requires `FIREBASE_PROJECT_ID=kitschool-b86dd` in `frontend/.env.local`. Firebase Admin can use:
+
+- Service account JSON (`FIREBASE_SERVICE_ACCOUNT_PATH`), or
+- `gcloud auth application-default login`
+
+If Firestore is unreachable, dev mode serves dummy PPST data for slug `ppst-alum`.

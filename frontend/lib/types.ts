@@ -464,6 +464,8 @@ export type TicketCategory =
 
 export type TicketStatus = 'open' | 'acknowledged' | 'in_progress' | 'resolved' | 'closed';
 
+export type TicketSource = 'parent' | 'public_chat';
+
 export interface Ticket {
   _id: string;
   schoolId: string;
@@ -472,8 +474,16 @@ export interface Ticket {
   subject: string;
   description: string;
   status: TicketStatus;
+  /** parent portal vs landing page live chat */
+  source?: TicketSource;
   creatorId: string;
   creatorName: string;
+  /** Visitor phone/WhatsApp for public_chat CRM */
+  visitorContact?: string;
+  publicSessionId?: string;
+  conversationId?: string;
+  lastChatMessage?: string;
+  chatMessageCount?: number;
   assignedToId?: string;
   assignedToName?: string;
   assigneeRoles?: string[];
@@ -504,6 +514,11 @@ export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
   in_progress: 'Diproses',
   resolved: 'Selesai',
   closed: 'Ditutup',
+};
+
+export const TICKET_SOURCE_LABELS: Record<TicketSource, string> = {
+  parent: 'Masukan Ortu',
+  public_chat: 'Chat Web (CRM)',
 };
 
 /** Roles suggested per ticket category (first match in school is auto-assigned). */

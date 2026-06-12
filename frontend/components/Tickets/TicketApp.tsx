@@ -6,12 +6,14 @@ import api from '@/lib/aksara-api';
 import {
   TICKET_CATEGORY_LABELS,
   TICKET_STATUS_LABELS,
+  TICKET_SOURCE_LABELS,
   UserRole,
   type Ticket,
   type TicketCategory,
   type TicketStatus,
 } from '@/lib/types';
-import { ClipboardList, Plus, Loader2 } from 'lucide-react';
+import { ClipboardList, Plus, Loader2, MessageSquare, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
 const CATEGORIES = Object.entries(TICKET_CATEGORY_LABELS) as [TicketCategory, string][];
 
@@ -168,16 +170,24 @@ export default function TicketApp() {
                     selected?._id === t._id ? 'bg-primary-50' : ''
                   }`}
                 >
-                  <div className="flex justify-between gap-2">
+                  <div className="flex justify-between gap-2 items-start">
                     <span className="text-xs font-mono text-gray-500">{t.ticketNumber}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
-                      {TICKET_STATUS_LABELS[t.status]}
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                        {TICKET_STATUS_LABELS[t.status]}
+                      </span>
+                      {t.source === 'public_chat' && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                          {TICKET_SOURCE_LABELS.public_chat}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="font-medium text-gray-900 mt-1">{t.subject}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {TICKET_CATEGORY_LABELS[t.category]}
                     {!isParent && t.creatorName ? ` · ${t.creatorName}` : ''}
+                    {t.visitorContact ? ` · ${t.visitorContact}` : ''}
                   </p>
                 </button>
               </li>
@@ -195,13 +205,36 @@ export default function TicketApp() {
               <p className="text-xs text-gray-500 font-mono">{selected.ticketNumber}</p>
               <h3 className="text-lg font-semibold text-gray-900">{selected.subject}</h3>
               <p className="text-sm text-gray-500">
-                {TICKET_CATEGORY_LABELS[selected.category]} ·{' '}
-                {TICKET_STATUS_LABELS[selected.status]}
+                {selected.source === 'public_chat'
+                  ? TICKET_SOURCE_LABELS.public_chat
+                  : TICKET_CATEGORY_LABELS[selected.category]}{' '}
+                · {TICKET_STATUS_LABELS[selected.status]}
               </p>
             </div>
+            {selected.source === 'public_chat' && selected.visitorContact && (
+              <p className="text-sm text-gray-600">
+                Kontak pengunjung: <strong>{selected.visitorContact}</strong>
+              </p>
+            )}
+            {selected.source === 'public_chat' && selected.conversationId && !isParent && (
+              <Link
+                href={`/messages?c=${selected.conversationId}`}
+                className="inline-flex items-center gap-2 text-sm text-emerald-700 hover:text-emerald-900 font-medium"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Buka percakapan chat
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            )}
             <div className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-lg p-4">
               {selected.description}
             </div>
+            {selected.lastChatMessage && selected.source === 'public_chat' && (
+              <p className="text-xs text-gray-500">
+                Pesan terakhir: {selected.lastChatMessage}
+                {selected.chatMessageCount ? ` (${selected.chatMessageCount} pesan)` : ''}
+              </p>
+            )}
             {selected.assignedToName && (
               <p className="text-sm text-gray-600">
                 Penanggung jawab: <strong>{selected.assignedToName}</strong>
@@ -238,7 +271,11 @@ export default function TicketApp() {
                   <textarea
                     value={resolutionNote}
                     onChange={(e) => setResolutionNote(e.target.value)}
-                    placeholder="Catatan penyelesaian untuk orang tua..."
+                    placeholder={
+                      selected.source === 'public_chat'
+                        ? 'Catatan penyelesaian (internal)...'
+                        : 'Catatan penyelesaian untuk orang tua...'
+                    }
                     rows={2}
                     className="w-full border rounded-lg px-3 py-2 text-sm"
                   />
@@ -248,7 +285,7 @@ export default function TicketApp() {
                     onClick={() => updateStatus('resolved')}
                     className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg"
                   >
-                    Selesai & Beri Tahu Ortu
+                    {selected.source === 'public_chat' ? 'Selesai' : 'Selesai & Beri Tahu Ortu'}
                   </button>
                 </div>
               </div>
