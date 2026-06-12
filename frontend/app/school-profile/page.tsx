@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole, School, User, ROLES_CAN_MANAGE_USERS, CHAT_BROADCAST_STAFF_ROLES, ROLE_LABELS, hasAnyRole } from '@/lib/types';
+import { UserRole, School, ROLES_CAN_MANAGE_USERS, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
-import { Building2, MapPin, Phone, Mail, Globe, User as UserIcon, Edit, Save, X, Award, MessageSquare } from 'lucide-react';
+import { Building2, MapPin, Phone, Mail, Globe, User as UserIcon, Edit, Save, X, Award } from 'lucide-react';
 
 export default function SchoolProfilePage() {
   const { user } = useAuth();
@@ -14,11 +14,8 @@ export default function SchoolProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<School>>({});
   const [saving, setSaving] = useState(false);
-  const [chatStaffOptions, setChatStaffOptions] = useState<User[]>([]);
-  const [chatStaffName, setChatStaffName] = useState<string | null>(null);
 
   const canEdit = hasAnyRole(user, ROLES_CAN_MANAGE_USERS.map(String));
-  const publicChatEnabled = formData.landingPage?.publicChatEnabled ?? false;
 
   useEffect(() => {
     // SaaS Admin should not access school profile page
@@ -27,30 +24,6 @@ export default function SchoolProfilePage() {
     }
     fetchSchoolProfile();
   }, [user]);
-
-  useEffect(() => {
-    if (!isEditing || !canEdit) return;
-    api
-      .get<User[]>('/users')
-      .then((users) => {
-        const eligible = users.filter(
-          (u) => u.isActive !== false && hasAnyRole(u, CHAT_BROADCAST_STAFF_ROLES.map(String))
-        );
-        setChatStaffOptions(eligible);
-      })
-      .catch(() => setChatStaffOptions([]));
-  }, [isEditing, canEdit]);
-
-  useEffect(() => {
-    if (!school?.customerServiceStaffId) {
-      setChatStaffName(null);
-      return;
-    }
-    api
-      .get<User>(`/users/${school.customerServiceStaffId}`)
-      .then((u) => setChatStaffName(u.name || u.email || school.customerServiceStaffId!))
-      .catch(() => setChatStaffName(school.customerServiceStaffId ?? null));
-  }, [school?.customerServiceStaffId]);
 
   const fetchSchoolProfile = async () => {
     // Skip if SaaS Admin
@@ -70,10 +43,6 @@ export default function SchoolProfilePage() {
   };
 
   const handleSave = async () => {
-    if (publicChatEnabled && !formData.customerServiceStaffId) {
-      alert('Pilih staf penerima chat sebelum mengaktifkan chat pengunjung');
-      return;
-    }
     try {
       setSaving(true);
       if (school?._id) {
@@ -282,138 +251,10 @@ export default function SchoolProfilePage() {
                 />
               </div>
 
-              <div className="border-t pt-4 space-y-4">
-                <h3 className="text-lg font-semibold">Modul & Domain</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Subdomain</label>
-                    <input
-                      type="text"
-                      placeholder="al-um"
-                      value={formData.subdomain || ''}
-                      onChange={(e) => setFormData({ ...formData, subdomain: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {formData.subdomain
-                        ? `https://${formData.subdomain}.${process.env.NEXT_PUBLIC_SCHOOL_DOMAIN_BASE || 'kithome.id'}`
-                        : 'Contoh: al-um → al-um.kithome.id'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Landing slug</label>
-                    <input
-                      type="text"
-                      placeholder="ppst-alum"
-                      value={formData.landingPage?.slug || ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          landingPage: { ...formData.landingPage, enabled: formData.landingPage?.enabled ?? false, slug: e.target.value },
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                </div>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={formData.landingPage?.enabled ?? false}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        landingPage: {
-                          ...formData.landingPage,
-                          slug: formData.landingPage?.slug || '',
-                          enabled: e.target.checked,
-                        },
-                      })
-                    }
-                  />
-                  Aktifkan halaman profil publik
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={formData.modules?.boardingSchool ?? false}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        modules: { ...formData.modules, boardingSchool: e.target.checked },
-                      })
-                    }
-                  />
-                  Aktifkan modul asrama (boarding school)
-                </label>
-
-                <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="w-5 h-5 text-emerald-700" />
-                    <p className="font-medium text-gray-900">Chat Pengunjung (Landing Page)</p>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    Pengunjung halaman publik sekolah dapat chat via tombol &quot;Tanya CS&quot;. Pesan masuk ke
-                    staf yang dipilih di menu Pesan.
-                  </p>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={publicChatEnabled}
-                      disabled={!formData.landingPage?.enabled}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          landingPage: {
-                            ...formData.landingPage,
-                            slug: formData.landingPage?.slug || '',
-                            enabled: formData.landingPage?.enabled ?? false,
-                            publicChatEnabled: e.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    Aktifkan chat pengunjung di landing page
-                  </label>
-                  {!formData.landingPage?.enabled && (
-                    <p className="text-xs text-amber-700">Aktifkan halaman profil publik terlebih dahulu.</p>
-                  )}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Staf penerima chat (Customer Service)
-                    </label>
-                    <select
-                      value={formData.customerServiceStaffId || ''}
-                      disabled={!publicChatEnabled}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          customerServiceStaffId: e.target.value || undefined,
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white disabled:bg-gray-100"
-                    >
-                      <option value="">— Pilih staf —</option>
-                      {chatStaffOptions.map((s) => (
-                        <option key={s._id} value={s._id}>
-                          {s.name}
-                          {s.email ? ` (${s.email})` : ''}
-                          {' — '}
-                          {ROLE_LABELS[s.role] || s.role}
-                        </option>
-                      ))}
-                    </select>
-                    {publicChatEnabled && chatStaffOptions.length === 0 && (
-                      <p className="text-xs text-amber-700 mt-1">
-                        Belum ada akun staf. Buat akun staf di menu Pengguna.
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {formData.modules?.boardingSchool && (
+              {formData.modules?.boardingSchool && (
+                <div className="border-t pt-4 space-y-4">
+                  <h3 className="text-lg font-semibold">Kebijakan Asrama</h3>
                   <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
-                    <p className="font-medium">Kebijakan HP asrama</p>
                     <label className="flex items-center gap-2">
                       <input
                         type="checkbox"
@@ -453,8 +294,8 @@ export default function SchoolProfilePage() {
                       Perwakilan kamar boleh menyimpan HP
                     </label>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               <div className="border-t pt-4">
                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -658,29 +499,6 @@ export default function SchoolProfilePage() {
                   <p className="text-gray-600">{school.description}</p>
                 </div>
               )}
-
-              <div className="border-t pt-6">
-                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-emerald-600" />
-                  Chat Pengunjung
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-600">Status</p>
-                    <p className="font-medium text-gray-900">
-                      {school?.landingPage?.publicChatEnabled ? 'Aktif' : 'Nonaktif'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Staf penerima</p>
-                    <p className="font-medium text-gray-900">
-                      {school?.landingPage?.publicChatEnabled
-                        ? chatStaffName || school?.customerServiceStaffId || '—'
-                        : '—'}
-                    </p>
-                  </div>
-                </div>
-              </div>
 
               {school?.bankAccount && (
                 <div className="border-t pt-6">

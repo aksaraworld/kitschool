@@ -50,7 +50,13 @@ export async function GET(req: NextRequest) {
     const roleParam = req.nextUrl.searchParams.get('role');
     const parentOfParam = req.nextUrl.searchParams.get('parentOf');
     const majorIdParam = req.nextUrl.searchParams.get('majorId');
-    const schoolIdForQuery = auth.role !== UserRole.SAAS_ADMIN && auth.schoolId ? auth.schoolId : null;
+    const schoolIdParam = req.nextUrl.searchParams.get('schoolId');
+    const schoolIdForQuery =
+      auth.role !== UserRole.SAAS_ADMIN && auth.schoolId
+        ? auth.schoolId
+        : auth.role === UserRole.SAAS_ADMIN && schoolIdParam
+          ? schoolIdParam
+          : null;
 
     let snapshot;
     if (schoolIdForQuery) {

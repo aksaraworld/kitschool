@@ -4,18 +4,25 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId, hasFullAccess } from '@/lib/server/auth-helpers';
-import {
-  assertUniqueCustomDomain,
-  assertUniqueSubdomain,
-  normalizeCustomDomain,
-  normalizeSubdomain,
-} from '@/lib/server/custom-domain';
-import {
-  validateCustomerServiceStaff,
-  validatePublicChatSettings,
-} from '@/lib/server/public-chat-config';
 import { schoolsCollection, docToJson } from '@/lib/server/firebase-admin';
 import { UserRole } from '@/lib/types';
+
+/** Platform-only fields — configured by SaaS admin via /api/schools/[id]. */
+const SAAS_ONLY_SCHOOL_FIELDS = [
+  'subdomain',
+  'customDomain',
+  'landingPage',
+  'customerServiceStaffId',
+  'modules',
+] as const;
+
+function stripSaasOnlyFields(body: Record<string, unknown>) {
+  const out = { ...body };
+  for (const key of SAAS_ONLY_SCHOOL_FIELDS) {
+    delete out[key];
+  }
+  return out;
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -54,43 +61,7 @@ export async function PUT(req: NextRequest) {
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
     const body = await req.json().catch(() => ({}));
-    const updateData = { ...body };
-
-    const landing = updateData.landingPage as { publicChatEnabled?: boolean } | undefined;
-    const publicChatEnabled = landing?.publicChatEnabled;
-    try {
-      validatePublicChatSettings({
-        publicChatEnabled,
-        customerServiceStaffId: updateData.customerServiceStaffId as string | undefined,
-      });
-      if (updateData.customerServiceStaffId !== undefined) {
-        updateData.customerServiceStaffId = await validateCustomerServiceStaff(
-          schoolId,
-          updateData.customerServiceStaffId as string | null
-        );
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Konfigurasi chat tidak valid';
-      return NextResponse.json({ message: msg }, { status: 400 });
-    }
-
-    try {
-      if (updateData.subdomain !== undefined) {
-        updateData.subdomain = await assertUniqueSubdomain(
-          normalizeSubdomain(String(updateData.subdomain ?? '')),
-          schoolId
-        );
-      }
-      if (updateData.customDomain !== undefined) {
-        updateData.customDomain = await assertUniqueCustomDomain(
-          normalizeCustomDomain(String(updateData.customDomain ?? '')),
-          schoolId
-        );
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Domain tidak valid';
-      return NextResponse.json({ message: msg }, { status: 409 });
-    }
+    const updateData = stripSaasOnlyFields(body as Record<string, unknown>);
     delete updateData.subscriptionStatus;
     delete updateData.subscriptionStartDate;
     delete updateData.subscriptionEndDate;
@@ -124,8 +95,9 @@ export async function POST(req: NextRequest) {
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
     const body = await req.json().catch(() => ({}));
+    const updateData = stripSaasOnlyFields(body as Record<string, unknown>);
     const ref = schoolsCollection().doc(schoolId);
-    await ref.set({ ...body, updatedAt: new Date() }, { merge: true });
+    await ref.set({ ...updateData, updatedAt: new Date() }, { merge: true });
     const updated = await ref.get();
     return NextResponse.json(docToJson(updated));
   } catch (e) {

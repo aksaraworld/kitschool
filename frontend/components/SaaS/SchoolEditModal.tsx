@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import api from '@/lib/aksara-api';
-import type { School, SchoolUnit } from '@/lib/types';
-import { X, Save, Plus, Trash2 } from 'lucide-react';
+import type { School, SchoolUnit, User } from '@/lib/types';
+import { CHAT_BROADCAST_STAFF_ROLES, ROLE_LABELS, hasAnyRole } from '@/lib/types';
+import { X, Save, Plus, Trash2, MessageSquare } from 'lucide-react';
 
 const JENJANG_PRESETS = [
   { value: 'TK', label: 'TK / PAUD' },
@@ -31,6 +32,9 @@ export default function SchoolEditModal({ schoolId, onClose, onSaved }: SchoolEd
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<School>>({});
   const [customJenjang, setCustomJenjang] = useState('');
+  const [chatStaffOptions, setChatStaffOptions] = useState<User[]>([]);
+
+  const publicChatEnabled = formData.landingPage?.publicChatEnabled ?? false;
 
   useEffect(() => {
     if (!schoolId) return;
@@ -46,6 +50,19 @@ export default function SchoolEditModal({ schoolId, onClose, onSaved }: SchoolEd
       })
       .catch(() => alert('Gagal memuat data sekolah'))
       .finally(() => setLoading(false));
+  }, [schoolId]);
+
+  useEffect(() => {
+    if (!schoolId) return;
+    api
+      .get<User[]>(`/users?schoolId=${encodeURIComponent(schoolId)}`)
+      .then((users) => {
+        const eligible = users.filter(
+          (u) => u.isActive !== false && hasAnyRole(u, CHAT_BROADCAST_STAFF_ROLES.map(String))
+        );
+        setChatStaffOptions(eligible);
+      })
+      .catch(() => setChatStaffOptions([]));
   }, [schoolId]);
 
   if (!schoolId) return null;
@@ -83,6 +100,10 @@ export default function SchoolEditModal({ schoolId, onClose, onSaved }: SchoolEd
       alert('Nama dan email wajib diisi');
       return;
     }
+    if (publicChatEnabled && !formData.customerServiceStaffId) {
+      alert('Pilih staf penerima chat sebelum mengaktifkan chat pengunjung');
+      return;
+    }
     try {
       setSaving(true);
       const payload = {
@@ -110,6 +131,7 @@ export default function SchoolEditModal({ schoolId, onClose, onSaved }: SchoolEd
         subdomain: formData.subdomain,
         customDomain: formData.customDomain,
         landingPage: formData.landingPage,
+        customerServiceStaffId: formData.customerServiceStaffId,
         modules: formData.modules,
         boardingConfig: formData.boardingConfig,
       };
@@ -477,6 +499,62 @@ export default function SchoolEditModal({ schoolId, onClose, onSaved }: SchoolEd
                   />
                   Modul asrama (boarding school)
                 </label>
+
+                <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-emerald-700" />
+                    <p className="text-sm font-semibold text-gray-900">Chat Pengunjung (Landing)</p>
+                  </div>
+                  <p className="text-xs text-gray-600">
+                    Tombol &quot;Tanya CS&quot; di halaman publik. Pesan masuk ke Pesan staf + tiket CRM otomatis.
+                  </p>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={publicChatEnabled}
+                      disabled={!formData.landingPage?.enabled}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          landingPage: {
+                            ...formData.landingPage,
+                            slug: formData.landingPage?.slug || '',
+                            enabled: formData.landingPage?.enabled ?? false,
+                            publicChatEnabled: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    Aktifkan chat pengunjung
+                  </label>
+                  {!formData.landingPage?.enabled && (
+                    <p className="text-xs text-amber-700">Aktifkan halaman profil publik terlebih dahulu.</p>
+                  )}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Staf penerima (Customer Service)
+                    </label>
+                    <select
+                      className={inputClass}
+                      value={formData.customerServiceStaffId || ''}
+                      disabled={!publicChatEnabled}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          customerServiceStaffId: e.target.value || undefined,
+                        })
+                      }
+                    >
+                      <option value="">— Pilih staf —</option>
+                      {chatStaffOptions.map((s) => (
+                        <option key={s._id} value={s._id}>
+                          {s.name}
+                          {s.email ? ` (${s.email})` : ''} — {ROLE_LABELS[s.role] || s.role}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </section>
             </>
           )}
