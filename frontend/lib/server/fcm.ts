@@ -6,7 +6,7 @@ import { getMessaging, usersCollection } from '@/lib/server/firebase-admin';
 
 export async function sendChatPush(
   recipientUid: string,
-  payload: { title: string; body: string; conversationId: string }
+  payload: { title: string; body: string; conversationId?: string; href?: string }
 ): Promise<void> {
   if (!process.env.FIREBASE_PROJECT_ID) return;
 
@@ -22,11 +22,14 @@ export async function sendChatPush(
       tokens: validTokens,
       notification: { title: payload.title, body: payload.body },
       data: {
-        type: 'chat',
-        conversationId: payload.conversationId,
+        type: payload.conversationId ? 'chat' : 'notification',
+        conversationId: payload.conversationId ?? '',
+        href: payload.href ?? (payload.conversationId ? `/messages?c=${payload.conversationId}` : '/tickets'),
       },
       webpush: {
-        fcmOptions: { link: `/messages?c=${payload.conversationId}` },
+        fcmOptions: {
+          link: payload.href ?? (payload.conversationId ? `/messages?c=${payload.conversationId}` : '/tickets'),
+        },
       },
     });
 

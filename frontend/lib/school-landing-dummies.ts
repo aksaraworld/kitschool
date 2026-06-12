@@ -48,12 +48,13 @@ export const SCHOOL_LANDING_DUMMY: Record<string, Partial<SchoolLandingPage>> = 
     ],
     ctaTitle: 'Portal PPST Al UM',
     ctaSubtitle: 'Masuk untuk staf, guru, orang tua, dan santri yang sudah terdaftar.',
+    publicChatEnabled: true,
   },
 };
 
 export function mergeLandingContent(
   slug: string,
-  fromDb?: SchoolLandingPage | null
+  fromDb?: Partial<SchoolLandingPage> | null
 ): SchoolLandingPage {
   const dummy = SCHOOL_LANDING_DUMMY[slug] ?? {};
   return {
@@ -66,5 +67,6 @@ export function mergeLandingContent(
     programs: fromDb?.programs?.length ? fromDb.programs : dummy.programs,
     ctaTitle: fromDb?.ctaTitle ?? dummy.ctaTitle,
     ctaSubtitle: fromDb?.ctaSubtitle ?? dummy.ctaSubtitle,
+    publicChatEnabled: fromDb?.publicChatEnabled ?? dummy.publicChatEnabled,
   };
 }

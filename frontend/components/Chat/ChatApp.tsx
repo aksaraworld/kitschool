@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
-import { dispatchNotificationsRefresh } from '@/lib/notifications-events';
 import { subscribeToChatMessages } from '@/lib/chat-client';
 import { getCurrentUserId, getOtherParticipant } from '@/lib/chat-utils';
 import type { ChatConversation, ChatMessage, User } from '@/lib/types';
@@ -44,6 +43,9 @@ export default function ChatApp() {
   const [conversationSearch, setConversationSearch] = useState('');
   const [chatError, setChatError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
+  const prevMessageCountRef = useRef(0);
+  const realtimeActiveRef = useRef(false);
 
   const filteredConversations = useMemo(() => {
     const q = conversationSearch.trim().toLowerCase();
@@ -55,20 +57,39 @@ export default function ChatApp() {
     });
   }, [conversations, conversationSearch, currentUserId]);
 
+  const patchConversation = useCallback(
+    (convId: string, patch: Partial<ChatConversation>) => {
+      setConversations((prev) => {
+        const next = prev.map((c) => {
+          const id = c._id || (c as ChatConversation & { id?: string }).id;
+          if (id !== convId) return c;
+          return { ...c, ...patch };
+        });
+        return next.sort((a, b) =>
+          String(b.lastMessageAt ?? '').localeCompare(String(a.lastMessageAt ?? ''))
+        );
+      });
+    },
+    []
+  );
+
   const loadConversations = useCallback(async (skipCache = false) => {
     const data = skipCache
       ? await api.get<ChatConversation[]>('/chat/conversations', { skipCache: true })
       : await api.getCached<ChatConversation[]>('/chat/conversations');
     setConversations(data);
-    dispatchNotificationsRefresh();
   }, []);
 
   const loadRecipients = useCallback(async (q = '', role = 'all') => {
     setRecipientsLoading(true);
     try {
-      const data = await api.get<Recipient[]>('/chat/recipients', {
+      const hasQuery = Boolean(q.trim());
+      const fetcher = hasQuery
+        ? api.get.bind(api)
+        : api.getCached.bind(api);
+      const data = await fetcher<Recipient[]>('/chat/recipients', {
         params: { q: q || undefined, role: role !== 'all' ? role : undefined, limit: 80 },
-        skipCache: Boolean(q),
+        skipCache: hasQuery,
       });
       setRecipients(data);
     } finally {
@@ -92,7 +113,7 @@ export default function ChatApp() {
     const q = recipientSearch.trim();
     const timer = window.setTimeout(() => {
       loadRecipients(q, recipientRoleFilter).catch(() => {});
-    }, q ? 300 : 0);
+    }, q ? 450 : 0);
     return () => clearTimeout(timer);
   }, [showNewChat, recipientSearch, recipientRoleFilter, loadRecipients]);
 
@@ -104,27 +125,37 @@ export default function ChatApp() {
   useEffect(() => {
     if (!activeId) {
       setMessages([]);
+      realtimeActiveRef.current = false;
       return;
     }
 
     setChatError(null);
-    api
-      .put(`/chat/conversations/${activeId}/read`)
-      .then(() => dispatchNotificationsRefresh())
-      .catch(() => {});
+    prevMessageCountRef.current = 0;
+    realtimeActiveRef.current = false;
+
+    api.put(`/chat/conversations/${activeId}/read`).catch(() => {});
 
     let unsub: (() => void) | null = null;
     try {
       unsub = subscribeToChatMessages(
         activeId,
-        (msgs) => setMessages(msgs),
-        () => loadMessagesApi(activeId).catch(() => {})
+        (msgs) => {
+          realtimeActiveRef.current = true;
+          setMessages(msgs);
+        },
+        () => {
+          realtimeActiveRef.current = false;
+          loadMessagesApi(activeId).catch(() => {});
+        }
       );
     } catch {
       unsub = null;
     }
 
-    loadMessagesApi(activeId).catch(() => {});
+    if (!unsub) {
+      loadMessagesApi(activeId).catch(() => {});
+    }
+
     const poll = unsub
       ? null
       : setInterval(() => loadMessagesApi(activeId).catch(() => {}), 30_000);
@@ -136,7 +167,18 @@ export default function ChatApp() {
   }, [activeId, loadMessagesApi]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const count = messages.length;
+    const prev = prevMessageCountRef.current;
+    prevMessageCountRef.current = count;
+    if (count === 0 || count <= prev) return;
+
+    const el = messagesScrollRef.current;
+    const nearBottom =
+      !el || el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+
+    if (nearBottom || count - prev === count) {
+      bottomRef.current?.scrollIntoView({ behavior: count - prev === 1 ? 'smooth' : 'auto' });
+    }
   }, [messages]);
 
   const startConversation = async (recipientId: string) => {
@@ -145,7 +187,13 @@ export default function ChatApp() {
       const conv = await api.post<ChatConversation>('/chat/conversations', { recipientId });
       const id = conv._id || (conv as ChatConversation & { id?: string }).id;
       if (!id) throw new Error('Percakapan gagal dibuat');
-      await loadConversations();
+      setConversations((prev) => {
+        const exists = prev.some(
+          (c) => (c._id || (c as ChatConversation & { id?: string }).id) === id
+        );
+        if (exists) return prev;
+        return [conv, ...prev];
+      });
       setActiveId(id);
       setShowNewChat(false);
       setRecipientSearch('');
@@ -158,12 +206,24 @@ export default function ChatApp() {
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeId || !text.trim() || sending) return;
+    const body = text.trim();
     try {
       setSending(true);
       setChatError(null);
-      await api.post(`/chat/conversations/${activeId}/messages`, { text: text.trim() });
+      const created = await api.post<ChatMessage>(`/chat/conversations/${activeId}/messages`, {
+        text: body,
+      });
       setText('');
-      await loadConversations(true);
+      const now = new Date().toISOString();
+      patchConversation(activeId, {
+        lastMessage: body.slice(0, 200),
+        lastMessageAt: now,
+        lastSenderId: currentUserId,
+        unreadCount: { [currentUserId]: 0 },
+      });
+      if (!realtimeActiveRef.current && created) {
+        setMessages((prev) => [...prev, created]);
+      }
     } catch (err: unknown) {
       setChatError(err instanceof Error ? err.message : 'Gagal mengirim');
     } finally {
@@ -298,6 +358,7 @@ export default function ChatApp() {
                 const convId = conv._id || (conv as ChatConversation & { id?: string }).id || '';
                 const other = getOtherParticipant(conv, currentUserId);
                 const unread = conv.unreadCount?.[currentUserId] ?? 0;
+                const isPublic = conv.kind === 'public_inquiry';
                 return (
                   <button
                     key={convId}
@@ -308,14 +369,21 @@ export default function ChatApp() {
                     }`}
                   >
                     <div className="flex justify-between items-start gap-2">
-                      <p className="font-medium text-gray-900 truncate">{other?.name ?? 'Chat'}</p>
+                      <p className="font-medium text-gray-900 truncate">
+                        {isPublic ? conv.visitorName ?? other?.name ?? 'Pengunjung Web' : other?.name ?? 'Chat'}
+                      </p>
                       {unread > 0 && (
                         <span className="shrink-0 bg-primary-600 text-white text-xs rounded-full px-2 py-0.5">
                           {unread}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 truncate mt-0.5">{conv.lastMessage}</p>
+                    <p className="text-xs text-gray-500 truncate mt-0.5">
+                      {isPublic && (
+                        <span className="text-amber-700 font-medium mr-1">[CS Web]</span>
+                      )}
+                      {conv.lastMessage}
+                    </p>
                   </button>
                 );
               })
@@ -337,22 +405,31 @@ export default function ChatApp() {
                 </button>
                 <div>
                   <p className="font-semibold text-gray-900">
-                    {otherParticipant?.name ?? 'Percakapan'}
+                    {activeConv?.kind === 'public_inquiry'
+                      ? activeConv.visitorName ?? 'Pengunjung Web'
+                      : otherParticipant?.name ?? 'Percakapan'}
                   </p>
-                  {otherParticipant && (
-                    <p className="text-xs text-gray-500">
-                      {ROLE_LABELS[otherParticipant.role] ?? otherParticipant.role}
+                  {activeConv?.kind === 'public_inquiry' ? (
+                    <p className="text-xs text-amber-700">
+                      Live chat website · {activeConv.visitorContact}
                     </p>
+                  ) : (
+                    otherParticipant && (
+                      <p className="text-xs text-gray-500">
+                        {ROLE_LABELS[otherParticipant.role] ?? otherParticipant.role}
+                      </p>
+                    )
                   )}
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+              <div ref={messagesScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
                 {messages.length === 0 ? (
                   <p className="text-center text-sm text-gray-400 py-8">Belum ada pesan. Mulai percakapan!</p>
                 ) : (
                   messages.map((msg) => {
                     const mine = msg.senderId === currentUserId;
+                    const isVisitor = msg.senderType === 'visitor' || msg.senderId?.startsWith('guest_');
                     return (
                       <div key={msg._id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                         <div
@@ -362,6 +439,9 @@ export default function ChatApp() {
                               : 'bg-white border border-gray-200 text-gray-900 rounded-bl-md'
                           }`}
                         >
+                          {!mine && isVisitor && msg.senderName && (
+                            <p className="text-[10px] font-medium text-amber-700 mb-0.5">{msg.senderName}</p>
+                          )}
                           <p className="whitespace-pre-wrap break-words">{msg.text}</p>
                           <p
                             className={`text-[10px] mt-1 ${mine ? 'text-primary-100' : 'text-gray-400'}`}

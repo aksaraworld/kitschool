@@ -61,6 +61,7 @@ export async function GET(
       accreditation: school.accreditation,
       establishedYear: school.establishedYear,
       landingPage: school.landingPage,
+      publicChatEnabled: (school.landingPage as { publicChatEnabled?: boolean })?.publicChatEnabled ?? false,
       modules: school.modules,
       boardingAreas: areas,
       boardingSchedules: eveningSchedules,

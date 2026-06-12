@@ -96,6 +96,22 @@ service cloud.firestore {
       }
     }
 
+    match /publicChatSessions/{sessionId} {
+      allow read, write: if false;
+    }
+
+    match /publicChatRateLimits/{docId} {
+      allow read, write: if false;
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if isAuthenticated() && (
+        resource.data.creatorId == request.auth.uid ||
+        getUserRole() in ['saas_admin', 'principal', 'staff', 'teacher', 'homeroom_teacher', 'finance']
+      );
+      allow create, update: if false;
+    }
+
     // School chat
     match /chatConversations/{conversationId} {
       allow read, update: if isAuthenticated() &&

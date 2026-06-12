@@ -35,6 +35,7 @@ import {
   FileText,
   Award,
   BedDouble,
+  ClipboardList,
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -64,6 +65,7 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/calendar', label: 'Kalender', icon: Calendar },
     { href: '/reports', label: 'Laporan', icon: FileText },
     { href: '/messages', label: 'Pesan', icon: MessageSquare },
+    { href: '/tickets', label: 'Masukan & Keluhan', icon: ClipboardList },
   ],
   [UserRole.TEACHER]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -95,6 +97,7 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/school-profile', label: 'Profil Sekolah', icon: Building2 },
     { href: '/boarding', label: 'Asrama', icon: BedDouble },
     { href: '/messages', label: 'Pesan', icon: MessageSquare },
+    { href: '/tickets', label: 'Tiket Ortu', icon: ClipboardList },
   ],
   [UserRole.KETUA_YAYASAN]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -129,6 +132,7 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/school-profile', label: 'Profil Sekolah', icon: Building2 },
     { href: '/boarding', label: 'Asrama', icon: BedDouble },
     { href: '/messages', label: 'Pesan', icon: MessageSquare },
+    { href: '/tickets', label: 'Tiket Ortu', icon: ClipboardList },
   ],
   [UserRole.FINANCE]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },

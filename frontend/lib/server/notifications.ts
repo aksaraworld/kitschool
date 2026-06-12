@@ -3,9 +3,11 @@ import { canUseChat } from '@/lib/server/chat-permissions';
 import {
   chatConversationsCollection,
   communicationsCollection,
+  ticketsCollection,
   docToJson,
 } from '@/lib/server/firebase-admin';
 import { getOtherParticipantFromData } from '@/lib/server/chat-notification-helpers';
+import { TICKET_STATUS_LABELS, UserRole, type TicketStatus } from '@/lib/types';
 import type { AppNotification } from '@/lib/types';
 
 function toIso(value: unknown): string {
@@ -54,6 +56,33 @@ export async function getUserNotifications(
         unread: true,
         count: unread,
         conversationId: convId,
+      });
+    }
+  }
+
+  if (auth.role === UserRole.PARENT) {
+    const ticketSnap = await ticketsCollection()
+      .where('schoolId', '==', schoolId)
+      .where('creatorId', '==', auth.uid)
+      .get();
+
+    for (const doc of ticketSnap.docs) {
+      const row = docToJson(doc) as Record<string, unknown>;
+      const status = String(row.status ?? 'open') as TicketStatus;
+      if (status === 'closed') continue;
+      if (status === 'open') continue;
+
+      notifications.push({
+        id: `ticket-${doc.id}`,
+        type: 'ticket',
+        title: `Tiket ${row.ticketNumber}`,
+        body:
+          status === 'resolved'
+            ? String(row.resolutionNote ?? 'Tiket Anda telah diselesaikan')
+            : `${TICKET_STATUS_LABELS[status] ?? status}: ${row.subject}`,
+        createdAt: toIso(row.updatedAt ?? row.createdAt),
+        href: '/tickets',
+        unread: true,
       });
     }
   }

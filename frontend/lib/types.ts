@@ -409,6 +409,11 @@ export interface ChatConversation {
   schoolId: string;
   participantIds: string[];
   participants: Record<string, ChatParticipant>;
+  /** direct = logged-in users; public_inquiry = website visitor → CS staff */
+  kind?: 'direct' | 'public_inquiry';
+  publicSessionId?: string;
+  visitorName?: string;
+  visitorContact?: string;
   lastMessage?: string;
   lastMessageAt?: string;
   lastSenderId?: string;
@@ -422,6 +427,9 @@ export interface ChatMessage {
   conversationId: string;
   schoolId: string;
   senderId: string;
+  /** visitor messages from public landing chat */
+  senderType?: 'user' | 'visitor';
+  senderName?: string;
   text: string;
   createdAt: string;
   readBy?: Record<string, string>;
@@ -444,7 +452,83 @@ export interface ChatBackupEntry {
   createdAt: string;
 }
 
-export type AppNotificationType = 'chat' | 'communication';
+export type AppNotificationType = 'chat' | 'communication' | 'ticket';
+
+export type TicketCategory =
+  | 'academic'
+  | 'discipline'
+  | 'facility'
+  | 'finance'
+  | 'boarding'
+  | 'general';
+
+export type TicketStatus = 'open' | 'acknowledged' | 'in_progress' | 'resolved' | 'closed';
+
+export interface Ticket {
+  _id: string;
+  schoolId: string;
+  ticketNumber: string;
+  category: TicketCategory;
+  subject: string;
+  description: string;
+  status: TicketStatus;
+  creatorId: string;
+  creatorName: string;
+  assignedToId?: string;
+  assignedToName?: string;
+  assigneeRoles?: string[];
+  acknowledgedAt?: string;
+  acknowledgedById?: string;
+  acknowledgedByName?: string;
+  resolvedAt?: string;
+  resolvedById?: string;
+  resolvedByName?: string;
+  resolutionNote?: string;
+  parentNotifiedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const TICKET_CATEGORY_LABELS: Record<TicketCategory, string> = {
+  academic: 'Akademik / Pembelajaran',
+  discipline: 'Kedisiplinan / BK',
+  facility: 'Sarana & Prasarana',
+  finance: 'Keuangan / SPP',
+  boarding: 'Asrama / Pesantren',
+  general: 'Lainnya / Umum',
+};
+
+export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
+  open: 'Baru',
+  acknowledged: 'Diterima',
+  in_progress: 'Diproses',
+  resolved: 'Selesai',
+  closed: 'Ditutup',
+};
+
+/** Roles suggested per ticket category (first match in school is auto-assigned). */
+export const TICKET_CATEGORY_ASSIGNEE_ROLES: Record<TicketCategory, UserRole[]> = {
+  academic: [UserRole.HOMEROOM_TEACHER, UserRole.WAKASEK_KURIKULUM, UserRole.TEACHER],
+  discipline: [UserRole.KOORDINATOR_BK_ESKUL, UserRole.WAKASEK_KESISWAAN],
+  facility: [UserRole.WAKASEK_SARANA, UserRole.STAFF],
+  finance: [UserRole.FINANCE, UserRole.STAFF],
+  boarding: [UserRole.KETUA_PESANTREN, UserRole.STAFF],
+  general: [UserRole.STAFF, UserRole.PRINCIPAL],
+};
+
+export const TICKET_HANDLER_ROLES: UserRole[] = [
+  UserRole.STAFF,
+  UserRole.PRINCIPAL,
+  UserRole.TEACHER,
+  UserRole.HOMEROOM_TEACHER,
+  UserRole.FINANCE,
+  UserRole.WAKASEK_KURIKULUM,
+  UserRole.WAKASEK_KESISWAAN,
+  UserRole.WAKASEK_SARANA,
+  UserRole.KOORDINATOR_BK_ESKUL,
+  UserRole.KETUA_PESANTREN,
+  UserRole.KETUA_YAYASAN,
+];
 
 export interface AppNotification {
   id: string;
@@ -516,6 +600,8 @@ export interface SchoolLandingPage {
   programs?: SchoolLandingProgram[];
   ctaTitle?: string;
   ctaSubtitle?: string;
+  /** Live chat widget on public landing → customer service staff */
+  publicChatEnabled?: boolean;
 }
 
 /** Enabled optional modules per school. */
@@ -602,6 +688,8 @@ export interface School {
   subdomain?: string;
   /** Optional full custom domain later (e.g. ppst-alum.sch.id) */
   customDomain?: string;
+  /** Staff user id for public landing chat (customer service) */
+  customerServiceStaffId?: string;
   landingPage?: SchoolLandingPage;
   modules?: SchoolModules;
   boardingConfig?: BoardingSchoolConfig;

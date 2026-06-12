@@ -12,6 +12,8 @@ import {
 } from '@/lib/server/firebase-admin';
 import type { ChatParticipant } from '@/lib/types';
 
+const CONVERSATION_LIMIT = 50;
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthUser(req);
@@ -30,7 +32,8 @@ export async function GET(req: NextRequest) {
       .map((d) => docToJson(d))
       .sort((a, b) =>
         String(b.lastMessageAt ?? '').localeCompare(String(a.lastMessageAt ?? ''))
-      );
+      )
+      .slice(0, CONVERSATION_LIMIT);
 
     return NextResponse.json(rows, {
       headers: { 'Cache-Control': 'private, max-age=15' },

@@ -103,6 +103,18 @@ export function chatMessagesCollection(conversationId: string) {
   return chatConversationsCollection().doc(conversationId).collection('messages');
 }
 
+export function ticketsCollection() {
+  return getFirestore().collection('tickets');
+}
+
+export function publicChatSessionsCollection() {
+  return getFirestore().collection('publicChatSessions');
+}
+
+export function publicChatRateLimitsCollection() {
+  return getFirestore().collection('publicChatRateLimits');
+}
+
 export function chatBackupsCollection() {
   return getFirestore().collection('chatBackups');
 }

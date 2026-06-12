@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import api from '@/lib/aksara-api';
 import { NOTIFICATIONS_REFRESH_EVENT } from '@/lib/notifications-events';
 import { showBrowserChatNotification } from '@/lib/show-fcm-notification';
@@ -26,6 +27,8 @@ function notifyKey(n: AppNotification): string {
 }
 
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const onMessagesPage = pathname?.startsWith('/messages') ?? false;
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -82,10 +85,10 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     refresh(false);
 
     const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !onMessagesPage) {
         refresh(false);
       }
-    }, 30_000);
+    }, onMessagesPage ? 120_000 : 45_000);
 
     const onRefresh = () => refresh(true);
     window.addEventListener(NOTIFICATIONS_REFRESH_EVENT, onRefresh);
@@ -96,7 +99,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       window.removeEventListener(NOTIFICATIONS_REFRESH_EVENT, onRefresh);
       window.removeEventListener('focus', onRefresh);
     };
-  }, [refresh]);
+  }, [refresh, onMessagesPage]);
 
   return (
     <NotificationsContext.Provider value={{ notifications, unreadCount, loading, refresh }}>

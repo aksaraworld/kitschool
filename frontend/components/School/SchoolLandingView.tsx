@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import SchoolLogo from '@/components/Brand/SchoolLogo';
 import PoweredByFooter from '@/components/Brand/PoweredByFooter';
+import PublicChatWidget from '@/components/School/PublicChatWidget';
 import { mergeLandingContent } from '@/lib/school-landing-dummies';
 import type { BoardingActivitySchedule, BoardingArea, SchoolLandingPage } from '@/lib/types';
 
@@ -37,7 +38,7 @@ export type SchoolLandingData = {
   jenjang?: string[];
   accreditation?: string;
   establishedYear?: number;
-  landingPage?: SchoolLandingPage;
+  landingPage?: SchoolLandingPage & { publicChatEnabled?: boolean };
   modules?: { boardingSchool?: boolean };
   boardingAreas?: BoardingArea[];
   boardingSchedules?: BoardingActivitySchedule[];
@@ -51,7 +52,12 @@ type Props = {
 };
 
 export default function SchoolLandingView({ school, slug }: Props) {
-  const landing = mergeLandingContent(slug, school.landingPage);
+  const landing = mergeLandingContent(slug, {
+    ...school.landingPage,
+    publicChatEnabled:
+      school.landingPage?.publicChatEnabled ??
+      (school as { publicChatEnabled?: boolean }).publicChatEnabled,
+  });
   const sleepAreas = (school.boardingAreas || []).filter((a) => a.areaType === 'sleep');
   const programmeAreas = (school.boardingAreas || []).filter((a) => a.areaType === 'programme');
 
@@ -306,6 +312,13 @@ export default function SchoolLandingView({ school, slug }: Props) {
       </main>
 
       <PoweredByFooter schoolName={school.shortName || school.name} />
+
+      {landing.publicChatEnabled && (
+        <PublicChatWidget
+          schoolSlug={slug}
+          schoolName={school.shortName || school.name}
+        />
+      )}
     </div>
   );
 }

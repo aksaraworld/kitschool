@@ -38,6 +38,7 @@ const SAAS_PROFILE_FIELDS = [
   'taxId',
   'subdomain',
   'customDomain',
+  'customerServiceStaffId',
   'landingPage',
   'modules',
   'boardingConfig',

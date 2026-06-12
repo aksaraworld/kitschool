@@ -1,10 +1,5 @@
 /**
- * Chat permission rules:
- * - Internal (staff, principal, teachers, leadership, finance) → each other in same school
- * - Staff/TU/leadership → all parents in school
- * - Teacher/homeroom → parents of students in their class(es)
- * - Room head staff → parents of students in their boarding room
- * - Parent → inverse of above (teachers of child's class, staff, room head)
+ * Chat permission rules (optimized queries + short TTL cache).
  */
 
 import type { AuthUser } from '@/lib/server/auth-helpers';
@@ -21,6 +16,13 @@ import {
   getEffectiveRoles,
   hasAnyRole,
 } from '@/lib/types';
+import {
+  cacheKey,
+  getCachedAllowedIds,
+  getCachedRecipientManifest,
+  setCachedAllowedIds,
+  setCachedRecipientManifest,
+} from '@/lib/server/chat-permissions-cache';
 
 type UserDoc = {
   uid: string;
@@ -61,11 +63,6 @@ function isParent(user: UserDoc): boolean {
   return user.role === UserRole.PARENT || getEffectiveRoles(user).includes(UserRole.PARENT);
 }
 
-function isInternalChatUser(user: UserDoc): boolean {
-  if (isParent(user)) return false;
-  return hasAnyRole(user, CHAT_ROLES.map(String));
-}
-
 async function fetchUsersByIds(ids: Iterable<string>): Promise<UserDoc[]> {
   const idList = [...ids];
   if (!idList.length) return [];
@@ -87,40 +84,57 @@ async function fetchUsersByIds(ids: Iterable<string>): Promise<UserDoc[]> {
   return users;
 }
 
-async function fetchInternalChatUsers(schoolId: string, excludeUid: string): Promise<UserDoc[]> {
+async function fetchUsersByRoles(schoolId: string, roles: string[]): Promise<UserDoc[]> {
   const users: UserDoc[] = [];
-
-  for (let i = 0; i < INTERNAL_CHAT_ROLES.length; i += 10) {
-    const roles = INTERNAL_CHAT_ROLES.slice(i, i + 10).map(String);
+  for (let i = 0; i < roles.length; i += 10) {
+    const chunk = roles.slice(i, i + 10);
     const snap = await usersCollection()
       .where('schoolId', '==', schoolId)
-      .where('role', 'in', roles)
+      .where('role', 'in', chunk)
       .get();
-
     for (const doc of snap.docs) {
-      if (doc.id === excludeUid) continue;
       const data = doc.data() as UserDoc;
       if (data.isActive === false) continue;
       users.push({ ...data, uid: doc.id });
     }
   }
-
   return users;
 }
 
+async function fetchInternalChatUsers(schoolId: string, excludeUid: string): Promise<UserDoc[]> {
+  const users = await fetchUsersByRoles(
+    schoolId,
+    INTERNAL_CHAT_ROLES.map(String)
+  );
+  return users.filter((u) => u.uid !== excludeUid);
+}
+
 async function getStudentIdsInTeacherClasses(teacherUid: string, schoolId: string): Promise<Set<string>> {
-  const [classesSnap, teacherDoc] = await Promise.all([
-    classesCollection().where('schoolId', '==', schoolId).get(),
+  const [homeroomSnap, teacherDoc] = await Promise.all([
+    classesCollection()
+      .where('schoolId', '==', schoolId)
+      .where('homeroomTeacherId', '==', teacherUid)
+      .get(),
     usersCollection().doc(teacherUid).get(),
   ]);
 
-  const assigned = (teacherDoc.data() as { assignedClasses?: string[] })?.assignedClasses ?? [];
   const studentIds = new Set<string>();
+  for (const doc of homeroomSnap.docs) {
+    ((doc.data() as { studentIds?: string[] }).studentIds ?? []).forEach((id) => studentIds.add(id));
+  }
 
-  for (const doc of classesSnap.docs) {
-    const data = doc.data() as { homeroomTeacherId?: string; studentIds?: string[] };
-    if (data.homeroomTeacherId === teacherUid || assigned.includes(doc.id)) {
-      (data.studentIds ?? []).forEach((id) => studentIds.add(id));
+  const assigned = (teacherDoc.data() as { assignedClasses?: string[] })?.assignedClasses ?? [];
+  if (assigned.length) {
+    const db = getFirestore();
+    for (let i = 0; i < assigned.length; i += 30) {
+      const chunk = assigned.slice(i, i + 30).map((id) => classesCollection().doc(id));
+      const snaps = await db.getAll(...chunk);
+      for (const snap of snaps) {
+        if (!snap.exists) continue;
+        const data = snap.data() as { schoolId?: string; studentIds?: string[] };
+        if (data.schoolId && data.schoolId !== schoolId) continue;
+        (data.studentIds ?? []).forEach((id) => studentIds.add(id));
+      }
     }
   }
 
@@ -130,25 +144,25 @@ async function getStudentIdsInTeacherClasses(teacherUid: string, schoolId: strin
 async function getStudentIdsInBoardingRoom(roomId: string): Promise<Set<string>> {
   const roomSnap = await boardingRoomsCollection().doc(roomId).get();
   if (!roomSnap.exists) return new Set();
-  const data = roomSnap.data() as { studentIds?: string[] };
-  return new Set(data.studentIds ?? []);
+  return new Set((roomSnap.data() as { studentIds?: string[] }).studentIds ?? []);
 }
 
 async function getParentIdsForStudents(studentIds: Set<string>, schoolId: string): Promise<Set<string>> {
   if (!studentIds.size) return new Set();
 
-  const parentsSnap = await usersCollection()
-    .where('schoolId', '==', schoolId)
-    .where('role', '==', UserRole.PARENT)
-    .get();
-
   const parentIds = new Set<string>();
-  for (const doc of parentsSnap.docs) {
-    const children = (doc.data() as { children?: string[] }).children ?? [];
-    if (children.some((c) => studentIds.has(c))) {
-      parentIds.add(doc.id);
-    }
+  const idList = [...studentIds];
+
+  for (let i = 0; i < idList.length; i += 10) {
+    const chunk = idList.slice(i, i + 10);
+    const snap = await usersCollection()
+      .where('schoolId', '==', schoolId)
+      .where('role', '==', UserRole.PARENT)
+      .where('children', 'array-contains-any', chunk)
+      .get();
+    snap.docs.forEach((d) => parentIds.add(d.id));
   }
+
   return parentIds;
 }
 
@@ -190,47 +204,33 @@ export async function getAllowedStaffIdsForParent(parent: UserDoc, schoolId: str
 
   const childSet = new Set(children);
 
-  const [usersSnap, classesSnap, roomsSnap] = await Promise.all([
-    usersCollection().where('schoolId', '==', schoolId).get(),
+  const [classesSnap, roomsSnap, broadcastStaff, teachers] = await Promise.all([
     classesCollection().where('schoolId', '==', schoolId).get(),
     boardingRoomsCollection().where('schoolId', '==', schoolId).get(),
+    fetchUsersByRoles(schoolId, CHAT_BROADCAST_STAFF_ROLES.map(String)),
+    fetchUsersByRoles(schoolId, TEACHER_ROLES.map(String)),
   ]);
 
+  broadcastStaff.forEach((u) => allowed.add(u.uid));
+
+  const relevantClassIds = new Set<string>();
   const homeroomTeacherIds = new Set<string>();
-  const assignedTeacherIds = new Set<string>();
 
   for (const doc of classesSnap.docs) {
     const data = doc.data() as { homeroomTeacherId?: string; studentIds?: string[] };
     const hasChild = (data.studentIds ?? []).some((id) => childSet.has(id));
     if (!hasChild) continue;
+    relevantClassIds.add(doc.id);
     if (data.homeroomTeacherId) homeroomTeacherIds.add(data.homeroomTeacherId);
   }
 
-  for (const doc of usersSnap.docs) {
-    const data = doc.data() as UserDoc;
-    if (data.isActive === false) continue;
-    const uid = doc.id;
-    const user = { ...data, uid };
+  homeroomTeacherIds.forEach((id) => allowed.add(id));
 
-    if (isBroadcastStaff(user)) {
-      allowed.add(uid);
-      continue;
-    }
-
-    if (isTeacher(user)) {
-      if (homeroomTeacherIds.has(uid)) {
-        allowed.add(uid);
-        continue;
-      }
-      const assigned = data.assignedClasses ?? [];
-      for (const classDoc of classesSnap.docs) {
-        const classData = classDoc.data() as { studentIds?: string[] };
-        const hasChild = (classData.studentIds ?? []).some((id) => childSet.has(id));
-        if (hasChild && assigned.includes(classDoc.id)) {
-          allowed.add(uid);
-          break;
-        }
-      }
+  for (const teacher of teachers) {
+    if (allowed.has(teacher.uid)) continue;
+    const assigned = teacher.assignedClasses ?? [];
+    if (assigned.some((cid) => relevantClassIds.has(cid))) {
+      allowed.add(teacher.uid);
     }
   }
 
@@ -245,11 +245,7 @@ export async function getAllowedStaffIdsForParent(parent: UserDoc, schoolId: str
   return allowed;
 }
 
-/** Single source of truth — recipient list + POST /conversations both use this. */
-export async function getAllowedRecipientIds(
-  sender: UserDoc,
-  schoolId: string
-): Promise<Set<string>> {
+async function computeAllowedRecipientIds(sender: UserDoc, schoolId: string): Promise<Set<string>> {
   if (isParent(sender)) {
     return getAllowedStaffIdsForParent(sender, schoolId);
   }
@@ -263,6 +259,20 @@ export async function getAllowedRecipientIds(
   for (const u of internalUsers) {
     allowed.add(u.uid);
   }
+  return allowed;
+}
+
+/** Single source of truth — recipient list + POST /conversations both use this. */
+export async function getAllowedRecipientIds(
+  sender: UserDoc,
+  schoolId: string
+): Promise<Set<string>> {
+  const key = cacheKey(schoolId, sender.uid);
+  const cached = getCachedAllowedIds(key);
+  if (cached) return cached;
+
+  const allowed = await computeAllowedRecipientIds(sender, schoolId);
+  setCachedAllowedIds(key, allowed);
   return allowed;
 }
 
@@ -286,6 +296,26 @@ export type ChatRecipientFilter = {
   limit?: number;
 };
 
+async function getRecipientManifest(
+  sender: UserDoc,
+  schoolId: string
+): Promise<{ uid: string; name?: string; email?: string; role?: string }[]> {
+  const key = cacheKey(schoolId, sender.uid);
+  const cached = getCachedRecipientManifest(key);
+  if (cached) return cached;
+
+  const allowedIds = await getAllowedRecipientIds(sender, schoolId);
+  const users = await fetchUsersByIds(allowedIds);
+  const manifest = users.map((u) => ({
+    uid: u.uid,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+  }));
+  setCachedRecipientManifest(key, manifest);
+  return manifest;
+}
+
 export async function getChatRecipients(
   auth: AuthUser,
   schoolId: string,
@@ -295,24 +325,30 @@ export async function getChatRecipients(
   if (!senderSnap.exists) return [];
   const sender = { ...(senderSnap.data() as UserDoc), uid: auth.uid, schoolId };
 
-  const allowedIds = await getAllowedRecipientIds(sender, schoolId);
-  let recipients = await fetchUsersByIds(allowedIds);
+  let manifest = await getRecipientManifest(sender, schoolId);
 
   const q = filter.q?.trim().toLowerCase();
   if (filter.role && filter.role !== 'all') {
-    recipients = recipients.filter((r) => r.role === filter.role);
+    manifest = manifest.filter((r) => r.role === filter.role);
   }
   if (q) {
-    recipients = recipients.filter((r) => {
+    manifest = manifest.filter((r) => {
       const haystack = [r.name, r.email, r.role].filter(Boolean).join(' ').toLowerCase();
       return haystack.includes(q);
     });
   }
 
-  recipients.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+  manifest.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
 
   const limit = Math.min(filter.limit ?? 100, 200);
-  return recipients.slice(0, limit);
+  const slice = manifest.slice(0, limit);
+
+  return slice.map((r) => ({
+    uid: r.uid,
+    name: r.name,
+    email: r.email,
+    role: r.role,
+  })) as UserDoc[];
 }
 
 export function conversationIdFor(participantA: string, participantB: string): string {

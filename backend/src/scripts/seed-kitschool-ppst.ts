@@ -176,6 +176,7 @@ async function main() {
         showContact: true,
         ctaTitle: 'Portal PPST Al UM',
         ctaSubtitle: 'Masuk untuk staf, guru, orang tua, dan santri yang sudah terdaftar.',
+        publicChatEnabled: true,
       },
       modules: { boardingSchool: true },
       boardingConfig: {
@@ -295,6 +296,11 @@ async function main() {
     role: 'staff',
     schoolId,
     extra: { department: 'Tata Usaha', nip: '198507202015012004' },
+  });
+
+  await schoolRef.update({
+    customerServiceStaffId: ids.staffTu,
+    updatedAt: new Date(),
   });
 
   ids.teacher = await upsertUser({
