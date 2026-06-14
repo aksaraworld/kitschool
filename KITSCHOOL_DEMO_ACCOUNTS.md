@@ -6,6 +6,19 @@ School: **PPST Al UM** — Pondok Pesantren Salafiyah Terpadu Al-Um, Bogor
 **Public landing:** https://kitschool.vercel.app/school/ppst-alum  
 **School subdomain:** `https://al-um.kithome.id` (set `subdomain: al-um` in school profile). Platform admin: `https://kitschool.vercel.app` only (`kithome.id` = KitHome property app). See `CUSTOM_DOMAINS.md`.
 
+## Local login (required for `/api/auth/me`)
+
+`frontend/.env.local` must reference a **real** service account JSON:
+
+```env
+FIREBASE_PROJECT_ID=kitschool-b86dd
+FIREBASE_SERVICE_ACCOUNT_PATH=../../secrets/kitschool-b86dd-firebase-adminsdk-fbsvc-51848a4530.json
+```
+
+Or symlink at repo root: `kitschool-b86dd-firebase-adminsdk.json` → your adminsdk JSON in `Panji/secrets/`.
+
+Restart `npm run dev` after adding the file. Landing may work without it; **login will fail** until the JSON exists.
+
 ## Platform admin
 
 | Role | Email | Password |

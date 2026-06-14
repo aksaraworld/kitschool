@@ -12,11 +12,35 @@ import {
   getFirebaseAdminApp,
 } from '@aksara/firebase/admin';
 import type { auth } from 'firebase-admin';
+import fs from 'fs';
+import path from 'path';
 
 let initDone = false;
 
+export function getFirebaseAdminSetupHint(): string {
+  const saPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+  if (saPath) {
+    const resolved = path.isAbsolute(saPath) ? saPath : path.join(process.cwd(), saPath);
+    if (!fs.existsSync(resolved)) {
+      return `Service account file not found: ${resolved}. Download from Firebase Console → Project kitschool-b86dd → Settings → Service accounts → Generate new private key, then set FIREBASE_SERVICE_ACCOUNT_PATH in frontend/.env.local`;
+    }
+  }
+  if (
+    process.env.FIREBASE_PROJECT_ID &&
+    process.env.FIREBASE_CLIENT_EMAIL &&
+    process.env.FIREBASE_PRIVATE_KEY
+  ) {
+    return '';
+  }
+  return 'Set FIREBASE_SERVICE_ACCOUNT_PATH (path to adminsdk JSON) or FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY in frontend/.env.local, then restart npm run dev';
+}
+
 function ensureInit() {
   if (initDone) return;
+  const hint = getFirebaseAdminSetupHint();
+  if (hint && process.env.NODE_ENV !== 'production') {
+    console.error(`[Firebase Admin] ${hint}`);
+  }
   initializeFirebaseAdminFromEnv();
   initDone = true;
 }
@@ -200,6 +224,10 @@ export function gradeComponentsCollection() {
 
 export function cashFlowCollection() {
   return getFirestore().collection('cashFlow');
+}
+
+export function posTransactionsCollection() {
+  return getFirestore().collection('posTransactions');
 }
 
 export function pendingProfileChangesCollection() {

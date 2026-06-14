@@ -112,6 +112,11 @@ service cloud.firestore {
       allow create, update: if false;
     }
 
+    match /posTransactions/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
     // School chat
     match /chatConversations/{conversationId} {
       allow read, update: if isAuthenticated() &&

@@ -129,6 +129,7 @@ export function initializeFirebaseAdmin(options: FirebaseAdminOptions): Firebase
     if (projectId) {
       try {
         adminApp = admin.initializeApp({
+          credential: admin.credential.applicationDefault(),
           projectId,
           storageBucket: options.storageBucket || `${projectId}.firebasestorage.app`,
         });

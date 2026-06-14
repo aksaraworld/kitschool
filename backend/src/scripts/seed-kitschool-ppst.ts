@@ -504,10 +504,50 @@ async function main() {
   );
 
   const fees = [
-    { name: 'SPP Bulanan MTs', amountBase: 350000, frequency: 'monthly' },
-    { name: 'SPP Bulanan MA', amountBase: 400000, frequency: 'monthly' },
-    { name: 'Uang Pesantren', amountBase: 500000, frequency: 'monthly' },
-    { name: 'Seragam & Kitab', amountBase: 1500000, frequency: 'yearly' },
+    {
+      name: 'Iuran Pesantren & SPP Bulanan',
+      amountBase: 900000,
+      frequency: 'monthly',
+      category: 'monthly_pesantren',
+      financeUnit: 'pesantren',
+      description: 'Termasuk iuran pesantren dan SPP sekolah bulanan (MTs/MA)',
+    },
+    {
+      name: 'Iuran Tahunan',
+      amountBase: 15000000,
+      frequency: 'yearly',
+      category: 'yearly',
+      financeUnit: 'yayasan',
+      description: 'Iuran tahunan santri',
+    },
+    {
+      name: 'Biaya Pendaftaran MTs',
+      amountBase: 2000000,
+      frequency: 'one_time',
+      category: 'registration',
+      financeUnit: 'mts',
+    },
+    {
+      name: 'Biaya Pendaftaran MA',
+      amountBase: 2500000,
+      frequency: 'one_time',
+      category: 'registration',
+      financeUnit: 'ma',
+    },
+    {
+      name: 'Seragam & Perlengkapan MTs',
+      amountBase: 1500000,
+      frequency: 'one_time',
+      category: 'other',
+      financeUnit: 'mts',
+    },
+    {
+      name: 'Seragam & Perlengkapan MA',
+      amountBase: 1800000,
+      frequency: 'one_time',
+      category: 'other',
+      financeUnit: 'ma',
+    },
   ];
   for (const f of fees) {
     const ref = firestore.collection('feeStructures').doc();
@@ -516,6 +556,9 @@ async function main() {
       name: f.name,
       amountBase: f.amountBase,
       frequency: f.frequency,
+      category: (f as { category?: string }).category ?? 'other',
+      financeUnit: (f as { financeUnit?: string }).financeUnit ?? 'yayasan',
+      description: (f as { description?: string }).description ?? '',
       isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),

@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizeSchoolId } from '@/lib/server/auth-helpers';
-import { verifyIdToken, usersCollection, schoolsCollection } from '@/lib/server/firebase-admin';
+import { verifyIdToken, usersCollection, schoolsCollection, getFirebaseAdminSetupHint } from '@/lib/server/firebase-admin';
 
 function getBearerToken(req: NextRequest): string | null {
   const auth = req.headers.get('authorization');
@@ -93,6 +93,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(user);
   } catch (e) {
     console.error('GET /api/auth/me error:', e);
+    const msg = e instanceof Error ? e.message : '';
+    if (msg.includes('Could not load the default credentials') || msg.includes('UNAUTHENTICATED')) {
+      const hint = getFirebaseAdminSetupHint() || 'Firebase Admin credentials missing or invalid.';
+      return NextResponse.json(
+        { message: `Login backend unavailable: ${hint}` },
+        { status: 503 }
+      );
+    }
     return NextResponse.json({ message: 'Server error' }, { status: 500 });
   }
 }

@@ -6,8 +6,10 @@ import type { AuthUser } from '@/lib/server/auth-helpers';
 import {
   TICKET_CATEGORY_ASSIGNEE_ROLES,
   TICKET_HANDLER_ROLES,
+  TICKET_MANAGER_ROLES,
   UserRole,
   type TicketCategory,
+  type TicketStats,
   type TicketStatus,
   hasAnyRole,
 } from '@/lib/types';
@@ -29,6 +31,20 @@ export function canCreateTicket(auth: AuthUser): boolean {
 
 export function canHandleTickets(auth: AuthUser): boolean {
   return hasAnyRole(auth, TICKET_HANDLER_ROLES.map(String));
+}
+
+export function canViewAllTickets(auth: AuthUser): boolean {
+  return hasAnyRole(auth, TICKET_MANAGER_ROLES.map(String));
+}
+
+function toDate(v: unknown): Date | null {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  if (typeof v === 'object' && v !== null && 'toDate' in v && typeof (v as { toDate: () => Date }).toDate === 'function') {
+    return (v as { toDate: () => Date }).toDate();
+  }
+  const d = new Date(String(v));
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 async function nextTicketNumber(schoolId: string, prefix = 'TKT'): Promise<string> {
@@ -207,17 +223,67 @@ export async function listTickets(auth: AuthUser, schoolId: string) {
   const snap = await ticketsCollection().where('schoolId', '==', schoolId).get();
   const rows = snap.docs.map((d) => docToJson(d));
 
-  if (auth.role !== UserRole.STAFF && auth.role !== UserRole.PRINCIPAL) {
-    return rows
-      .filter(
-        (t) =>
-          t.assignedToId === auth.uid ||
-          (t.assigneeRoles as string[] | undefined)?.includes(auth.role)
-      )
-      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  if (canViewAllTickets(auth)) {
+    return rows.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   }
 
-  return rows.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  return rows
+    .filter(
+      (t) =>
+        t.assignedToId === auth.uid ||
+        (t.assigneeRoles as string[] | undefined)?.includes(auth.role)
+    )
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+
+export async function getTicketStats(auth: AuthUser, schoolId: string): Promise<TicketStats> {
+  if (!canViewAllTickets(auth)) throw new Error('Forbidden');
+
+  const snap = await ticketsCollection().where('schoolId', '==', schoolId).get();
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const stats: TicketStats = {
+    total: 0,
+    pending: 0,
+    open: 0,
+    acknowledged: 0,
+    in_progress: 0,
+    resolved: 0,
+    closed: 0,
+    parentTickets: 0,
+    publicChatTickets: 0,
+    resolvedThisMonth: 0,
+    byCategory: {},
+  };
+
+  for (const doc of snap.docs) {
+    const t = doc.data();
+    stats.total += 1;
+
+    const status = String(t.status ?? 'open') as TicketStatus;
+    if (status === 'open') stats.open += 1;
+    else if (status === 'acknowledged') stats.acknowledged += 1;
+    else if (status === 'in_progress') stats.in_progress += 1;
+    else if (status === 'resolved') stats.resolved += 1;
+    else if (status === 'closed') stats.closed += 1;
+
+    if (status !== 'resolved' && status !== 'closed') stats.pending += 1;
+
+    const source = String(t.source ?? 'parent');
+    if (source === 'public_chat') stats.publicChatTickets += 1;
+    else stats.parentTickets += 1;
+
+    const cat = String(t.category ?? 'general') as TicketCategory;
+    stats.byCategory[cat] = (stats.byCategory[cat] ?? 0) + 1;
+
+    if (status === 'resolved' || status === 'closed') {
+      const resolvedAt = toDate(t.resolvedAt);
+      if (resolvedAt && resolvedAt >= monthStart) stats.resolvedThisMonth += 1;
+    }
+  }
+
+  return stats;
 }
 
 export async function updateTicket(

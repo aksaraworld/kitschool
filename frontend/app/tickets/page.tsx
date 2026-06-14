@@ -11,8 +11,8 @@ export default function TicketsPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Masukan & Keluhan</h1>
           <p className="text-gray-600 mt-1 text-sm">
-            Orang tua dapat mengajukan tiket. Staf/guru/kepsek menangani sesuai kategori — orang tua
-            mendapat notifikasi saat tiket diterima dan selesai.
+            Orang tua mengajukan tiket masukan/keluhan. Chat landing page otomatis membuat tiket CRM.
+            Ketua yayasan, ketua pesantren, dan kepala sekolah melihat semua tiket beserta laporan status.
           </p>
         </div>
         <TicketApp />

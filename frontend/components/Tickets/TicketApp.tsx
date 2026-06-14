@@ -7,12 +7,15 @@ import {
   TICKET_CATEGORY_LABELS,
   TICKET_STATUS_LABELS,
   TICKET_SOURCE_LABELS,
+  TICKET_MANAGER_ROLES,
   UserRole,
   type Ticket,
   type TicketCategory,
+  type TicketStats,
   type TicketStatus,
+  hasAnyRole,
 } from '@/lib/types';
-import { ClipboardList, Plus, Loader2, MessageSquare, ExternalLink } from 'lucide-react';
+import { ClipboardList, Plus, Loader2, MessageSquare, ExternalLink, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 
 const CATEGORIES = Object.entries(TICKET_CATEGORY_LABELS) as [TicketCategory, string][];
@@ -20,7 +23,9 @@ const CATEGORIES = Object.entries(TICKET_CATEGORY_LABELS) as [TicketCategory, st
 export default function TicketApp() {
   const { user } = useAuth();
   const isParent = user?.role === UserRole.PARENT;
+  const isManager = hasAnyRole(user, TICKET_MANAGER_ROLES.map(String));
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [stats, setStats] = useState<TicketStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState<Ticket | null>(null);
@@ -36,14 +41,20 @@ export default function TicketApp() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.get<Ticket[]>('/tickets', { skipCache: true });
+      const [data, statsData] = await Promise.all([
+        api.get<Ticket[]>('/tickets', { skipCache: true }),
+        isManager
+          ? api.get<TicketStats>('/tickets/stats', { skipCache: true }).catch(() => null)
+          : Promise.resolve(null),
+      ]);
       setTickets(data);
+      setStats(statsData);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat tiket');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isManager]);
 
   useEffect(() => {
     load();
@@ -92,12 +103,35 @@ export default function TicketApp() {
   }
 
   return (
-    <div className="grid lg:grid-cols-2 gap-6">
+    <div className="space-y-6">
+      {isManager && stats && (
+        <div className="bg-white rounded-xl border shadow-sm p-4 md:p-5">
+          <h2 className="font-semibold text-gray-900 flex items-center gap-2 mb-4">
+            <BarChart3 className="w-5 h-5 text-primary-600" />
+            Laporan Tiket
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <StatCard label="Total diterima" value={stats.total} />
+            <StatCard label="Menunggu" value={stats.pending} accent="amber" />
+            <StatCard label="Selesai" value={stats.resolved + stats.closed} accent="emerald" />
+            <StatCard label="Selesai bulan ini" value={stats.resolvedThisMonth} accent="emerald" />
+            <StatCard label="Dari ortu" value={stats.parentTickets} />
+            <StatCard label="Chat web (CRM)" value={stats.publicChatTickets} accent="teal" />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2 text-xs">
+            <span className="px-2 py-1 rounded-full bg-gray-100">Baru: {stats.open}</span>
+            <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-800">Diterima: {stats.acknowledged}</span>
+            <span className="px-2 py-1 rounded-full bg-blue-50 text-blue-800">Diproses: {stats.in_progress}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="grid lg:grid-cols-2 gap-6">
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
         <div className="p-4 border-b flex items-center justify-between">
           <h2 className="font-semibold flex items-center gap-2">
             <ClipboardList className="w-5 h-5 text-primary-600" />
-            {isParent ? 'Masukan & Keluhan' : 'Antrian Tiket'}
+            {isParent ? 'Masukan & Keluhan' : isManager ? 'Semua Tiket' : 'Antrian Tiket'}
           </h2>
           {isParent && (
             <button
@@ -240,6 +274,18 @@ export default function TicketApp() {
                 Penanggung jawab: <strong>{selected.assignedToName}</strong>
               </p>
             )}
+            {isManager && selected.acknowledgedAt && (
+              <p className="text-xs text-gray-500">
+                Diterima: {formatDate(selected.acknowledgedAt)}
+                {selected.acknowledgedByName ? ` · ${selected.acknowledgedByName}` : ''}
+              </p>
+            )}
+            {isManager && selected.resolvedAt && (
+              <p className="text-xs text-gray-500">
+                Selesai: {formatDate(selected.resolvedAt)}
+                {selected.resolvedByName ? ` · ${selected.resolvedByName}` : ''}
+              </p>
+            )}
             {selected.resolutionNote && (
               <div className="text-sm border-l-4 border-emerald-500 pl-3 text-gray-700">
                 <p className="font-medium text-emerald-800">Respon sekolah</p>
@@ -293,6 +339,47 @@ export default function TicketApp() {
           </div>
         )}
       </div>
+      </div>
     </div>
   );
+}
+
+function StatCard({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number;
+  accent?: 'amber' | 'emerald' | 'teal';
+}) {
+  const accentClass =
+    accent === 'amber'
+      ? 'text-amber-700'
+      : accent === 'emerald'
+        ? 'text-emerald-700'
+        : accent === 'teal'
+          ? 'text-teal-700'
+          : 'text-gray-900';
+
+  return (
+    <div className="rounded-lg border bg-gray-50/80 px-3 py-2.5">
+      <p className="text-[11px] text-gray-500 leading-tight">{label}</p>
+      <p className={`text-xl font-bold mt-0.5 ${accentClass}`}>{value}</p>
+    </div>
+  );
+}
+
+function formatDate(iso: string) {
+  try {
+    return new Date(iso).toLocaleString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
 }

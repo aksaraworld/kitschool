@@ -323,23 +323,34 @@ export interface Payment {
   notes?: string;
 }
 
+export interface InvoiceLineItem {
+  description: string;
+  quantity: number;
+  price: number;
+  total: number;
+  feeStructureId?: string;
+  financeUnit?: FinanceUnit;
+  category?: FeeCategory;
+}
+
 export interface Invoice {
   _id: string;
+  schoolId?: string;
   invoiceNumber: string;
   studentId: string;
   parentId: string;
+  studentName?: string;
   amount: number;
   dueDate: string;
   paidAmount: number;
   remainingAmount: number;
   status: InvoiceStatus;
   description?: string;
-  items: {
-    description: string;
-    quantity: number;
-    price: number;
-    total: number;
-  }[];
+  items: InvoiceLineItem[];
+  /** Unit keuangan utama tagihan (untuk laporan). */
+  financeUnit?: FinanceUnit;
+  category?: FeeCategory;
+  feeStructureId?: string;
   month?: number;
   year?: number;
   createdBy: string;
@@ -347,6 +358,50 @@ export interface Invoice {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface PosLineItem {
+  feeStructureId?: string;
+  invoiceId?: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  financeUnit: FinanceUnit;
+  category?: FeeCategory;
+}
+
+export interface PosTransaction {
+  _id: string;
+  schoolId: string;
+  transactionNumber: string;
+  studentId: string;
+  parentId?: string;
+  studentName: string;
+  items: PosLineItem[];
+  subtotal: number;
+  amountPaid: number;
+  paymentMethod: PaymentMethod;
+  invoiceIds: string[];
+  processedBy: string;
+  processedByName?: string;
+  notes?: string;
+  breakdownByUnit: Partial<Record<FinanceUnit, number>>;
+  createdAt: string;
+}
+
+export type FinanceRevenueReport = {
+  period: { from: string; to: string };
+  totals: {
+    all: number;
+    mts: number;
+    ma: number;
+    pesantren: number;
+    yayasan: number;
+  };
+  byCategory: Partial<Record<FeeCategory, number>>;
+  transactionCount: number;
+  recentTransactions: PosTransaction[];
+};
 
 export interface PaymentAttempt {
   _id: string;
@@ -544,6 +599,28 @@ export const TICKET_HANDLER_ROLES: UserRole[] = [
   UserRole.KETUA_PESANTREN,
   UserRole.KETUA_YAYASAN,
 ];
+
+/** Leadership + TU — view all tickets and ticket reports. */
+export const TICKET_MANAGER_ROLES: UserRole[] = [
+  UserRole.KETUA_YAYASAN,
+  UserRole.KETUA_PESANTREN,
+  UserRole.PRINCIPAL,
+  UserRole.STAFF,
+];
+
+export type TicketStats = {
+  total: number;
+  pending: number;
+  open: number;
+  acknowledged: number;
+  in_progress: number;
+  resolved: number;
+  closed: number;
+  parentTickets: number;
+  publicChatTickets: number;
+  resolvedThisMonth: number;
+  byCategory: Partial<Record<TicketCategory, number>>;
+};
 
 export interface AppNotification {
   id: string;
@@ -793,8 +870,68 @@ export enum LeaveStatus {
 export enum FeeFrequency {
   MONTHLY = 'monthly',
   TERMLY = 'termly',
-  YEARLY = 'yearly'
+  YEARLY = 'yearly',
+  ONE_TIME = 'one_time',
 }
+
+/** Jenis biaya di katalog keuangan sekolah/pesantren. */
+export enum FeeCategory {
+  MONTHLY_PESANTREN = 'monthly_pesantren',
+  MONTHLY_SCHOOL = 'monthly_school',
+  YEARLY = 'yearly',
+  REGISTRATION = 'registration',
+  OTHER = 'other',
+}
+
+/** Unit keuangan terpisah (MTs, MA, pesantren, yayasan). */
+export enum FinanceUnit {
+  MTS = 'mts',
+  MA = 'ma',
+  PESANTREN = 'pesantren',
+  YAYASAN = 'yayasan',
+}
+
+export const FINANCE_UNIT_LABELS: Record<FinanceUnit, string> = {
+  [FinanceUnit.MTS]: 'MTs',
+  [FinanceUnit.MA]: 'MA',
+  [FinanceUnit.PESANTREN]: 'Pesantren',
+  [FinanceUnit.YAYASAN]: 'Yayasan',
+};
+
+export const FEE_CATEGORY_LABELS: Record<FeeCategory, string> = {
+  [FeeCategory.MONTHLY_PESANTREN]: 'Iuran Pesantren Bulanan',
+  [FeeCategory.MONTHLY_SCHOOL]: 'SPP Sekolah Bulanan',
+  [FeeCategory.YEARLY]: 'Iuran Tahunan',
+  [FeeCategory.REGISTRATION]: 'Biaya Pendaftaran',
+  [FeeCategory.OTHER]: 'Biaya Lainnya',
+};
+
+/** Staff TU + keuangan — akses POS pembayaran tunai. */
+export const FINANCE_POS_ROLES: UserRole[] = [
+  UserRole.STAFF,
+  UserRole.FINANCE,
+  UserRole.PRINCIPAL,
+  UserRole.KETUA_YAYASAN,
+  UserRole.KETUA_PESANTREN,
+];
+
+/** Manajemen — edit katalog & tarif. */
+export const FINANCE_CATALOG_ROLES: UserRole[] = [
+  UserRole.PRINCIPAL,
+  UserRole.STAFF,
+  UserRole.FINANCE,
+  UserRole.KETUA_YAYASAN,
+  UserRole.KETUA_PESANTREN,
+];
+
+/** Laporan pendapatan per unit. */
+export const FINANCE_REPORT_ROLES: UserRole[] = [
+  UserRole.KETUA_YAYASAN,
+  UserRole.KETUA_PESANTREN,
+  UserRole.PRINCIPAL,
+  UserRole.STAFF,
+  UserRole.FINANCE,
+];
 
 export enum ResourceType {
   VIDEO = 'video',
@@ -853,6 +990,10 @@ export interface FeeStructure {
   name: string;
   amountBase: number;
   frequency: FeeFrequency;
+  category: FeeCategory;
+  financeUnit: FinanceUnit;
+  description?: string;
+  code?: string;
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;

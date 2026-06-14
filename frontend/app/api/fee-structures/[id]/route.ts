@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
 import { feeStructuresCollection, docToJson } from '@/lib/server/firebase-admin';
+import { canManageCatalog } from '@/lib/server/finance';
 
 export async function GET(
   req: NextRequest,
@@ -36,6 +37,7 @@ export async function PUT(
   try {
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    if (!canManageCatalog(auth)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
 
     const { id } = await params;
     const doc = await feeStructuresCollection().doc(id).get();
@@ -46,10 +48,15 @@ export async function PUT(
     if (schoolId && data.schoolId !== schoolId) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
 
     const body = await req.json().catch(() => ({}));
-    const update = { ...body };
-    delete update._id;
-    delete update.id;
-    delete update.schoolId;
+    const update: Record<string, unknown> = {};
+    if (body.name != null) update.name = body.name;
+    if (body.amountBase != null) update.amountBase = Number(body.amountBase);
+    if (body.frequency != null) update.frequency = body.frequency;
+    if (body.category != null) update.category = body.category;
+    if (body.financeUnit != null) update.financeUnit = body.financeUnit;
+    if (body.description != null) update.description = body.description;
+    if (body.code != null) update.code = body.code;
+    if (body.isActive != null) update.isActive = body.isActive;
     update.updatedAt = new Date();
 
     await feeStructuresCollection().doc(id).update(update);
@@ -68,6 +75,7 @@ export async function DELETE(
   try {
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    if (!canManageCatalog(auth)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
 
     const { id } = await params;
     const doc = await feeStructuresCollection().doc(id).get();
