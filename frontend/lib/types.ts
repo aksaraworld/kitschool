@@ -891,6 +891,31 @@ export enum FinanceUnit {
   YAYASAN = 'yayasan',
 }
 
+/** Lini produk katalog — menentukan siapa yang ditagih. */
+export enum FeeProductLine {
+  MTS = 'mts',
+  MA = 'ma',
+  BOTH = 'both',
+  PESANTREN = 'pesantren',
+  YAYASAN = 'yayasan',
+}
+
+export const FEE_PRODUCT_LINE_LABELS: Record<FeeProductLine, string> = {
+  [FeeProductLine.MTS]: 'MTs',
+  [FeeProductLine.MA]: 'MA',
+  [FeeProductLine.BOTH]: 'MTs & MA',
+  [FeeProductLine.PESANTREN]: 'Pesantren',
+  [FeeProductLine.YAYASAN]: 'Yayasan',
+};
+
+export const FEE_PRODUCT_LINE_DESCRIPTIONS: Record<FeeProductLine, string> = {
+  [FeeProductLine.MTS]: 'Hanya siswa MTs',
+  [FeeProductLine.MA]: 'Hanya siswa MA',
+  [FeeProductLine.BOTH]: 'Siswa MTs dan MA (tagihan per jenjang)',
+  [FeeProductLine.PESANTREN]: 'Semua santri — iuran pondok',
+  [FeeProductLine.YAYASAN]: 'Semua santri — iuran yayasan',
+};
+
 export const FINANCE_UNIT_LABELS: Record<FinanceUnit, string> = {
   [FinanceUnit.MTS]: 'MTs',
   [FinanceUnit.MA]: 'MA',
@@ -991,6 +1016,8 @@ export interface FeeStructure {
   amountBase: number;
   frequency: FeeFrequency;
   category: FeeCategory;
+  /** Lini produk — MTs, MA, keduanya, pesantren, atau yayasan. */
+  productLine?: FeeProductLine;
   financeUnit: FinanceUnit;
   description?: string;
   code?: string;

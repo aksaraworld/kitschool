@@ -6,7 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
 import { feeStructuresCollection, docToJson } from '@/lib/server/firebase-admin';
 import { canManageCatalog } from '@/lib/server/finance';
-import { FeeCategory, FeeFrequency, FinanceUnit } from '@/lib/types';
+import { FeeCategory, FeeFrequency, FinanceUnit, FeeProductLine } from '@/lib/types';
+import { productLineToFinanceUnit } from '@/lib/finance-helpers';
 
 export async function GET(req: NextRequest) {
   try {
@@ -37,13 +38,15 @@ export async function POST(req: NextRequest) {
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
     const body = await req.json().catch(() => ({}));
+    const productLine = (body.productLine as FeeProductLine) ?? FeeProductLine.PESANTREN;
     const ref = feeStructuresCollection().doc();
     await ref.set({
       name: body.name,
       amountBase: Number(body.amountBase) || 0,
       frequency: body.frequency ?? FeeFrequency.MONTHLY,
       category: body.category ?? FeeCategory.OTHER,
-      financeUnit: body.financeUnit ?? FinanceUnit.YAYASAN,
+      productLine,
+      financeUnit: productLineToFinanceUnit(productLine),
       description: body.description ?? '',
       code: body.code ?? '',
       schoolId,

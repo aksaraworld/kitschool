@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
 import { feeStructuresCollection, docToJson } from '@/lib/server/firebase-admin';
 import { canManageCatalog } from '@/lib/server/finance';
+import { FeeProductLine } from '@/lib/types';
+import { productLineToFinanceUnit } from '@/lib/finance-helpers';
 
 export async function GET(
   req: NextRequest,
@@ -53,7 +55,10 @@ export async function PUT(
     if (body.amountBase != null) update.amountBase = Number(body.amountBase);
     if (body.frequency != null) update.frequency = body.frequency;
     if (body.category != null) update.category = body.category;
-    if (body.financeUnit != null) update.financeUnit = body.financeUnit;
+    if (body.productLine != null) {
+      update.productLine = body.productLine as FeeProductLine;
+      update.financeUnit = productLineToFinanceUnit(body.productLine as FeeProductLine);
+    } else if (body.financeUnit != null) update.financeUnit = body.financeUnit;
     if (body.description != null) update.description = body.description;
     if (body.code != null) update.code = body.code;
     if (body.isActive != null) update.isActive = body.isActive;

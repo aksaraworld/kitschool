@@ -34,6 +34,8 @@ import {
   resolveFeeFinanceUnit,
   studentJenjangUnit,
   feeAppliesToStudentJenjang,
+  billingFinanceUnit,
+  resolveProductLine,
 } from '@/lib/finance-helpers';
 
 export function canAccessPos(auth: AuthUser | null): boolean {
@@ -149,6 +151,7 @@ export async function createBillFromFee(
   const invoiceNumber = await nextSequenceNumber('INV', invoicesCollection(), schoolId);
   const dueDate = opts?.dueDate ?? new Date(year, month != null ? month : now.getMonth(), 10);
   const amount = fee.amountBase;
+  const billUnit = billingFinanceUnit(fee, studentUnit);
 
   const ref = invoicesCollection().doc();
   await ref.set({
@@ -162,7 +165,7 @@ export async function createBillFromFee(
     paidAmount: 0,
     remainingAmount: amount,
     status: InvoiceStatus.PENDING,
-    description: fee.name,
+    description: fee.description || fee.name,
     items: [
       {
         description: fee.name,
@@ -170,11 +173,12 @@ export async function createBillFromFee(
         price: amount,
         total: amount,
         feeStructureId: fee._id,
-        financeUnit: fee.financeUnit,
+        financeUnit: billUnit,
         category: fee.category,
       },
     ],
-    financeUnit: fee.financeUnit,
+    financeUnit: billUnit,
+    productLine: resolveProductLine(fee) ?? fee.productLine,
     category: fee.category,
     feeStructureId: fee._id,
     month,
@@ -240,6 +244,7 @@ export async function processPosCheckout(input: PosCheckoutInput): Promise<PosCh
   if (!studentDoc.exists) throw new Error('Siswa tidak ditemukan');
   const student = { ...docToJson(studentDoc), _id: studentDoc.id } as Record<string, unknown> & { _id: string };
   const studentName = String(student.name ?? 'Siswa');
+  const studentUnit = studentFinanceUnit(student);
   const parentId = (await findParentForStudent(input.studentId, input.schoolId)) ?? '';
 
   const lineItems: PosLineItem[] = [];
@@ -294,6 +299,7 @@ export async function processPosCheckout(input: PosCheckoutInput): Promise<PosCh
       if (!fee) continue;
       const qty = item.quantity ?? 1;
       const total = fee.amountBase * qty;
+      const billUnit = billingFinanceUnit(fee, studentUnit);
       const invNumber = await nextSequenceNumber('INV', invoicesCollection(), input.schoolId);
       const invRef = invoicesCollection().doc();
       await invRef.set({
@@ -307,7 +313,7 @@ export async function processPosCheckout(input: PosCheckoutInput): Promise<PosCh
         paidAmount: total,
         remainingAmount: 0,
         status: InvoiceStatus.PAID,
-        description: fee.name,
+        description: fee.description || fee.name,
         items: [
           {
             description: fee.name,
@@ -315,11 +321,12 @@ export async function processPosCheckout(input: PosCheckoutInput): Promise<PosCh
             price: fee.amountBase,
             total,
             feeStructureId: fee._id,
-            financeUnit: fee.financeUnit,
+            financeUnit: billUnit,
             category: fee.category,
           },
         ],
-        financeUnit: fee.financeUnit,
+        financeUnit: billUnit,
+        productLine: resolveProductLine(fee) ?? fee.productLine,
         category: fee.category,
         feeStructureId: fee._id,
         createdBy: input.processedBy,
@@ -334,10 +341,10 @@ export async function processPosCheckout(input: PosCheckoutInput): Promise<PosCh
         quantity: qty,
         unitPrice: fee.amountBase,
         total,
-        financeUnit: fee.financeUnit,
+        financeUnit: billUnit,
         category: fee.category,
       });
-      addToBreakdown(fee.financeUnit, total);
+      addToBreakdown(billUnit, total);
     }
   }
 
