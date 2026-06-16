@@ -8,7 +8,8 @@ import { subscribeToChatMessages } from '@/lib/chat-client';
 import { getCurrentUserId, getOtherParticipant } from '@/lib/chat-utils';
 import type { ChatConversation, ChatMessage, User } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
-import { MessageSquare, Send, Plus, ArrowLeft, Search } from 'lucide-react';
+import { MessageSquare, Send, Plus, ArrowLeft, Search, ExternalLink, Globe } from 'lucide-react';
+import Link from 'next/link';
 import { UserRole } from '@/lib/types';
 
 type Recipient = Pick<User, '_id' | 'name' | 'role'> & {
@@ -41,6 +42,7 @@ export default function ChatApp() {
   const [recipientSearch, setRecipientSearch] = useState('');
   const [recipientRoleFilter, setRecipientRoleFilter] = useState<string>('all');
   const [conversationSearch, setConversationSearch] = useState('');
+  const [conversationTab, setConversationTab] = useState<'all' | 'crm' | 'internal'>('all');
   const [chatError, setChatError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
@@ -48,14 +50,39 @@ export default function ChatApp() {
   const realtimeActiveRef = useRef(false);
 
   const filteredConversations = useMemo(() => {
+    let list = conversations;
+    if (conversationTab === 'crm') {
+      list = list.filter((c) => c.kind === 'public_inquiry');
+    } else if (conversationTab === 'internal') {
+      list = list.filter((c) => c.kind !== 'public_inquiry');
+    }
     const q = conversationSearch.trim().toLowerCase();
-    if (!q) return conversations;
-    return conversations.filter((conv) => {
+    if (!q) return list;
+    return list.filter((conv) => {
       const other = getOtherParticipant(conv, currentUserId);
-      const haystack = [other?.name, other?.role, conv.lastMessage].filter(Boolean).join(' ').toLowerCase();
+      const haystack = [
+        other?.name,
+        other?.role,
+        conv.lastMessage,
+        conv.visitorName,
+        conv.ticketNumber,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
       return haystack.includes(q);
     });
-  }, [conversations, conversationSearch, currentUserId]);
+  }, [conversations, conversationSearch, conversationTab, currentUserId]);
+
+  const crmCount = useMemo(
+    () => conversations.filter((c) => c.kind === 'public_inquiry').length,
+    [conversations]
+  );
+  const crmUnread = useMemo(() => {
+    return conversations
+      .filter((c) => c.kind === 'public_inquiry')
+      .reduce((sum, c) => sum + (c.unreadCount?.[currentUserId] ?? 0), 0);
+  }, [conversations, currentUserId]);
 
   const patchConversation = useCallback(
     (convId: string, patch: Partial<ChatConversation>) => {
@@ -133,34 +160,47 @@ export default function ChatApp() {
     prevMessageCountRef.current = 0;
     realtimeActiveRef.current = false;
 
-    api.put(`/chat/conversations/${activeId}/read`).catch(() => {});
-
+    let cancelled = false;
     let unsub: (() => void) | null = null;
-    try {
-      unsub = subscribeToChatMessages(
-        activeId,
-        (msgs) => {
-          realtimeActiveRef.current = true;
-          setMessages(msgs);
-        },
-        () => {
-          realtimeActiveRef.current = false;
-          loadMessagesApi(activeId).catch(() => {});
-        }
-      );
-    } catch {
-      unsub = null;
-    }
+    let poll: ReturnType<typeof setInterval> | null = null;
 
-    if (!unsub) {
-      loadMessagesApi(activeId).catch(() => {});
-    }
+    (async () => {
+      try {
+        await api.put(`/chat/conversations/${activeId}/read`);
+      } catch {
+        /* join + mark read best-effort */
+      }
+      if (cancelled) return;
 
-    const poll = unsub
-      ? null
-      : setInterval(() => loadMessagesApi(activeId).catch(() => {}), 30_000);
+      try {
+        unsub = subscribeToChatMessages(
+          activeId,
+          (msgs) => {
+            realtimeActiveRef.current = true;
+            setMessages(msgs);
+          },
+          () => {
+            realtimeActiveRef.current = false;
+            loadMessagesApi(activeId).catch(() => {});
+          }
+        );
+      } catch {
+        unsub = null;
+      }
+
+      if (cancelled) {
+        unsub?.();
+        return;
+      }
+
+      if (!unsub) {
+        loadMessagesApi(activeId).catch(() => {});
+        poll = setInterval(() => loadMessagesApi(activeId).catch(() => {}), 30_000);
+      }
+    })();
 
     return () => {
+      cancelled = true;
       unsub?.();
       if (poll) clearInterval(poll);
     };
@@ -333,7 +373,51 @@ export default function ChatApp() {
             </div>
           )}
 
-          {!showNewChat && conversations.length > 3 && (
+          {!showNewChat && (
+            <div className="px-2 pt-2 border-b shrink-0 space-y-2">
+              <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+                {(
+                  [
+                    { id: 'all' as const, label: 'Semua' },
+                    { id: 'crm' as const, label: 'CRM Web', badge: crmUnread || crmCount },
+                    { id: 'internal' as const, label: 'Internal' },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setConversationTab(tab.id)}
+                    className={`flex-1 text-xs py-1.5 px-2 rounded-md font-medium transition-colors ${
+                      conversationTab === tab.id
+                        ? 'bg-white text-primary-700 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    {tab.label}
+                    {tab.id === 'crm' && crmUnread > 0 && (
+                      <span className="ml-1 bg-amber-500 text-white rounded-full px-1.5 text-[10px]">
+                        {crmUnread}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              {conversations.length > 3 && (
+                <div className="relative pb-2">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="search"
+                    value={conversationSearch}
+                    onChange={(e) => setConversationSearch(e.target.value)}
+                    placeholder="Cari percakapan..."
+                    className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {!showNewChat && conversations.length <= 3 && conversationTab !== 'all' && (
             <div className="p-2 border-b shrink-0">
               <div className="relative">
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -369,9 +453,22 @@ export default function ChatApp() {
                     }`}
                   >
                     <div className="flex justify-between items-start gap-2">
-                      <p className="font-medium text-gray-900 truncate">
-                        {isPublic ? conv.visitorName ?? other?.name ?? 'Pengunjung Web' : other?.name ?? 'Chat'}
-                      </p>
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 truncate flex items-center gap-1.5">
+                          {isPublic && <Globe className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
+                          {isPublic ? conv.visitorName ?? other?.name ?? 'Pengunjung Web' : other?.name ?? 'Chat'}
+                        </p>
+                        {isPublic && conv.ticketNumber && (
+                          <Link
+                            href={`/tickets?ticket=${conv.ticketId ?? ''}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[11px] text-primary-600 hover:underline font-medium inline-flex items-center gap-0.5 mt-0.5"
+                          >
+                            Tiket {conv.ticketNumber}
+                            <ExternalLink className="w-3 h-3" />
+                          </Link>
+                        )}
+                      </div>
                       {unread > 0 && (
                         <span className="shrink-0 bg-primary-600 text-white text-xs rounded-full px-2 py-0.5">
                           {unread}
@@ -403,16 +500,32 @@ export default function ChatApp() {
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <div>
-                  <p className="font-semibold text-gray-900">
-                    {activeConv?.kind === 'public_inquiry'
-                      ? activeConv.visitorName ?? 'Pengunjung Web'
-                      : otherParticipant?.name ?? 'Percakapan'}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900 flex items-center gap-2">
+                    {activeConv?.kind === 'public_inquiry' ? (
+                      <>
+                        <Globe className="w-4 h-4 text-amber-600" />
+                        {activeConv.visitorName ?? 'Pengunjung Web'}
+                      </>
+                    ) : (
+                      otherParticipant?.name ?? 'Percakapan'
+                    )}
                   </p>
                   {activeConv?.kind === 'public_inquiry' ? (
-                    <p className="text-xs text-amber-700">
-                      Live chat website · {activeConv.visitorContact}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                      <p className="text-xs text-amber-700">
+                        Live chat website · {activeConv.visitorContact}
+                      </p>
+                      {activeConv.ticketNumber && (
+                        <Link
+                          href={`/tickets?ticket=${activeConv.ticketId ?? ''}`}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full hover:bg-primary-100"
+                        >
+                          {activeConv.ticketNumber}
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
+                      )}
+                    </div>
                   ) : (
                     otherParticipant && (
                       <p className="text-xs text-gray-500">
@@ -430,6 +543,7 @@ export default function ChatApp() {
                   messages.map((msg) => {
                     const mine = msg.senderId === currentUserId;
                     const isVisitor = msg.senderType === 'visitor' || msg.senderId?.startsWith('guest_');
+                    const isStaffCs = msg.senderType === 'staff';
                     return (
                       <div key={msg._id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                         <div
@@ -439,8 +553,10 @@ export default function ChatApp() {
                               : 'bg-white border border-gray-200 text-gray-900 rounded-bl-md'
                           }`}
                         >
-                          {!mine && isVisitor && msg.senderName && (
-                            <p className="text-[10px] font-medium text-amber-700 mb-0.5">{msg.senderName}</p>
+                          {!mine && (isVisitor || isStaffCs) && msg.senderName && (
+                            <p className={`text-[10px] font-medium mb-0.5 ${isStaffCs ? 'text-primary-600' : 'text-amber-700'}`}>
+                              {msg.senderName}
+                            </p>
                           )}
                           <p className="whitespace-pre-wrap break-words">{msg.text}</p>
                           <p

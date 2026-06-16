@@ -10,6 +10,9 @@ import { Calendar as CalendarIcon, Clock, MapPin } from 'lucide-react';
 export default function CalendarPage() {
   const { user } = useAuth();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [boardingEvents, setBoardingEvents] = useState<
+    { date: string; title: string; activityType: string; startTime: string; endTime: string; scheduleId: string }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
@@ -23,14 +26,20 @@ export default function CalendarPage() {
       setLoading(true);
       const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
       const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
-      const schedulesData = await api.get<Schedule[]>('/schedules', {
-        params: {
-          startDate: startOfMonth.toISOString(),
-          endDate: endOfMonth.toISOString(),
-          classId: user?.classId
-        }
-      });
+      const [schedulesData, boardingData] = await Promise.all([
+        api.get<Schedule[]>('/schedules', {
+          params: {
+            startDate: startOfMonth.toISOString(),
+            endDate: endOfMonth.toISOString(),
+            classId: user?.classId,
+          },
+        }),
+        api.get<typeof boardingEvents>('/boarding/calendar', {
+          params: { year: selectedDate.getFullYear(), month: selectedDate.getMonth() },
+        }).catch(() => []),
+      ]);
       setSchedules(schedulesData);
+      setBoardingEvents(boardingData);
     } catch (error) {
       console.error('Error fetching schedules:', error);
     } finally {
@@ -40,10 +49,20 @@ export default function CalendarPage() {
 
   const getSchedulesForDate = (date: Date) => {
     const dateStr = date.toISOString().split('T')[0];
-    return schedules.filter((schedule) => {
+    const academic = schedules.filter((schedule) => {
       const scheduleDate = new Date(schedule.startDate).toISOString().split('T')[0];
       return scheduleDate === dateStr;
     });
+    const boarding = boardingEvents
+      .filter((e) => e.date === dateStr)
+      .map((e) => ({
+        _id: `boarding-${e.scheduleId}-${e.date}`,
+        title: `🕌 ${e.title}`,
+        type: 'event' as const,
+        startDate: e.date,
+        isBoarding: true,
+      }));
+    return [...academic, ...boarding] as (Schedule & { isBoarding?: boolean })[];
   };
 
   const getTypeColor = (type: string) => {
@@ -56,6 +75,8 @@ export default function CalendarPage() {
         return 'bg-green-100 text-green-800';
       case 'event':
         return 'bg-purple-100 text-purple-800';
+      case 'boarding':
+        return 'bg-emerald-100 text-emerald-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -104,7 +125,11 @@ export default function CalendarPage() {
                 {daySchedules.slice(0, 2).map((schedule) => (
                   <div
                     key={schedule._id}
-                    className={`text-xs p-1 rounded ${getTypeColor(schedule.type)} truncate`}
+                    className={`text-xs p-1 rounded ${
+                      (schedule as { isBoarding?: boolean }).isBoarding
+                        ? getTypeColor('boarding')
+                        : getTypeColor(schedule.type)
+                    } truncate`}
                     title={schedule.title}
                   >
                     {schedule.title}
@@ -186,43 +211,65 @@ export default function CalendarPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4">Upcoming Events</h2>
           <div className="space-y-4">
-            {schedules.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No upcoming events</p>
-            ) : (
-              schedules
+            {(() => {
+              const today = new Date().toISOString().slice(0, 10);
+              const academic = schedules
                 .filter((s) => new Date(s.startDate) >= new Date())
-                .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-                .slice(0, 10)
-                .map((schedule) => (
-                  <div key={schedule._id} className="border-l-4 border-primary-500 pl-4 py-2">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-semibold text-gray-900">{schedule.title}</p>
-                        <p className="text-sm text-gray-600 mt-1">{schedule.description}</p>
-                        <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                .map((s) => ({
+                  id: s._id,
+                  title: s.title,
+                  description: s.description,
+                  date: new Date(s.startDate).toISOString().slice(0, 10),
+                  time: s.startTime,
+                  type: s.type,
+                  isBoarding: false,
+                }));
+              const boarding = boardingEvents
+                .filter((e) => e.date >= today)
+                .map((e) => ({
+                  id: `b-${e.scheduleId}-${e.date}`,
+                  title: `🕌 ${e.title}`,
+                  description: `${e.activityType} · asrama`,
+                  date: e.date,
+                  time: e.startTime,
+                  type: 'boarding' as const,
+                  isBoarding: true,
+                }));
+              const merged = [...academic, ...boarding]
+                .sort((a, b) => a.date.localeCompare(b.date) || String(a.time).localeCompare(String(b.time)))
+                .slice(0, 12);
+              if (merged.length === 0) {
+                return <p className="text-gray-500 text-center py-8">No upcoming events</p>;
+              }
+              return merged.map((ev) => (
+                <div
+                  key={ev.id}
+                  className={`border-l-4 pl-4 py-2 ${ev.isBoarding ? 'border-emerald-500' : 'border-primary-500'}`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-semibold text-gray-900">{ev.title}</p>
+                      {ev.description && <p className="text-sm text-gray-600 mt-1">{ev.description}</p>}
+                      <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                        <span className="flex items-center">
+                          <CalendarIcon className="w-4 h-4 mr-1" />
+                          {ev.date}
+                        </span>
+                        {ev.time && (
                           <span className="flex items-center">
-                            <CalendarIcon className="w-4 h-4 mr-1" />
-                            {new Date(schedule.startDate).toLocaleDateString()}
+                            <Clock className="w-4 h-4 mr-1" />
+                            {ev.time}
                           </span>
-                          {schedule.startTime && (
-                            <span className="flex items-center">
-                              <Clock className="w-4 h-4 mr-1" />
-                              {schedule.startTime}
-                            </span>
-                          )}
-                        </div>
+                        )}
                       </div>
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded ${getTypeColor(
-                          schedule.type
-                        )}`}
-                      >
-                        {schedule.type}
-                      </span>
                     </div>
+                    <span className={`px-2 py-1 text-xs font-medium rounded ${getTypeColor(ev.type)}`}>
+                      {ev.isBoarding ? 'asrama' : ev.type}
+                    </span>
                   </div>
-                ))
-            )}
+                </div>
+              ));
+            })()}
           </div>
         </div>
       </div>

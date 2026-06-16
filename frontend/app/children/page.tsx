@@ -2,10 +2,21 @@
 
 import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole, User } from '@/lib/types';
+import { UserRole, User, type BoardingActivitySchedule, type BoardingLeaveRequest, type BoardingRoomEnriched } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
-import { User as UserIcon, ClipboardCheck, Calendar, FileText, Shield, Check, X, Loader2 } from 'lucide-react';
+import {
+  User as UserIcon,
+  ClipboardCheck,
+  Calendar,
+  FileText,
+  Shield,
+  Check,
+  X,
+  Loader2,
+  BedDouble,
+  DoorOpen,
+} from 'lucide-react';
 import Link from 'next/link';
 
 interface PendingChange {
@@ -16,17 +27,29 @@ interface PendingChange {
   requestedAt?: string;
 }
 
+const DAY_NAMES = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+
 export default function ChildrenPage() {
   const { user } = useAuth();
   const [children, setChildren] = useState<User[]>([]);
   const [pending, setPending] = useState<PendingChange[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [boardingRooms, setBoardingRooms] = useState<Record<string, BoardingRoomEnriched>>({});
+  const [schedules, setSchedules] = useState<BoardingActivitySchedule[]>([]);
+  const [leaves, setLeaves] = useState<BoardingLeaveRequest[]>([]);
+  const [childAttendance, setChildAttendance] = useState<Record<string, { date: string; status: string; type: string }[]>>({});
+  const [childPhone, setChildPhone] = useState<Record<string, 'collected' | 'held' | 'unknown'>>({});
+  const [leaveForm, setLeaveForm] = useState({ studentId: '', leaveDate: '', expectedReturn: '', reason: '' });
+  const [leaveSubmitting, setLeaveSubmitting] = useState(false);
+  const [leaveMessage, setLeaveMessage] = useState('');
 
   useEffect(() => {
     if (user?.children && user.children.length > 0) {
       fetchChildren();
       fetchPending();
+      fetchBoarding();
+      fetchLeaves();
     }
   }, [user]);
 
@@ -37,10 +60,68 @@ export default function ChildrenPage() {
         (user?.children || []).map((childId) => api.get<User>(`/users/${childId}`))
       );
       setChildren(childrenData);
+      await fetchBoardingExtras(childrenData);
     } catch (error) {
       console.error('Error fetching children:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBoarding = async () => {
+    try {
+      const summary = await api.get<{ rooms: BoardingRoomEnriched[]; schedules: BoardingActivitySchedule[] }>(
+        '/boarding/summary'
+      );
+      const map: Record<string, BoardingRoomEnriched> = {};
+      for (const r of summary.rooms ?? []) map[r._id] = r;
+      setBoardingRooms(map);
+      setSchedules(summary.schedules ?? []);
+    } catch {
+      setBoardingRooms({});
+      setSchedules([]);
+    }
+  };
+
+  const fetchBoardingExtras = async (childrenData: User[]) => {
+    const boardingKids = childrenData.filter((c) => c.boardingRoomId);
+    if (!boardingKids.length) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const attMap: Record<string, { date: string; status: string; type: string }[]> = {};
+    const phoneMap: Record<string, 'collected' | 'held' | 'unknown'> = {};
+    await Promise.all(
+      boardingKids.map(async (child) => {
+        try {
+          const [att, phones] = await Promise.all([
+            api.get<{ studentId: string; date: string; status: string; type: string }[]>('/boarding/attendance', {
+              params: { studentId: child._id },
+            }),
+            api.get<{ studentId: string; action: string; createdAt?: string }[]>('/boarding/phone-logs', {
+              params: { studentId: child._id, date: today },
+            }),
+          ]);
+          attMap[child._id] = (att ?? [])
+            .sort((a, b) => b.date.localeCompare(a.date))
+            .slice(0, 5);
+          const pl = (phones ?? []).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+          const last = pl[pl.length - 1];
+          phoneMap[child._id] = !last ? 'unknown' : last.action === 'collected' ? 'collected' : 'held';
+        } catch {
+          attMap[child._id] = [];
+          phoneMap[child._id] = 'unknown';
+        }
+      })
+    );
+    setChildAttendance(attMap);
+    setChildPhone(phoneMap);
+  };
+
+  const fetchLeaves = async () => {
+    try {
+      const rows = await api.get<BoardingLeaveRequest[]>('/boarding/leave');
+      setLeaves(Array.isArray(rows) ? rows : []);
+    } catch {
+      setLeaves([]);
     }
   };
 
@@ -72,6 +153,26 @@ export default function ChildrenPage() {
       setActionId(null);
     }
   };
+
+  const submitLeave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leaveForm.studentId || !leaveForm.leaveDate || !leaveForm.expectedReturn) return;
+    setLeaveSubmitting(true);
+    setLeaveMessage('');
+    try {
+      await api.post('/boarding/leave', leaveForm);
+      setLeaveForm({ studentId: '', leaveDate: '', expectedReturn: '', reason: '' });
+      setLeaveMessage('Pengajuan izin keluar terkirim.');
+      await fetchLeaves();
+    } catch (err) {
+      setLeaveMessage(err instanceof Error ? err.message : 'Gagal mengajukan izin');
+    } finally {
+      setLeaveSubmitting(false);
+    }
+  };
+
+  const tonightActivities = schedules.filter((s) => s.dayOfWeek === new Date().getDay());
+  const boardingChildren = children.filter((c) => c.boardingRoomId);
 
   return (
     <ProtectedRoute allowedRoles={[UserRole.PARENT]}>
@@ -127,6 +228,150 @@ export default function ChildrenPage() {
           </div>
         )}
 
+        {boardingChildren.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 space-y-4">
+            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+              <BedDouble className="w-5 h-5 text-emerald-600" />
+              Asrama
+            </h2>
+            <div className="grid md:grid-cols-2 gap-4">
+              {boardingChildren.map((child) => {
+                const room = child.boardingRoomId ? boardingRooms[child.boardingRoomId] : undefined;
+                return (
+                  <div key={child._id} className="border rounded-lg p-4 bg-emerald-50/50">
+                    <p className="font-medium">{child.name}</p>
+                    {room ? (
+                      <>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Kamar <span className="font-medium">{room.name}</span> · {room.areaName}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Ketua kamar: {room.captainName ?? '—'}
+                          {room.headStaffName ? ` · Pembina: ${room.headStaffName}` : ''}
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          HP hari ini:{' '}
+                          {childPhone[child._id] === 'collected'
+                            ? 'Diserahkan ke pembina'
+                            : childPhone[child._id] === 'held'
+                              ? 'Masih dipegang'
+                              : 'Belum dicatat'}
+                        </p>
+                        {(childAttendance[child._id] ?? []).length > 0 && (
+                          <div className="mt-2 text-xs text-gray-600">
+                            <p className="font-medium">Absensi asrama terakhir:</p>
+                            <ul className="list-disc list-inside">
+                              {childAttendance[child._id].map((a, i) => (
+                                <li key={i}>
+                                  {a.date} · {a.type === 'activity' ? 'kegiatan' : 'malam'} · {a.status}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-500 mt-1">Kamar terdaftar</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {tonightActivities.length > 0 && (
+              <div className="text-sm text-gray-600">
+                <p className="font-medium text-gray-800 mb-1">Kegiatan malam ini ({DAY_NAMES[new Date().getDay()]})</p>
+                <ul className="list-disc list-inside space-y-0.5">
+                  {tonightActivities.map((a) => (
+                    <li key={a._id}>
+                      {a.title} ({a.startTime}–{a.endTime})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="border-t pt-4">
+              <h3 className="font-medium flex items-center gap-2 mb-3">
+                <DoorOpen className="w-4 h-4" /> Ajukan izin keluar asrama
+              </h3>
+              {leaveMessage && (
+                <p className={`text-sm mb-2 ${leaveMessage.includes('terkirim') ? 'text-green-700' : 'text-red-600'}`}>
+                  {leaveMessage}
+                </p>
+              )}
+              <form onSubmit={submitLeave} className="grid sm:grid-cols-2 gap-3 text-sm">
+                <div className="sm:col-span-2">
+                  <label className="text-xs text-gray-600">Anak</label>
+                  <select
+                    className="w-full border rounded-lg px-3 py-2 mt-0.5"
+                    value={leaveForm.studentId}
+                    onChange={(e) => setLeaveForm({ ...leaveForm, studentId: e.target.value })}
+                    required
+                  >
+                    <option value="">Pilih anak</option>
+                    {boardingChildren.map((c) => (
+                      <option key={c._id} value={c._id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600">Tanggal keluar</label>
+                  <input
+                    type="date"
+                    className="w-full border rounded-lg px-3 py-2 mt-0.5"
+                    value={leaveForm.leaveDate}
+                    onChange={(e) => setLeaveForm({ ...leaveForm, leaveDate: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600">Perkiraan kembali</label>
+                  <input
+                    type="date"
+                    className="w-full border rounded-lg px-3 py-2 mt-0.5"
+                    value={leaveForm.expectedReturn}
+                    onChange={(e) => setLeaveForm({ ...leaveForm, expectedReturn: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs text-gray-600">Alasan</label>
+                  <textarea
+                    className="w-full border rounded-lg px-3 py-2 mt-0.5"
+                    rows={2}
+                    value={leaveForm.reason}
+                    onChange={(e) => setLeaveForm({ ...leaveForm, reason: e.target.value })}
+                    placeholder="Kunjungan keluarga, keperluan medis, dll."
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={leaveSubmitting}
+                  className="sm:col-span-2 py-2 bg-primary-600 text-white rounded-lg font-medium disabled:opacity-50"
+                >
+                  {leaveSubmitting ? 'Mengirim...' : 'Ajukan izin'}
+                </button>
+              </form>
+            </div>
+
+            {leaves.length > 0 && (
+              <div className="border-t pt-4">
+                <p className="font-medium text-sm mb-2">Riwayat izin keluar</p>
+                <ul className="space-y-2 text-sm">
+                  {leaves.map((l) => (
+                    <li key={l._id} className="flex justify-between gap-2 border rounded px-3 py-2">
+                      <span>
+                        {l.studentName} · {l.leaveDate} → {l.expectedReturn}
+                      </span>
+                      <span className="capitalize text-gray-500">{l.status}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
         {loading ? (
           <div className="p-8 text-center">Memuat...</div>
         ) : children.length === 0 ? (
@@ -159,6 +404,12 @@ export default function ChildrenPage() {
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Jurusan:</span> {child.major ?? 'T/A'}
                   </p>
+                  {child.boardingRoomId && (
+                    <p className="text-sm text-emerald-700">
+                      <span className="font-medium">Asrama:</span>{' '}
+                      {boardingRooms[child.boardingRoomId]?.name ?? 'Kamar terdaftar'}
+                    </p>
+                  )}
                 </div>
                 <div className="grid grid-cols-3 gap-2 pt-4 border-t">
                   <Link
@@ -191,4 +442,3 @@ export default function ChildrenPage() {
     </ProtectedRoute>
   );
 }
-

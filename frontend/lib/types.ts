@@ -54,6 +54,18 @@ export const ROLES_CAN_MANAGE_USERS: UserRole[] = [
   UserRole.STAFF,
 ];
 
+/** Roles that can manage boarding (asrama) — must match server `canManageBoarding`. */
+export const BOARDING_MANAGE_ROLES: UserRole[] = [
+  UserRole.STAFF,
+  UserRole.PRINCIPAL,
+  UserRole.KETUA_PESANTREN,
+  UserRole.KETUA_YAYASAN,
+];
+
+export function canManageBoardingClient(user: { role?: string; roles?: string[] } | null): boolean {
+  return hasFullAccess(user) || hasAnyRole(user, BOARDING_MANAGE_ROLES.map(String));
+}
+
 export const ROLE_LABELS: Record<string, string> = {
   [UserRole.SAAS_ADMIN]: 'SaaS Admin',
   [UserRole.STUDENT]: 'Siswa',
@@ -268,7 +280,8 @@ export interface User {
   isRoomCaptain?: boolean;
   /** Boarding: kepala kamar staff assignment */
   boardingRoomHeadId?: string;
-  /** FCM device tokens for push notifications */
+  /** Boarding: room captain may hold phones for room */
+  canHoldPhone?: boolean;
   fcmTokens?: string[];
   school?: {
     id: string;
@@ -469,6 +482,8 @@ export interface ChatConversation {
   publicSessionId?: string;
   visitorName?: string;
   visitorContact?: string;
+  ticketId?: string;
+  ticketNumber?: string;
   lastMessage?: string;
   lastMessageAt?: string;
   lastSenderId?: string;
@@ -483,7 +498,7 @@ export interface ChatMessage {
   schoolId: string;
   senderId: string;
   /** visitor messages from public landing chat */
-  senderType?: 'user' | 'visitor';
+  senderType?: 'user' | 'visitor' | 'staff';
   senderName?: string;
   text: string;
   createdAt: string;
@@ -507,7 +522,7 @@ export interface ChatBackupEntry {
   createdAt: string;
 }
 
-export type AppNotificationType = 'chat' | 'communication' | 'ticket';
+export type AppNotificationType = 'chat' | 'communication' | 'ticket' | 'boarding';
 
 export type TicketCategory =
   | 'academic'
@@ -763,6 +778,78 @@ export interface BoardingActivitySchedule {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export type BoardingAttendanceType = 'nightly' | 'activity';
+
+export type BoardingAttendanceStatus = 'present' | 'absent' | 'sick' | 'permission';
+
+export interface BoardingAttendanceRecord {
+  _id: string;
+  schoolId: string;
+  roomId: string;
+  studentId: string;
+  date: string;
+  type: BoardingAttendanceType;
+  status: BoardingAttendanceStatus;
+  scheduleId?: string;
+  notes?: string;
+  recordedBy: string;
+  createdAt?: string;
+}
+
+export type BoardingLeaveStatus = 'pending' | 'approved' | 'rejected' | 'returned';
+
+export interface BoardingLeaveRequest {
+  _id: string;
+  schoolId: string;
+  studentId: string;
+  studentName?: string;
+  roomId?: string;
+  reason: string;
+  leaveDate: string;
+  expectedReturn: string;
+  actualReturn?: string;
+  status: BoardingLeaveStatus;
+  parentId?: string;
+  approvedBy?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type BoardingPhoneAction = 'collected' | 'returned';
+
+export interface BoardingPhoneLog {
+  _id: string;
+  schoolId: string;
+  roomId: string;
+  studentId: string;
+  action: BoardingPhoneAction;
+  heldByCaptainId?: string;
+  date: string;
+  notes?: string;
+  recordedBy: string;
+  createdAt?: string;
+}
+
+export type BoardingRoomEnriched = BoardingRoom & {
+  areaName?: string;
+  captainName?: string;
+  headStaffName?: string;
+  studentNames?: { id: string; name: string }[];
+};
+
+export type BoardingDashboardStats = {
+  totalRooms: number;
+  totalCapacity: number;
+  occupied: number;
+  emptyBeds: number;
+  maleRooms: number;
+  femaleRooms: number;
+  tonightActivities: BoardingActivitySchedule[];
+  pendingLeaves: number;
+  phoneCollectedToday: number;
+};
 
 export interface School {
   _id: string;

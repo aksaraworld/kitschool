@@ -56,6 +56,8 @@ export function subscribeToChatMessages(
             conversationId,
             schoolId: String(data.schoolId ?? ''),
             senderId: String(data.senderId ?? ''),
+            senderType: data.senderType as ChatMessage['senderType'],
+            senderName: data.senderName ? String(data.senderName) : undefined,
             text: String(data.text ?? ''),
             createdAt: toIso(data.createdAt),
             readBy: data.readBy as Record<string, string> | undefined,

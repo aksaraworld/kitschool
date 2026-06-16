@@ -246,6 +246,18 @@ export function boardingSchedulesCollection() {
   return getFirestore().collection('boardingSchedules');
 }
 
+export function boardingAttendanceCollection() {
+  return getFirestore().collection('boardingAttendance');
+}
+
+export function boardingLeaveCollection() {
+  return getFirestore().collection('boardingLeave');
+}
+
+export function boardingPhoneLogsCollection() {
+  return getFirestore().collection('boardingPhoneLogs');
+}
+
 export function tkDevelopmentAreasCollection() {
   return getFirestore().collection('tkDevelopmentAreas');
 }

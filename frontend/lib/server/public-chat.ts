@@ -16,6 +16,10 @@ import {
   createPublicChatCrmTicket,
   syncPublicChatMessageToTicket,
 } from '@/lib/server/tickets';
+import {
+  bumpPublicChatUnreadForStaff,
+  getPublicChatHandlerIds,
+} from '@/lib/server/public-chat-staff';
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_SESSIONS_PER_IP_HOUR = 5;
@@ -267,7 +271,7 @@ export async function sendPublicChatMessage(
   const convRef = chatConversationsCollection().doc(convId);
   const convSnap = await convRef.get();
   const unread = { ...((convSnap.data()?.unreadCount as Record<string, number>) ?? {}) };
-  unread[csStaffId] = (unread[csStaffId] ?? 0) + 1;
+  const bumped = await bumpPublicChatUnreadForStaff(session.schoolId, unread);
 
   const msgRef = chatMessagesCollection(convId).doc();
   await msgRef.set({
@@ -285,7 +289,7 @@ export async function sendPublicChatMessage(
     lastMessage: trimmed.slice(0, 200),
     lastMessageAt: now,
     lastSenderId: guestUid,
-    unreadCount: unread,
+    unreadCount: bumped,
     updatedAt: now,
   });
 
@@ -308,6 +312,16 @@ export async function sendPublicChatMessage(
     body: trimmed.slice(0, 120),
     conversationId: convId,
   });
+
+  const handlerIds = await getPublicChatHandlerIds(session.schoolId);
+  for (const hid of handlerIds) {
+    if (hid === csStaffId) continue;
+    void sendChatPush(hid, {
+      title: `CRM Chat: ${session.visitorName}`,
+      body: trimmed.slice(0, 120),
+      conversationId: convId,
+    });
+  }
 
   return {
     message: {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser, getSchoolId, hasFullAccess } from '@/lib/server/auth-helpers';
+import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
+import { canManageBoarding } from '@/lib/server/boarding';
 import { boardingAreasCollection, docToJson } from '@/lib/server/firebase-admin';
-import { UserRole } from '@/lib/types';
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    if (!hasFullAccess(auth) && auth.role !== UserRole.STAFF) {
+    if (!auth || !canManageBoarding(auth)) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
     const schoolId = getSchoolId(req, auth);

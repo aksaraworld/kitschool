@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser, getSchoolId, hasFullAccess } from '@/lib/server/auth-helpers';
-import { boardingRoomsCollection, usersCollection, docToJson } from '@/lib/server/firebase-admin';
-import { UserRole } from '@/lib/types';
+import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
+import { canManageBoarding, syncRoomAssignments } from '@/lib/server/boarding';
+import { boardingRoomsCollection, docToJson } from '@/lib/server/firebase-admin';
 
 export async function GET(req: NextRequest) {
   try {
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await getAuthUser(req);
     if (!auth) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    if (!hasFullAccess(auth) && auth.role !== UserRole.STAFF) {
+    if (!auth || !canManageBoarding(auth)) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
     const schoolId = getSchoolId(req, auth);
@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
       gender: body.gender,
       capacity,
       roomCaptainId: body.roomCaptainId || null,
+      roomHeadStaffId: body.roomHeadStaffId || null,
       studentIds,
       floor: body.floor,
       isActive: body.isActive !== false,
@@ -54,12 +55,11 @@ export async function POST(req: NextRequest) {
       updatedAt: new Date(),
     });
 
-    if (body.roomCaptainId) {
-      await usersCollection().doc(body.roomCaptainId).set(
-        { isRoomCaptain: true, boardingRoomId: ref.id, updatedAt: new Date() },
-        { merge: true }
-      );
-    }
+    await syncRoomAssignments(ref.id, schoolId, {
+      studentIds,
+      roomCaptainId: body.roomCaptainId,
+      roomHeadStaffId: body.roomHeadStaffId,
+    });
 
     const snap = await ref.get();
     return NextResponse.json(docToJson(snap), { status: 201 });

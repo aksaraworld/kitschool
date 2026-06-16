@@ -6,13 +6,17 @@ import {
   conversationIdFor,
 } from '@/lib/server/chat-permissions';
 import {
+  canHandlePublicChat,
+  ensureStaffJoinedPublicChat,
+} from '@/lib/server/public-chat-staff';
+import {
   chatConversationsCollection,
   usersCollection,
   docToJson,
 } from '@/lib/server/firebase-admin';
 import type { ChatParticipant } from '@/lib/types';
 
-const CONVERSATION_LIMIT = 50;
+const CONVERSATION_LIMIT = 80;
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,17 +27,33 @@ export async function GET(req: NextRequest) {
     const schoolId = getSchoolId(req, auth);
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
-    const snap = await chatConversationsCollection()
-      .where('schoolId', '==', schoolId)
-      .where('participantIds', 'array-contains', auth.uid)
-      .get();
+    const [directSnap, publicSnap] = await Promise.all([
+      chatConversationsCollection()
+        .where('schoolId', '==', schoolId)
+        .where('participantIds', 'array-contains', auth.uid)
+        .get(),
+      canHandlePublicChat(auth)
+        ? chatConversationsCollection()
+            .where('schoolId', '==', schoolId)
+            .where('kind', '==', 'public_inquiry')
+            .limit(40)
+            .get()
+        : Promise.resolve(null),
+    ]);
 
-    const rows = snap.docs
-      .map((d) => docToJson(d))
-      .sort((a, b) =>
-        String(b.lastMessageAt ?? '').localeCompare(String(a.lastMessageAt ?? ''))
-      )
-      .slice(0, CONVERSATION_LIMIT);
+    const byId = new Map<string, ReturnType<typeof docToJson>>();
+    for (const d of directSnap.docs) {
+      byId.set(d.id, docToJson(d));
+    }
+    if (publicSnap) {
+      for (const d of publicSnap.docs) {
+        if (!byId.has(d.id)) byId.set(d.id, docToJson(d));
+      }
+    }
+
+    const rows = [...byId.values()].sort((a, b) =>
+      String(b.lastMessageAt ?? '').localeCompare(String(a.lastMessageAt ?? ''))
+    ).slice(0, CONVERSATION_LIMIT);
 
     return NextResponse.json(rows, {
       headers: { 'Cache-Control': 'private, max-age=15' },

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
 import {
@@ -22,6 +23,8 @@ const CATEGORIES = Object.entries(TICKET_CATEGORY_LABELS) as [TicketCategory, st
 
 export default function TicketApp() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const ticketParam = searchParams.get('ticket');
   const isParent = user?.role === UserRole.PARENT;
   const isManager = hasAnyRole(user, TICKET_MANAGER_ROLES.map(String));
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -59,6 +62,12 @@ export default function TicketApp() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!ticketParam || tickets.length === 0) return;
+    const match = tickets.find((t) => t._id === ticketParam || t.ticketNumber === ticketParam);
+    if (match) setSelected(match);
+  }, [ticketParam, tickets]);
 
   const createTicket = async (e: React.FormEvent) => {
     e.preventDefault();

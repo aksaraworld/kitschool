@@ -119,12 +119,18 @@ service cloud.firestore {
 
     // School chat
     match /chatConversations/{conversationId} {
-      allow read, update: if isAuthenticated() &&
-        request.auth.uid in resource.data.participantIds;
+      allow read, update: if isAuthenticated() && (
+        request.auth.uid in resource.data.participantIds ||
+        (resource.data.kind == 'public_inquiry' &&
+          getUserRole() in ['staff', 'finance', 'principal', 'ketua_pesantren', 'ketua_yayasan'])
+      );
       allow create: if isAuthenticated();
       match /messages/{messageId} {
-        allow read: if isAuthenticated() &&
-          request.auth.uid in get(/databases/$(database)/documents/chatConversations/$(conversationId)).data.participantIds;
+        allow read: if isAuthenticated() && (
+          request.auth.uid in get(/databases/$(database)/documents/chatConversations/$(conversationId)).data.participantIds ||
+          (get(/databases/$(database)/documents/chatConversations/$(conversationId)).data.kind == 'public_inquiry' &&
+            getUserRole() in ['staff', 'finance', 'principal', 'ketua_pesantren', 'ketua_yayasan'])
+        );
         allow create: if isAuthenticated() &&
           request.auth.uid in get(/databases/$(database)/documents/chatConversations/$(conversationId)).data.participantIds &&
           request.resource.data.senderId == request.auth.uid;
@@ -142,6 +148,19 @@ service cloud.firestore {
     match /boardingSchedules/{docId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
+    }
+
+    match /boardingAttendance/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /boardingLeave/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /boardingPhoneLogs/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
     }
     
     // Years collection

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
 import { canUseChat } from '@/lib/server/chat-permissions';
+import {
+  canAccessConversation,
+  ensureStaffJoinedPublicChat,
+} from '@/lib/server/public-chat-staff';
 import { sendChatPush } from '@/lib/server/fcm';
+import { syncPublicChatMessageToTicket } from '@/lib/server/tickets';
 import {
   chatConversationsCollection,
   chatMessagesCollection,
@@ -18,14 +23,19 @@ export async function GET(
     if (!auth) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     if (!canUseChat(auth)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
 
+    const schoolId = getSchoolId(req, auth);
+    if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
+
     const { id } = await params;
     const convSnap = await chatConversationsCollection().doc(id).get();
     if (!convSnap.exists) return NextResponse.json({ message: 'Not found' }, { status: 404 });
 
-    const conv = convSnap.data() as { participantIds?: string[] };
-    if (!conv.participantIds?.includes(auth.uid)) {
+    const conv = convSnap.data() as Parameters<typeof canAccessConversation>[1];
+    if (!(await canAccessConversation(auth, conv, schoolId))) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
+
+    await ensureStaffJoinedPublicChat(id, auth, schoolId);
 
     const limit = Math.min(Number(req.nextUrl.searchParams.get('limit') ?? 50), 100);
     const snap = await chatMessagesCollection(id)
@@ -59,34 +69,56 @@ export async function POST(
     if (!convSnap.exists) return NextResponse.json({ message: 'Not found' }, { status: 404 });
 
     const conv = convSnap.data() as {
+      schoolId?: string;
+      kind?: string;
       participantIds?: string[];
       participants?: Record<string, { name?: string }>;
       unreadCount?: Record<string, number>;
+      ticketId?: string;
+      publicSessionId?: string;
     };
-    if (!conv.participantIds?.includes(auth.uid)) {
+
+    if (!(await canAccessConversation(auth, conv, schoolId))) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
+
+    await ensureStaffJoinedPublicChat(id, auth, schoolId);
+    const freshSnap = await convRef.get();
+    const fresh = freshSnap.data() as typeof conv;
 
     const body = await req.json().catch(() => ({}));
     const text = String(body.text ?? '').trim();
     if (!text) return NextResponse.json({ message: 'text required' }, { status: 400 });
 
+    const senderSnap = await usersCollection().doc(auth.uid).get();
+    const senderName = String((senderSnap.data() as { name?: string })?.name ?? 'Staf');
+    const isPublic = fresh.kind === 'public_inquiry';
     const now = new Date();
+
     const msgRef = chatMessagesCollection(id).doc();
     await msgRef.set({
       conversationId: id,
       schoolId,
       senderId: auth.uid,
+      senderType: isPublic ? 'staff' : 'user',
+      senderName: isPublic ? `${senderName} (CS)` : undefined,
       text,
       createdAt: now,
       readBy: { [auth.uid]: now.toISOString() },
     });
 
-    const recipientId = conv.participantIds.find((p) => p !== auth.uid);
-    const unreadCount = { ...(conv.unreadCount ?? {}) };
-    if (recipientId) {
+    const guestId = fresh.participantIds?.find((p) => p.startsWith('guest_'));
+    const recipientId = isPublic
+      ? guestId
+      : fresh.participantIds?.find((p) => p !== auth.uid);
+
+    let unreadCount = { ...(fresh.unreadCount ?? {}) };
+    unreadCount[auth.uid] = 0;
+    if (recipientId && !isPublic) {
       unreadCount[recipientId] = (unreadCount[recipientId] ?? 0) + 1;
-      unreadCount[auth.uid] = 0;
+    }
+    if (isPublic && guestId) {
+      unreadCount[guestId] = (unreadCount[guestId] ?? 0) + 1;
     }
 
     await convRef.update({
@@ -97,18 +129,12 @@ export async function POST(
       updatedAt: now,
     });
 
-    const created = await msgRef.get();
-
-    if (recipientId) {
-      const senderName =
-        (conv.participants as Record<string, { name?: string }> | undefined)?.[auth.uid]?.name ??
-        'Pesan baru';
-      void sendChatPush(recipientId, {
-        title: senderName,
-        body: text.slice(0, 120),
-        conversationId: id,
-      });
+    if (isPublic && fresh.ticketId) {
+      const count = (fresh.participantIds?.length ?? 0) + 1;
+      void syncPublicChatMessageToTicket(fresh.ticketId, `[CS ${senderName}] ${text}`, count);
     }
+
+    const created = await msgRef.get();
     return NextResponse.json(docToJson(created), { status: 201 });
   } catch (e) {
     console.error('POST chat message error:', e);

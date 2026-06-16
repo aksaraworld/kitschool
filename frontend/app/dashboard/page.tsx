@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole, hasFullAccess, hasAnyRole } from '@/lib/types';
+import { UserRole, hasFullAccess, hasAnyRole, canManageBoardingClient } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
 import { UNIT_CONTEXT_CHANGE_EVENT } from '@/context/SchoolContext';
@@ -18,6 +18,8 @@ import {
   GraduationCap,
   Star,
   Crown,
+  BedDouble,
+  DoorOpen,
 } from 'lucide-react';
 
 interface DashboardSummary {
@@ -31,13 +33,24 @@ interface DashboardSummary {
   activeScholarshipCount?: number;
 }
 
+interface BoardingDashboardSlice {
+  totalRooms: number;
+  occupied: number;
+  totalCapacity: number;
+  pendingLeaves: number;
+  tonightActivities: { _id: string; title: string; startTime: string; endTime: string }[];
+  phoneCollectedToday: number;
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState<any>({});
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [boarding, setBoarding] = useState<BoardingDashboardSlice | null>(null);
   const [loading, setLoading] = useState(true);
 
   const showDashboardSummary = hasFullAccess(user) || hasAnyRole(user, [UserRole.STAFF]);
+  const showBoardingWidget = canManageBoardingClient(user);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -49,6 +62,18 @@ export default function DashboardPage() {
           setSummary(data);
           setStats({ students: data.top10ByGrades?.length ?? 0, teachers: data.teacherCount ?? 0 });
         }
+        if (showBoardingWidget) {
+          try {
+            const b = await api.getCached<{ dashboard: BoardingDashboardSlice; school?: { modules?: { boardingSchool?: boolean } } }>(
+              '/boarding/summary'
+            );
+            if (b.school?.modules?.boardingSchool !== false) {
+              setBoarding(b.dashboard);
+            }
+          } catch {
+            setBoarding(null);
+          }
+        }
       } catch (e) {
         console.error('Dashboard fetch error:', e);
         setSummary(null);
@@ -57,7 +82,7 @@ export default function DashboardPage() {
       }
     };
     fetchData();
-  }, [user, showDashboardSummary]);
+  }, [user, showDashboardSummary, showBoardingWidget]);
 
   useEffect(() => {
     const refresh = () => {
@@ -87,6 +112,13 @@ export default function DashboardPage() {
         return [
           { label: 'Kelas Saya', value: '3', icon: BookOpen, color: 'bg-blue-500' },
           { label: 'Tingkat Kehadiran', value: '98%', icon: ClipboardCheck, color: 'bg-green-500' },
+        ];
+      case UserRole.KETUA_PESANTREN:
+        return [
+          { label: 'Kamar Asrama', value: boarding ? String(boarding.totalRooms) : '-', icon: BedDouble, color: 'bg-emerald-500', href: '/boarding' },
+          { label: 'Terisi', value: boarding ? `${boarding.occupied}/${boarding.totalCapacity}` : '-', icon: Users, color: 'bg-blue-500', href: '/boarding' },
+          { label: 'Izin Pending', value: boarding ? String(boarding.pendingLeaves) : '-', icon: DoorOpen, color: 'bg-amber-500', href: '/boarding' },
+          { label: 'HP Diserahkan', value: boarding ? String(boarding.phoneCollectedToday) : '-', icon: ClipboardCheck, color: 'bg-purple-500', href: '/boarding' },
         ];
       case UserRole.STAFF:
       case UserRole.PRINCIPAL:
@@ -140,6 +172,36 @@ export default function DashboardPage() {
             return <div key={index}>{card}</div>;
           })}
         </div>
+
+        {showBoardingWidget && boarding && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                <BedDouble className="w-5 h-5 text-emerald-600" />
+                Asrama — Ringkasan
+              </h2>
+              <Link href="/boarding" className="text-sm text-primary-600 hover:underline">Kelola asrama →</Link>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-600">Okupansi: <strong>{boarding.occupied}/{boarding.totalCapacity}</strong> santri</p>
+                <p className="text-gray-600 mt-1">Izin keluar pending: <strong>{boarding.pendingLeaves}</strong></p>
+              </div>
+              <div>
+                <p className="font-medium text-gray-800 mb-1">Kegiatan malam ini</p>
+                {boarding.tonightActivities.length === 0 ? (
+                  <p className="text-gray-500">Tidak ada jadwal.</p>
+                ) : (
+                  <ul className="text-gray-600 space-y-1">
+                    {boarding.tonightActivities.map((a) => (
+                      <li key={a._id}>{a.title} ({a.startTime}–{a.endTime})</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {showDashboardSummary && summary && (
           <>

@@ -658,6 +658,20 @@ async function main() {
       { merge: true }
     );
   }
+  for (const sid of putraStudents) {
+    if (sid === putraCaptain) continue;
+    await firestore.collection(USERS_COLLECTION).doc(sid).set(
+      { boardingRoomId: 'kamar-putra-a1', updatedAt: new Date() },
+      { merge: true }
+    );
+  }
+  for (const sid of putriStudents) {
+    if (sid === putriCaptain) continue;
+    await firestore.collection(USERS_COLLECTION).doc(sid).set(
+      { boardingRoomId: 'kamar-putri-b1', updatedAt: new Date() },
+      { merge: true }
+    );
+  }
 
   const eveningActivities = [
     { id: 'tadarus-sen', title: 'Tadarus Al-Qur\'an', activityType: 'tadarus', dayOfWeek: 1, startTime: '20:00', endTime: '21:00', areaId: areaMusholla.id },

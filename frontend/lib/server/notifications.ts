@@ -104,11 +104,11 @@ export async function getUserNotifications(
 
     notifications.push({
       id: `comm-${id}`,
-      type: 'communication',
+      type: String(row.category) === 'boarding' ? 'boarding' : 'communication',
       title: subject,
       body: message || 'Anda memiliki pemberitahuan baru',
       createdAt,
-      href: `/dashboard`,
+      href: String(row.href ?? '/dashboard'),
       unread: true,
     });
   }

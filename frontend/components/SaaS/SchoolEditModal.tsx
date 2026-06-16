@@ -506,7 +506,8 @@ export default function SchoolEditModal({ schoolId, onClose, onSaved }: SchoolEd
                     <p className="text-sm font-semibold text-gray-900">Chat Pengunjung (Landing)</p>
                   </div>
                   <p className="text-xs text-gray-600">
-                    Tombol &quot;Tanya CS&quot; di halaman publik. Pesan masuk ke Pesan staf + tiket CRM otomatis.
+                    Tombol &quot;Tanya CS&quot; di halaman publik. Semua staf TU/kepsek/ketua yayasan dapat
+                    membalas di Pesan → tab CRM Web. Tiket CRM dibuat otomatis.
                   </p>
                   <label className="flex items-center gap-2 text-sm">
                     <input
@@ -532,7 +533,7 @@ export default function SchoolEditModal({ schoolId, onClose, onSaved }: SchoolEd
                   )}
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Staf penerima (Customer Service)
+                      Staf utama (penanggung jawab tiket)
                     </label>
                     <select
                       className={inputClass}

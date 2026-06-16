@@ -1,56 +1,103 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser, getSchoolId, hasFullAccess } from '@/lib/server/auth-helpers';
-import { boardingRoomsCollection, usersCollection, docToJson } from '@/lib/server/firebase-admin';
-import { UserRole } from '@/lib/types';
+import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
+import { canManageBoarding, syncRoomAssignments } from '@/lib/server/boarding';
+import { boardingRoomsCollection, docToJson } from '@/lib/server/firebase-admin';
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = await getAuthUser(req);
-    if (!auth) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    if (!hasFullAccess(auth) && auth.role !== UserRole.STAFF) {
-      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
-    }
+    if (!auth || !canManageBoarding(auth)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     const schoolId = getSchoolId(req, auth);
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
-    const ref = boardingRoomsCollection().doc(params.id);
+    const { id } = await params;
+    const ref = boardingRoomsCollection().doc(id);
     const snap = await ref.get();
-    if (!snap.exists) return NextResponse.json({ message: 'Not found' }, { status: 404 });
-    if (snap.data()?.schoolId !== schoolId) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    if (!snap.exists || snap.data()?.schoolId !== schoolId) {
+      return NextResponse.json({ message: 'Not found' }, { status: 404 });
+    }
+
+    const prev = snap.data() as {
+      studentIds?: string[];
+      roomCaptainId?: string;
+      roomHeadStaffId?: string;
+      capacity?: number;
+    };
 
     const body = await req.json().catch(() => ({}));
-    const capacity = body.capacity !== undefined ? Number(body.capacity) : snap.data()?.capacity;
-    const studentIds: string[] = body.studentIds ?? snap.data()?.studentIds ?? [];
+    const capacity = body.capacity !== undefined ? Number(body.capacity) : prev.capacity ?? 0;
+    const studentIds: string[] = body.studentIds ?? prev.studentIds ?? [];
 
     if (studentIds.length > capacity) {
       return NextResponse.json({ message: 'Jumlah santri melebihi kapasitas kamar' }, { status: 400 });
     }
 
-    const update = { ...body, capacity, studentIds, updatedAt: new Date() };
+    const roomCaptainId = body.roomCaptainId !== undefined ? body.roomCaptainId : prev.roomCaptainId;
+    const roomHeadStaffId = body.roomHeadStaffId !== undefined ? body.roomHeadStaffId : prev.roomHeadStaffId;
+
+    const update: Record<string, unknown> = {
+      ...body,
+      capacity,
+      studentIds,
+      roomCaptainId: roomCaptainId || null,
+      roomHeadStaffId: roomHeadStaffId || null,
+      updatedAt: new Date(),
+    };
     delete update._id;
     delete update.id;
+
     await ref.set(update, { merge: true });
 
-    if (body.roomCaptainId) {
-      await usersCollection().doc(body.roomCaptainId).set(
-        { isRoomCaptain: true, boardingRoomId: params.id, canHoldPhone: true, updatedAt: new Date() },
-        { merge: true }
-      );
-    }
-    if (body.roomHeadStaffId) {
-      await usersCollection().doc(body.roomHeadStaffId).set(
-        { boardingRoomHeadId: params.id, updatedAt: new Date() },
-        { merge: true }
-      );
-    }
+    await syncRoomAssignments(id, schoolId, {
+      studentIds,
+      roomCaptainId,
+      roomHeadStaffId,
+      previousStudentIds: prev.studentIds,
+      previousCaptainId: prev.roomCaptainId,
+      previousHeadStaffId: prev.roomHeadStaffId,
+    });
 
-    const updated = await ref.get();
-    return NextResponse.json(docToJson(updated));
+    return NextResponse.json(docToJson(await ref.get()));
   } catch (e) {
     console.error('PUT /api/boarding/rooms/[id] error:', e);
+    return NextResponse.json({ message: 'Server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await getAuthUser(req);
+    if (!auth || !canManageBoarding(auth)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    const schoolId = getSchoolId(req, auth);
+    if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
+
+    const { id } = await params;
+    const ref = boardingRoomsCollection().doc(id);
+    const snap = await ref.get();
+    if (!snap.exists || snap.data()?.schoolId !== schoolId) {
+      return NextResponse.json({ message: 'Not found' }, { status: 404 });
+    }
+
+    const prev = snap.data() as { studentIds?: string[]; roomCaptainId?: string; roomHeadStaffId?: string };
+    await ref.update({ isActive: false, studentIds: [], updatedAt: new Date() });
+    await syncRoomAssignments(id, schoolId, {
+      studentIds: [],
+      roomCaptainId: null,
+      roomHeadStaffId: null,
+      previousStudentIds: prev.studentIds,
+      previousCaptainId: prev.roomCaptainId,
+      previousHeadStaffId: prev.roomHeadStaffId,
+    });
+
+    return NextResponse.json({ message: 'OK' });
+  } catch (e) {
+    console.error('DELETE /api/boarding/rooms/[id] error:', e);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });
   }
 }
