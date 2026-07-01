@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
 import { canManageLms, buildItemFromUrl, deleteSyllabusWithChildren } from '@/lib/server/lms';
+import { isMissingIndexError } from '@/lib/server/firestore-query';
 import {
   docToJson,
   getFirestore,
@@ -27,8 +28,17 @@ export async function GET(
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
-    const weeksSnap = await lmsSyllabusWeeksCollection(id).orderBy('weekNumber', 'asc').get();
-    const weeks = weeksSnap.docs.map((d) => docToJson(d));
+    let weeks: ReturnType<typeof docToJson>[] = [];
+    try {
+      const weeksSnap = await lmsSyllabusWeeksCollection(id).orderBy('weekNumber', 'asc').get();
+      weeks = weeksSnap.docs.map((d) => docToJson(d));
+    } catch (e) {
+      if (!isMissingIndexError(e)) throw e;
+      const weeksSnap = await lmsSyllabusWeeksCollection(id).get();
+      weeks = weeksSnap.docs
+        .map((d) => docToJson(d))
+        .sort((a, b) => Number(a.weekNumber ?? 0) - Number(b.weekNumber ?? 0));
+    }
 
     return NextResponse.json({ syllabus, weeks }, { headers: { 'Cache-Control': 'private, max-age=30' } });
   } catch (e) {

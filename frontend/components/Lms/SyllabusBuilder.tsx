@@ -79,12 +79,13 @@ export default function SyllabusBuilder({ initialSyllabusId }: { initialSyllabus
     const rows: WeekFormRow[] = [];
     for (let n = 1; n <= total; n++) {
       const ex = existing?.find((w) => w.weekNumber === n);
+      const courseRef = ex?.referencedLmsCourseId;
       rows.push({
         weekNumber: n,
         topic: ex?.topic ?? '',
         learningObjectives: ex?.learningObjectives ?? '',
         videoUrl: '',
-        referencedLmsCourseId: ex?.referencedLmsCourseId,
+        referencedLmsCourseId: courseRef ? String(courseRef) : undefined,
       });
     }
     setWeeks(rows);
@@ -119,15 +120,30 @@ export default function SyllabusBuilder({ initialSyllabusId }: { initialSyllabus
   const loadExisting = useCallback(async (id: string) => {
     setLoading(true);
     try {
-      const res = await api.getCached<{ syllabus: LmsSyllabus; weeks: LmsSyllabusWeek[] }>(`/lms/syllabus/${id}`);
+      const res = await api.get<{ syllabus: LmsSyllabus; weeks: LmsSyllabusWeek[] }>(
+        `/lms/syllabus/${id}`,
+        { skipCache: true }
+      );
       setSyllabus(res.syllabus);
       initWeekRows(res.syllabus.totalWeeks ?? LMS_DEFAULT_WEEKS, res.weeks);
+      setValue('subjectName', res.syllabus.subjectName ?? '');
+      setValue('classId', res.syllabus.classId ?? '');
+      setValue('yearId', res.syllabus.yearId ?? '');
+      setValue('description', res.syllabus.description ?? '');
+      if (res.syllabus.subjectId) setValue('subjectId', res.syllabus.subjectId);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Gagal memuat silabus');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setValue]);
+
+  const classLabel =
+    syllabus?.className ??
+    classes.find((c) => c._id === syllabus?.classId)?.name ??
+    syllabus?.classId ??
+    '—';
+  const yearLabel = years.find((y) => y._id === syllabus?.yearId)?.name ?? syllabus?.yearId ?? '—';
 
   useEffect(() => {
     if (initialSyllabusId) loadExisting(initialSyllabusId);
@@ -221,7 +237,7 @@ export default function SyllabusBuilder({ initialSyllabusId }: { initialSyllabus
         <p className="text-sm px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-800">{message}</p>
       )}
 
-      {!syllabus && (
+      {!syllabus && !loading && (
         <form onSubmit={onCreate} className="bg-white border rounded-xl p-4 space-y-3">
           <p className="text-sm font-medium text-gray-800">Langkah 1 — Buat silabus baru</p>
           <div className="grid sm:grid-cols-2 gap-3">
@@ -278,8 +294,45 @@ export default function SyllabusBuilder({ initialSyllabusId }: { initialSyllabus
         </form>
       )}
 
+      {loading && initialSyllabusId && !syllabus && (
+        <p className="text-sm text-gray-500 flex items-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" /> Memuat silabus...
+        </p>
+      )}
+
       {syllabus && (
         <div className="space-y-3">
+          <div className="bg-white border rounded-xl p-4 grid sm:grid-cols-2 gap-3 text-sm">
+            <div>
+              <span className="text-gray-500">Mata pelajaran</span>
+              <p className="font-medium text-gray-900">{syllabus.subjectName || '—'}</p>
+            </div>
+            <div>
+              <span className="text-gray-500">Kelas</span>
+              <p className="font-medium text-gray-900">{classLabel}</p>
+            </div>
+            <div>
+              <span className="text-gray-500">Tahun ajaran</span>
+              <p className="font-medium text-gray-900">{yearLabel}</p>
+            </div>
+            <div>
+              <span className="text-gray-500">Guru / pembuat</span>
+              <p className="font-medium text-gray-900">{syllabus.teacherName ?? syllabus.teacherId ?? '—'}</p>
+            </div>
+            <label className="sm:col-span-2 text-sm block">
+              <span className="text-gray-600">Deskripsi silabus</span>
+              <textarea
+                className="mt-1 w-full border rounded-lg px-3 py-2"
+                rows={2}
+                value={watch('description')}
+                onChange={(e) => {
+                  setValue('description', e.target.value);
+                  setSyllabus((s) => (s ? { ...s, description: e.target.value } : s));
+                }}
+              />
+            </label>
+          </div>
+
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="font-medium text-gray-900">
@@ -318,9 +371,14 @@ export default function SyllabusBuilder({ initialSyllabusId }: { initialSyllabus
                     className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50"
                     onClick={() => setOpenWeek(isOpen ? null : w.weekNumber)}
                   >
-                    <span className="font-medium text-sm">
+                    <span className="font-medium text-sm flex items-center gap-2">
                       Minggu {w.weekNumber}
                       {w.topic ? ` — ${w.topic}` : ''}
+                      {w.referencedLmsCourseId && (
+                        <span className="text-xs font-normal text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
+                          ada materi
+                        </span>
+                      )}
                     </span>
                     {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>

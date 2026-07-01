@@ -119,9 +119,7 @@ export async function GET(req: NextRequest) {
 
     schedules.sort((a, b) => String(a.startTime ?? '').localeCompare(String(b.startTime ?? '')));
 
-    const entries: LmsTodayScheduleEntry[] = [];
-
-    for (const row of schedules.slice(0, 12)) {
+    const buildEntry = async (row: Record<string, unknown>): Promise<LmsTodayScheduleEntry> => {
       const slot = normalizeWeeklySchedule(row);
       const syllabusId = slot.activeSyllabusId;
       let weekTopic: string | undefined;
@@ -147,7 +145,9 @@ export async function GET(req: NextRequest) {
           courseTitle = course.title;
           items = await loadCourseItems(course._id);
           hasQuiz = items.some((i) => i.type === 'quiz');
-          hasMaterials = items.some((i) => i.type === 'video' || i.type === 'document' || i.type === 'text' || i.type === 'link');
+          hasMaterials = items.some(
+            (i) => i.type === 'video' || i.type === 'document' || i.type === 'text' || i.type === 'link'
+          );
           const primary = pickPrimaryLearnItem(items);
           if (primary) {
             learnUrl = `/lms/learn?course=${course._id}&item=${primary._id}`;
@@ -161,7 +161,7 @@ export async function GET(req: NextRequest) {
 
       const teacherName = await resolveTeacherName(slot.teacherId);
 
-      entries.push({
+      return {
         scheduleId: slot.scheduleId,
         subjectName: slot.subjectName,
         startTime: slot.startTime,
@@ -179,8 +179,10 @@ export async function GET(req: NextRequest) {
         primaryAction,
         learnUrl,
         items,
-      });
-    }
+      };
+    };
+
+    const entries = await Promise.all(schedules.slice(0, 12).map((row) => buildEntry(row)));
 
     const payload: LmsTodaySchedulePayload = {
       date: dateStr,

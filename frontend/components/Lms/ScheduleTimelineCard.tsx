@@ -23,7 +23,7 @@ export default function ScheduleTimelineCard({ studentId, classId }: ScheduleTim
     if (studentId) params.studentId = studentId;
     if (classId) params.classId = classId;
     api
-      .getCached<LmsTodaySchedulePayload>('/lms/student/today-schedule', { params })
+      .get<LmsTodaySchedulePayload>('/lms/student/today-schedule', { params, skipCache: true })
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : 'Gagal memuat jadwal'))
       .finally(() => setLoading(false));
