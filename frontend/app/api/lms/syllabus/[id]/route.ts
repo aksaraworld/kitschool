@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
-import { canManageLms, buildItemFromUrl } from '@/lib/server/lms';
+import { canManageLms, buildItemFromUrl, deleteSyllabusWithChildren } from '@/lib/server/lms';
 import {
   docToJson,
   getFirestore,
@@ -131,6 +131,30 @@ export async function PUT(
     });
   } catch (e) {
     console.error('PUT /api/lms/syllabus/[id] error:', e);
+    return NextResponse.json({ message: 'Server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await getAuthUser(req);
+    if (!auth || !canManageLms(auth)) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
+    const schoolId = getSchoolId(req, auth);
+    if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
+
+    const { id } = await params;
+    const result = await deleteSyllabusWithChildren(id, schoolId);
+    if (result.error === 'Not found') return NextResponse.json({ message: 'Not found' }, { status: 404 });
+    if (result.error === 'Forbidden') return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error('DELETE /api/lms/syllabus/[id] error:', e);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });
   }
 }

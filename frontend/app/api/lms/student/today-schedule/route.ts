@@ -7,6 +7,7 @@ import {
   loadCourseItems,
   loadSyllabusWeek,
   normalizeWeeklySchedule,
+  pickPrimaryLearnItem,
   resolveTeacherName,
 } from '@/lib/server/lms';
 import {
@@ -17,6 +18,7 @@ import {
 } from '@/lib/server/firebase-admin';
 import type { LmsItem, LmsTodayScheduleEntry, LmsTodaySchedulePayload } from '@/lib/types';
 import { UserRole } from '@/lib/types';
+import { isMissingIndexError } from '@/lib/server/firestore-query';
 
 export async function GET(req: NextRequest) {
   try {
@@ -79,14 +81,27 @@ export async function GET(req: NextRequest) {
       weekNumber = getCurrentWeekNumber(String(activeYear.startDate ?? ''), 16);
     }
 
-    const schedSnap = await schedulesCollection()
-      .where('schoolId', '==', schoolId)
-      .where('classId', '==', classId)
-      .where('type', '==', 'weekly_lesson')
-      .where('dayOfWeek', '==', dayOfWeek)
-      .get();
+    let schedules: Record<string, unknown>[] = [];
 
-    let schedules = schedSnap.docs.map((d) => docToJson(d));
+    try {
+      const schedSnap = await schedulesCollection()
+        .where('schoolId', '==', schoolId)
+        .where('classId', '==', classId)
+        .where('type', '==', 'weekly_lesson')
+        .where('dayOfWeek', '==', dayOfWeek)
+        .get();
+      schedules = schedSnap.docs.map((d) => docToJson(d));
+    } catch (e) {
+      if (!isMissingIndexError(e)) throw e;
+      const fallback = await schedulesCollection()
+        .where('schoolId', '==', schoolId)
+        .where('classId', '==', classId)
+        .limit(200)
+        .get();
+      schedules = fallback.docs
+        .map((d) => docToJson(d))
+        .filter((r) => r.type === 'weekly_lesson' && r.dayOfWeek === dayOfWeek);
+    }
 
     if (schedules.length === 0) {
       const fallback = await schedulesCollection()
@@ -132,8 +147,8 @@ export async function GET(req: NextRequest) {
           courseTitle = course.title;
           items = await loadCourseItems(course._id);
           hasQuiz = items.some((i) => i.type === 'quiz');
-          hasMaterials = items.some((i) => i.type === 'video' || i.type === 'document');
-          const primary = items.find((i) => i.type === 'video') ?? items.find((i) => i.type === 'document') ?? items[0];
+          hasMaterials = items.some((i) => i.type === 'video' || i.type === 'document' || i.type === 'text' || i.type === 'link');
+          const primary = pickPrimaryLearnItem(items);
           if (primary) {
             learnUrl = `/lms/learn?course=${course._id}&item=${primary._id}`;
             primaryAction = primary.type === 'quiz' ? 'quiz' : 'learn';

@@ -20,3 +20,12 @@ export function dayRangeIso(date: string): { start: string; end: string } {
     end: `${date}T23:59:59.999Z`,
   };
 }
+
+/** Firestore FAILED_PRECONDITION when a composite index is not built yet. */
+export function isMissingIndexError(e: unknown): boolean {
+  if (!e || typeof e !== 'object') return false;
+  const err = e as { code?: number | string; message?: string; details?: string };
+  if (err.code === 9 || err.code === 'failed-precondition') return true;
+  const msg = `${err.message ?? ''} ${err.details ?? ''}`.toLowerCase();
+  return msg.includes('requires an index') || msg.includes('index is currently building');
+}

@@ -5,7 +5,8 @@ import { useForm } from 'react-hook-form';
 import api from '@/lib/aksara-api';
 import { useAuth } from '@/hooks/useAuth';
 import { LMS_DEFAULT_WEEKS, type LmsSyllabus, type LmsSyllabusWeek } from '@/lib/types';
-import { BookOpen, ChevronDown, ChevronUp, Loader2, Save, Video } from 'lucide-react';
+import CourseContentEditor from '@/components/Lms/CourseContentEditor';
+import { BookOpen, ChevronDown, ChevronUp, Loader2, Save, Trash2, Video } from 'lucide-react';
 
 const YOUTUBE_RE =
   /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/|shorts\/)|youtu\.be\/)[\w-]+/i;
@@ -162,6 +163,48 @@ export default function SyllabusBuilder({ initialSyllabusId }: { initialSyllabus
     }
   };
 
+  const onDeleteSyllabus = async () => {
+    if (!syllabus?._id || !confirm('Hapus silabus ini beserta semua modul & konten?')) return;
+    setLoading(true);
+    try {
+      await api.delete(`/lms/syllabus/${syllabus._id}`);
+      setSyllabus(null);
+      setWeeks([]);
+      api.invalidateCache('/lms');
+      setMessage('Silabus dihapus.');
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Gagal menghapus silabus');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const linkCourseToWeek = (weekNumber: number, courseId: string) => {
+    setWeeks((rows) => {
+      const next = rows.map((r) =>
+        r.weekNumber === weekNumber ? { ...r, referencedLmsCourseId: courseId || undefined } : r
+      );
+      if (syllabus?._id && courseId) {
+        const row = next.find((r) => r.weekNumber === weekNumber);
+        if (row) {
+          api
+            .put(`/lms/syllabus/${syllabus._id}`, {
+              weeks: [
+                {
+                  weekNumber: row.weekNumber,
+                  topic: row.topic,
+                  learningObjectives: row.learningObjectives,
+                  referencedLmsCourseId: courseId,
+                },
+              ],
+            })
+            .catch(() => {});
+        }
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
@@ -170,7 +213,7 @@ export default function SyllabusBuilder({ initialSyllabusId }: { initialSyllabus
           Pembangun Silabus (RPS/RPP)
         </h2>
         <p className="text-sm text-gray-600 mt-1">
-          Hubungkan 16 minggu pembelajaran dengan materi LMS — video YouTube (unlisted) atau Google Drive.
+          Hubungkan 16 minggu pembelajaran dengan materi LMS — video, teks, dokumen, kuis, atau tautan.
         </p>
       </div>
 
@@ -253,6 +296,15 @@ export default function SyllabusBuilder({ initialSyllabusId }: { initialSyllabus
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Simpan semua
             </button>
+            <button
+              type="button"
+              onClick={onDeleteSyllabus}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-3 py-2 border border-red-200 text-red-600 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50"
+            >
+              <Trash2 className="w-4 h-4" />
+              Hapus silabus
+            </button>
           </div>
 
           <div className="space-y-2">
@@ -310,6 +362,13 @@ export default function SyllabusBuilder({ initialSyllabusId }: { initialSyllabus
                           </span>
                         )}
                       </label>
+                      <CourseContentEditor
+                        syllabusId={syllabus._id}
+                        weekNumber={w.weekNumber}
+                        weekTopic={w.topic}
+                        courseId={w.referencedLmsCourseId}
+                        onCourseLinked={(cid) => linkCourseToWeek(w.weekNumber, cid)}
+                      />
                     </div>
                   )}
                 </div>

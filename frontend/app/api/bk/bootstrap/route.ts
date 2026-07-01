@@ -12,7 +12,7 @@ import {
   docToJson,
   usersCollection,
 } from '@/lib/server/firebase-admin';
-import { parseLimit, RECENT_LIMIT, STUDENT_PICKER_LIMIT, todayDateString } from '@/lib/server/firestore-query';
+import { parseLimit, RECENT_LIMIT, STUDENT_PICKER_LIMIT, todayDateString, isMissingIndexError } from '@/lib/server/firestore-query';
 import type { DisciplineWarning } from '@/lib/types';
 
 const CACHE_HEADERS = { 'Cache-Control': 'private, max-age=30' };
@@ -31,25 +31,82 @@ export async function GET(req: NextRequest) {
     const today = todayDateString();
     const canCounsel = await canWriteCounseling(auth);
 
+    const loadRecentIncidents = async () => {
+      try {
+        const snap = await disciplineIncidentsCollection()
+          .where('schoolId', '==', schoolId)
+          .where('status', '==', 'active')
+          .orderBy('occurredAt', 'desc')
+          .limit(incidentLimit)
+          .get();
+        return snap.docs.map((d) => docToJson(d));
+      } catch (e) {
+        if (!isMissingIndexError(e)) throw e;
+        const snap = await disciplineIncidentsCollection()
+          .where('schoolId', '==', schoolId)
+          .limit(500)
+          .get();
+        return snap.docs
+          .map((d) => docToJson(d))
+          .filter((r) => r.status === 'active')
+          .sort((a, b) => String(b.occurredAt ?? '').localeCompare(String(a.occurredAt ?? '')))
+          .slice(0, incidentLimit);
+      }
+    };
+
+    const loadWarnings = async () => {
+      try {
+        const snap = await disciplineWarningsCollection()
+          .where('schoolId', '==', schoolId)
+          .orderBy('createdAt', 'desc')
+          .limit(warningLimit)
+          .get();
+        return snap.docs.map((d) => docToJson(d) as unknown as DisciplineWarning);
+      } catch (e) {
+        if (!isMissingIndexError(e)) throw e;
+        const snap = await disciplineWarningsCollection()
+          .where('schoolId', '==', schoolId)
+          .limit(500)
+          .get();
+        return snap.docs
+          .map((d) => docToJson(d) as unknown as DisciplineWarning)
+          .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')))
+          .slice(0, warningLimit);
+      }
+    };
+
+    const loadCounseling = async () => {
+      if (!canCounsel) return [] as ReturnType<typeof docToJson>[];
+      try {
+        const snap = await counselingSessionsCollection()
+          .where('schoolId', '==', schoolId)
+          .orderBy('sessionAt', 'desc')
+          .limit(RECENT_LIMIT)
+          .get();
+        return snap.docs.map((d) => docToJson(d));
+      } catch (e) {
+        if (!isMissingIndexError(e)) throw e;
+        const snap = await counselingSessionsCollection()
+          .where('schoolId', '==', schoolId)
+          .limit(500)
+          .get();
+        return snap.docs
+          .map((d) => docToJson(d))
+          .sort((a, b) => String(b.sessionAt ?? '').localeCompare(String(a.sessionAt ?? '')))
+          .slice(0, RECENT_LIMIT);
+      }
+    };
+
     const [
-      recentIncSnap,
-      warnSnap,
+      recentIncidents,
+      warnings,
       counselCountSnap,
       studentCountSnap,
       atRisk,
       studentSnap,
     ] = await Promise.all([
-      disciplineIncidentsCollection()
-        .where('schoolId', '==', schoolId)
-        .where('status', '==', 'active')
-        .orderBy('occurredAt', 'desc')
-        .limit(incidentLimit)
-        .get(),
-      disciplineWarningsCollection()
-        .where('schoolId', '==', schoolId)
-        .orderBy('createdAt', 'desc')
-        .limit(warningLimit)
-        .get(),
+      loadRecentIncidents(),
+      loadWarnings(),
       canCounsel
         ? counselingSessionsCollection().where('schoolId', '==', schoolId).count().get()
         : Promise.resolve(null),
@@ -62,8 +119,6 @@ export async function GET(req: NextRequest) {
         .get(),
     ]);
 
-    const recentIncidents = recentIncSnap.docs.map((d) => docToJson(d));
-    const warnings = warnSnap.docs.map((d) => docToJson(d) as unknown as DisciplineWarning);
     const todayIncidents = recentIncidents.filter((r) => String(r.occurredAt ?? '').startsWith(today));
 
     const pendingWarnings = warnings.filter(
@@ -73,15 +128,7 @@ export async function GET(req: NextRequest) {
       (w) => w.level >= 3 && w.status !== 'meeting_completed'
     );
 
-    let counseling: ReturnType<typeof docToJson>[] = [];
-    if (canCounsel) {
-      const counselSnap = await counselingSessionsCollection()
-        .where('schoolId', '==', schoolId)
-        .orderBy('sessionAt', 'desc')
-        .limit(RECENT_LIMIT)
-        .get();
-      counseling = counselSnap.docs.map((d) => docToJson(d));
-    }
+    let counseling: ReturnType<typeof docToJson>[] = await loadCounseling();
 
     const students = studentSnap.docs
       .map((d) => {

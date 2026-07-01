@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { Query } from 'firebase-admin/firestore';
 import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
 import { canViewGuestBook, canWriteGuestBook } from '@/lib/server/guest-book';
+import { dayRangeIso, isMissingIndexError } from '@/lib/server/firestore-query';
 import { visitorLogsCollection, usersCollection, docToJson } from '@/lib/server/firebase-admin';
 import type { VisitorCategory, VisitTargetType, VisitorTransportType } from '@/lib/types';
 
@@ -24,16 +25,32 @@ export async function GET(req: NextRequest) {
     const q = req.nextUrl.searchParams.get('q')?.toLowerCase();
 
     let query: Query = visitorLogsCollection().where('schoolId', '==', schoolId);
+    let filterDateInMemory = false;
 
-    // Push date filter to Firestore instead of scanning entire collection in memory.
     if (date && !q) {
       query = query
         .where('checkInAt', '>=', `${date}T00:00:00.000Z`)
         .where('checkInAt', '<=', `${date}T23:59:59.999Z`);
     }
 
-    const snap = await query.limit(500).get();
+    let snap;
+    try {
+      snap = await query.limit(500).get();
+    } catch (e) {
+      if (!date || !isMissingIndexError(e)) throw e;
+      filterDateInMemory = true;
+      snap = await visitorLogsCollection().where('schoolId', '==', schoolId).limit(500).get();
+    }
+
     let rows = snap.docs.map((d) => docToJson(d));
+
+    if (filterDateInMemory && date) {
+      const { start, end } = dayRangeIso(date);
+      rows = rows.filter((r) => {
+        const at = String(r.checkInAt ?? '');
+        return at >= start && at <= end;
+      });
+    }
 
     if (date && q) {
       rows = rows.filter((r) => String(r.checkInAt ?? '').startsWith(date));

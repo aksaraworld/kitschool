@@ -25,6 +25,7 @@ import {
   type DisciplineIncident,
   type DisciplineWarning,
 } from '@/lib/types';
+import { isMissingIndexError } from '@/lib/server/firestore-query';
 
 export function canViewBk(auth: AuthUser | null): boolean {
   return hasFullAccess(auth) || hasAnyRole(auth, BK_VIEW_ROLES.map(String));
@@ -126,20 +127,37 @@ export async function syncStudentDisciplineSummary(
 }
 
 export async function getAtRiskStudents(schoolId: string, limit = 10) {
-  const snap = await disciplineStudentSummariesCollection()
-    .where('schoolId', '==', schoolId)
-    .where('netPoints', '>=', 10)
-    .orderBy('netPoints', 'desc')
-    .limit(limit)
-    .get();
-  return snap.docs.map((d) => {
-    const row = docToJson(d);
-    return {
-      studentId: String(row.studentId ?? d.id),
-      studentName: String(row.studentName ?? 'Siswa'),
-      netPoints: Number(row.netPoints) || 0,
-    };
-  });
+  type SummaryDoc = { id: string; data: () => Record<string, unknown> };
+  const mapRows = (docs: SummaryDoc[]) =>
+    docs
+      .map((d) => {
+        const row = docToJson(d);
+        return {
+          studentId: String(row.studentId ?? d.id),
+          studentName: String(row.studentName ?? 'Siswa'),
+          netPoints: Number(row.netPoints) || 0,
+        };
+      })
+      .filter((r) => r.netPoints >= 10)
+      .sort((a, b) => b.netPoints - a.netPoints)
+      .slice(0, limit);
+
+  try {
+    const snap = await disciplineStudentSummariesCollection()
+      .where('schoolId', '==', schoolId)
+      .where('netPoints', '>=', 10)
+      .orderBy('netPoints', 'desc')
+      .limit(limit)
+      .get();
+    return mapRows(snap.docs);
+  } catch (e) {
+    if (!isMissingIndexError(e)) throw e;
+    const snap = await disciplineStudentSummariesCollection()
+      .where('schoolId', '==', schoolId)
+      .limit(500)
+      .get();
+    return mapRows(snap.docs);
+  }
 }
 
 export async function getStudentWarnings(schoolId: string, studentId: string, limit = 50): Promise<DisciplineWarning[]> {

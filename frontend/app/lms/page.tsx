@@ -2,7 +2,8 @@
 
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import SyllabusBuilder from '@/components/Lms/SyllabusBuilder';
-import { LMS_TEACHER_ROLES } from '@/lib/types';
+import LmsSyllabusList from '@/components/Lms/LmsSyllabusList';
+import { LMS_MANAGE_ROLES } from '@/lib/types';
 import { GraduationCap } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
@@ -12,7 +13,7 @@ function LmsPageInner() {
   const syllabusId = params.get('syllabusId');
 
   return (
-    <ProtectedRoute allowedRoles={LMS_TEACHER_ROLES}>
+    <ProtectedRoute allowedRoles={LMS_MANAGE_ROLES}>
       <div className="space-y-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -20,9 +21,10 @@ function LmsPageInner() {
             LMS / E-Learning
           </h1>
           <p className="text-gray-600 mt-1 text-sm">
-            Silabus terintegrasi jadwal, RPS 16 minggu, materi YouTube & Google Drive tanpa biaya hosting.
+            Kelola silabus, materi teks, video YouTube, dokumen Drive, kuis, dan tautan — untuk guru & manajemen sekolah.
           </p>
         </div>
+        <LmsSyllabusList activeId={syllabusId} />
         <SyllabusBuilder initialSyllabusId={syllabusId} />
       </div>
     </ProtectedRoute>

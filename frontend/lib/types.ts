@@ -768,21 +768,38 @@ export interface Schedule {
 
 // ─── LMS (bound to schedule + syllabus) ───────────────────────────────────
 
-export type LmsItemType = 'video' | 'document' | 'quiz';
+export type LmsItemType = 'video' | 'document' | 'quiz' | 'text' | 'link';
+
+export const LMS_ITEM_TYPE_LABELS: Record<LmsItemType, string> = {
+  video: 'Video (YouTube)',
+  document: 'Dokumen (Google Drive)',
+  quiz: 'Kuis / Formulir',
+  text: 'Teks / Bacaan',
+  link: 'Tautan eksternal',
+};
 
 export const LMS_DEFAULT_WEEKS = 16;
 
-export const LMS_TEACHER_ROLES: UserRole[] = [
+/** Guru, kepsek, dan tim manajemen sekolah yang boleh mengelola LMS. */
+export const LMS_MANAGE_ROLES: UserRole[] = [
   UserRole.TEACHER,
   UserRole.HOMEROOM_TEACHER,
   UserRole.GURU_PRODUKTIF,
   UserRole.PRINCIPAL,
   UserRole.STAFF,
   UserRole.WAKASEK_KURIKULUM,
+  UserRole.WAKASEK_KESISWAAN,
+  UserRole.WAKASEK_SARANA,
+  UserRole.KEPALA_PROGRAM_KEAHLIAN,
+  UserRole.KAPRODI,
+  UserRole.KOORDINATOR_LAB_PERPUS,
 ];
 
+/** @deprecated use LMS_MANAGE_ROLES */
+export const LMS_TEACHER_ROLES = LMS_MANAGE_ROLES;
+
 export function canManageLmsClient(user: { role?: string; roles?: string[] } | null): boolean {
-  return hasFullAccess(user) || hasAnyRole(user, LMS_TEACHER_ROLES.map(String));
+  return hasFullAccess(user) || hasAnyRole(user, LMS_MANAGE_ROLES.map(String));
 }
 
 export interface AcademicYear {
@@ -841,9 +858,13 @@ export interface LmsItem {
   _id: string;
   type: LmsItemType;
   title: string;
-  contentUrl: string;
+  /** URL for video, document, quiz, or external link */
+  contentUrl?: string;
+  /** Plain / markdown text for type = text */
+  contentBody?: string;
   order?: number;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 /** Student dashboard — today's lesson with optional LMS link. */

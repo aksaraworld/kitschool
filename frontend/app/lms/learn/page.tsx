@@ -55,7 +55,7 @@ function LearnInner() {
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
       <h1 className="text-xl font-bold text-gray-900">{item.title}</h1>
-      {item.type === 'video' && (
+      {item.type === 'video' && item.contentUrl && (
         <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
           <iframe
             src={YOUTUBE_EMBED(item.contentUrl)}
@@ -66,18 +66,35 @@ function LearnInner() {
           />
         </div>
       )}
-      {item.type === 'document' && (
+      {item.type === 'document' && item.contentUrl && (
         <iframe
           src={DRIVE_PREVIEW(item.contentUrl)}
           className="w-full h-[70vh] rounded-xl border"
           title={item.title}
         />
       )}
-      {item.type === 'quiz' && (
+      {item.type === 'quiz' && item.contentUrl && (
         <div className="border rounded-xl p-6 bg-amber-50">
           <p className="font-medium text-amber-900">Kuis / formulir</p>
           <a href={item.contentUrl} target="_blank" rel="noopener noreferrer" className="text-primary-600 underline text-sm mt-2 inline-block">
             Buka kuis di tab baru
+          </a>
+        </div>
+      )}
+      {item.type === 'text' && (
+        <div className="border rounded-xl p-6 bg-gray-50 prose prose-sm max-w-none">
+          <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">{item.contentBody ?? ''}</div>
+        </div>
+      )}
+      {item.type === 'link' && item.contentUrl && (
+        <div className="border rounded-xl p-6">
+          <a
+            href={item.contentUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary-600 underline font-medium"
+          >
+            Buka tautan materi
           </a>
         </div>
       )}
