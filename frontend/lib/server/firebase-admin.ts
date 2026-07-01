@@ -16,6 +16,7 @@ import fs from 'fs';
 import path from 'path';
 
 let initDone = false;
+let firestoreSettingsDone = false;
 
 export function getFirebaseAdminSetupHint(): string {
   const saPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
@@ -52,7 +53,16 @@ export function getAuth() {
 
 export function getFirestore() {
   ensureInit();
-  return getFirebaseAdminDb();
+  const db = getFirebaseAdminDb();
+  if (!firestoreSettingsDone) {
+    try {
+      db.settings({ ignoreUndefinedProperties: true });
+    } catch {
+      // settings() is only valid before first use; ignore if already configured
+    }
+    firestoreSettingsDone = true;
+  }
+  return db;
 }
 
 export function getMessaging() {

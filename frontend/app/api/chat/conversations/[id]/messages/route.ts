@@ -101,7 +101,7 @@ export async function POST(
       schoolId,
       senderId: auth.uid,
       senderType: isPublic ? 'staff' : 'user',
-      senderName: isPublic ? `${senderName} (CS)` : undefined,
+      senderName: isPublic ? `${senderName} (CS)` : senderName,
       text,
       createdAt: now,
       readBy: { [auth.uid]: now.toISOString() },
@@ -132,6 +132,14 @@ export async function POST(
     if (isPublic && fresh.ticketId) {
       const count = (fresh.participantIds?.length ?? 0) + 1;
       void syncPublicChatMessageToTicket(fresh.ticketId, `[CS ${senderName}] ${text}`, count);
+    }
+
+    if (recipientId && !isPublic && !recipientId.startsWith('guest_')) {
+      void sendChatPush(recipientId, {
+        title: senderName,
+        body: text.slice(0, 120),
+        conversationId: id,
+      });
     }
 
     const created = await msgRef.get();
