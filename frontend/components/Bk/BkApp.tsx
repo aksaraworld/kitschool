@@ -116,50 +116,41 @@ export default function BkApp() {
     });
   }, [incidentForm.environment, incidentForm.recordType]);
 
-  const loadStudents = useCallback(async (q?: string) => {
-    try {
-      const params: Record<string, string> = {};
-      if (q?.trim()) params.q = q.trim();
-      const rows = await api.get<StudentOption[]>('/bk/students', { params, skipCache: true });
-      setStudents(Array.isArray(rows) ? rows : []);
-    } catch {
-      setStudents([]);
-    }
-  }, []);
+type BootstrapData = {
+  dashboard: DashboardData;
+  incidents: DisciplineIncident[];
+  warnings: DisciplineWarning[];
+  counseling: CounselingSession[];
+  students: StudentOption[];
+};
 
-  const loadDashboard = useCallback(async () => {
-    const data = await api.get<DashboardData>('/bk/dashboard', { skipCache: true });
-    setDashboard(data);
-  }, []);
-
-  const loadIncidents = useCallback(async () => {
-    const rows = await api.get<DisciplineIncident[]>('/bk/incidents', { skipCache: true });
-    setIncidents(Array.isArray(rows) ? rows : []);
-  }, []);
-
-  const loadCounseling = useCallback(async () => {
-    if (!canCounsel) return;
-    const rows = await api.get<CounselingSession[]>('/bk/counseling', { skipCache: true });
-    setCounseling(Array.isArray(rows) ? rows : []);
-  }, [canCounsel]);
-
-  const loadWarnings = useCallback(async () => {
-    const rows = await api.get<DisciplineWarning[]>('/bk/warnings', { skipCache: true });
-    setWarnings(Array.isArray(rows) ? rows : []);
-  }, []);
-
-  const load = useCallback(async () => {
+  const load = useCallback(async (fresh = false) => {
     setLoading(true);
     setMessage('');
     try {
-      await Promise.all([loadDashboard(), loadIncidents(), loadWarnings(), loadStudents()]);
-      await loadCounseling();
+      const data = await api.getCached<BootstrapData>('/bk/bootstrap', { skipCache: fresh });
+      setDashboard(data.dashboard);
+      setIncidents(Array.isArray(data.incidents) ? data.incidents : []);
+      setWarnings(Array.isArray(data.warnings) ? data.warnings : []);
+      setCounseling(Array.isArray(data.counseling) ? data.counseling : []);
+      setStudents(Array.isArray(data.students) ? data.students : []);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Gagal memuat data BK');
     } finally {
       setLoading(false);
     }
-  }, [loadDashboard, loadIncidents, loadWarnings, loadStudents, loadCounseling]);
+  }, []);
+
+  const loadStudents = useCallback(async (q?: string) => {
+    if (!q?.trim()) return;
+    try {
+      const params: Record<string, string> = { q: q.trim() };
+      const rows = await api.getCached<StudentOption[]>('/bk/students', { params });
+      setStudents(Array.isArray(rows) ? rows : []);
+    } catch {
+      /* keep bootstrap list */
+    }
+  }, []);
 
   useEffect(() => {
     load();
@@ -191,7 +182,8 @@ export default function BkApp() {
       await api.post('/bk/incidents', incidentForm);
       setShowIncidentForm(false);
       setIncidentForm(EMPTY_INCIDENT);
-      await load();
+      api.invalidateCache('/bk');
+      await load(true);
       setMessage('Pelanggaran / poin berhasil dicatat. Notifikasi dikirim ke orang tua.');
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Gagal menyimpan');
@@ -211,7 +203,8 @@ export default function BkApp() {
       await api.post('/bk/counseling', counselForm);
       setShowCounselForm(false);
       setCounselForm(EMPTY_COUNSEL);
-      await load();
+      api.invalidateCache('/bk');
+      await load(true);
       setMessage('Sesi konseling tersimpan (rahasia).');
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Gagal menyimpan');
@@ -224,7 +217,7 @@ export default function BkApp() {
     if (!id) return;
     setSelectedStudentId(id);
     try {
-      const data = await api.get<Record<string, unknown>>(`/bk/students/${id}`, { skipCache: true });
+      const data = await api.getCached<Record<string, unknown>>(`/bk/students/${id}`);
       setStudentSummary(data);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Gagal memuat profil siswa');
@@ -235,7 +228,8 @@ export default function BkApp() {
     if (!canManage || !confirm('Batalkan catatan ini?')) return;
     try {
       await api.put(`/bk/incidents/${id}`, { action: 'void', reason: 'Dibatalkan oleh BK' });
-      await load();
+      api.invalidateCache('/bk');
+      await load(true);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Gagal membatalkan');
     }
@@ -256,7 +250,8 @@ export default function BkApp() {
     if (!canManage) return;
     try {
       await api.put(`/bk/warnings/${id}`, { action: 'complete_meeting', meetingNotes: 'Pertemuan selesai' });
-      await load();
+      api.invalidateCache('/bk');
+      await load(true);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Gagal');
     }

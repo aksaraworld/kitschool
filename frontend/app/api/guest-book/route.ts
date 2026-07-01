@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { Query } from 'firebase-admin/firestore';
 import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
 import { canViewGuestBook, canWriteGuestBook } from '@/lib/server/guest-book';
 import { visitorLogsCollection, usersCollection, docToJson } from '@/lib/server/firebase-admin';
@@ -22,10 +23,19 @@ export async function GET(req: NextRequest) {
     const category = req.nextUrl.searchParams.get('category');
     const q = req.nextUrl.searchParams.get('q')?.toLowerCase();
 
-    const snap = await visitorLogsCollection().where('schoolId', '==', schoolId).get();
+    let query: Query = visitorLogsCollection().where('schoolId', '==', schoolId);
+
+    // Push date filter to Firestore instead of scanning entire collection in memory.
+    if (date && !q) {
+      query = query
+        .where('checkInAt', '>=', `${date}T00:00:00.000Z`)
+        .where('checkInAt', '<=', `${date}T23:59:59.999Z`);
+    }
+
+    const snap = await query.limit(500).get();
     let rows = snap.docs.map((d) => docToJson(d));
 
-    if (date) {
+    if (date && q) {
       rows = rows.filter((r) => String(r.checkInAt ?? '').startsWith(date));
     }
     if (status) rows = rows.filter((r) => r.status === status);

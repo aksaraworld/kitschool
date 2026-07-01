@@ -138,11 +138,10 @@ export async function enrichRooms(
 }
 
 export async function getBoardingDashboard(schoolId: string): Promise<BoardingDashboardStats> {
-  const [roomsSnap, schedSnap, leaveSnap, phoneSnap] = await Promise.all([
+  const [roomsSnap, schedSnap, leaveSnap] = await Promise.all([
     boardingRoomsCollection().where('schoolId', '==', schoolId).where('isActive', '==', true).get(),
     boardingSchedulesCollection().where('schoolId', '==', schoolId).where('isActive', '==', true).get(),
     boardingLeaveCollection().where('schoolId', '==', schoolId).where('status', '==', 'pending').get(),
-    boardingPhoneLogsCollection().where('schoolId', '==', schoolId).get(),
   ]);
 
   const rooms = roomsSnap.docs.map((d) => docToJson(d) as unknown as BoardingRoom);
@@ -164,10 +163,11 @@ export async function getBoardingDashboard(schoolId: string): Promise<BoardingDa
     .filter((s) => s.dayOfWeek === today);
 
   const todayStr = new Date().toISOString().slice(0, 10);
-  const phoneCollectedToday = phoneSnap.docs.filter((d) => {
-    const data = d.data();
-    return data.action === 'collected' && String(data.date).startsWith(todayStr);
-  }).length;
+  const phoneSnap = await boardingPhoneLogsCollection()
+    .where('schoolId', '==', schoolId)
+    .where('date', '==', todayStr)
+    .get();
+  const phoneCollectedToday = phoneSnap.docs.filter((d) => d.data().action === 'collected').length;
 
   return {
     totalRooms: rooms.length,

@@ -3,6 +3,7 @@ import { hasAnyRole, hasFullAccess } from '@/lib/server/auth-helpers';
 import {
   boardingRoomsCollection,
   disciplineIncidentsCollection,
+  disciplineStudentSummariesCollection,
   disciplineWarningsCollection,
   usersCollection,
   docToJson,
@@ -91,25 +92,64 @@ export function resolveWarningLevel(netPoints: number): BkWarningLevel | null {
   return level;
 }
 
-export async function getStudentIncidents(schoolId: string, studentId: string): Promise<DisciplineIncident[]> {
+export async function getStudentIncidents(schoolId: string, studentId: string, limit = 100): Promise<DisciplineIncident[]> {
   const snap = await disciplineIncidentsCollection()
     .where('schoolId', '==', schoolId)
     .where('studentId', '==', studentId)
+    .orderBy('occurredAt', 'desc')
+    .limit(limit)
     .get();
   return snap.docs
     .map((d) => docToJson(d) as unknown as DisciplineIncident)
-    .filter((r) => r.status === 'active')
-    .sort((a, b) => String(b.occurredAt ?? '').localeCompare(String(a.occurredAt ?? '')));
+    .filter((r) => r.status === 'active');
 }
 
-export async function getStudentWarnings(schoolId: string, studentId: string): Promise<DisciplineWarning[]> {
+export async function syncStudentDisciplineSummary(
+  schoolId: string,
+  studentId: string,
+  studentName?: string
+): Promise<{ totalDemerit: number; totalMerit: number; netPoints: number }> {
+  const incidents = await getStudentIncidents(schoolId, studentId, 500);
+  const totals = computePointTotals(incidents);
+  const ref = disciplineStudentSummariesCollection().doc(studentId);
+  await ref.set(
+    {
+      schoolId,
+      studentId,
+      studentName: studentName ?? incidents[0]?.studentName ?? 'Siswa',
+      ...totals,
+      updatedAt: new Date(),
+    },
+    { merge: true }
+  );
+  return totals;
+}
+
+export async function getAtRiskStudents(schoolId: string, limit = 10) {
+  const snap = await disciplineStudentSummariesCollection()
+    .where('schoolId', '==', schoolId)
+    .where('netPoints', '>=', 10)
+    .orderBy('netPoints', 'desc')
+    .limit(limit)
+    .get();
+  return snap.docs.map((d) => {
+    const row = docToJson(d);
+    return {
+      studentId: String(row.studentId ?? d.id),
+      studentName: String(row.studentName ?? 'Siswa'),
+      netPoints: Number(row.netPoints) || 0,
+    };
+  });
+}
+
+export async function getStudentWarnings(schoolId: string, studentId: string, limit = 50): Promise<DisciplineWarning[]> {
   const snap = await disciplineWarningsCollection()
     .where('schoolId', '==', schoolId)
     .where('studentId', '==', studentId)
+    .orderBy('createdAt', 'desc')
+    .limit(limit)
     .get();
-  return snap.docs
-    .map((d) => docToJson(d) as unknown as DisciplineWarning)
-    .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')));
+  return snap.docs.map((d) => docToJson(d) as unknown as DisciplineWarning);
 }
 
 export async function findParentId(studentId: string): Promise<string | null> {

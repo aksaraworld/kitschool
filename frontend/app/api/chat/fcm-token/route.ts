@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { FieldValue } from 'firebase-admin/firestore';
 import { getAuthUser } from '@/lib/server/auth-helpers';
 import { usersCollection } from '@/lib/server/firebase-admin';
 
@@ -12,18 +13,15 @@ export async function POST(req: NextRequest) {
     if (!token) return NextResponse.json({ message: 'token required' }, { status: 400 });
 
     const ref = usersCollection().doc(auth.uid);
-    const snap = await ref.get();
-    if (!snap.exists) return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    await ref.set(
+      {
+        fcmTokens: FieldValue.arrayUnion(token),
+        updatedAt: new Date(),
+      },
+      { merge: true }
+    );
 
-    const existing = (snap.data() as { fcmTokens?: string[] })?.fcmTokens ?? [];
-    const fcmTokens = [token, ...existing.filter((t) => t !== token)].slice(0, 5);
-
-    await ref.update({
-      fcmTokens,
-      updatedAt: new Date(),
-    });
-
-    return NextResponse.json({ message: 'OK', registered: true, tokenCount: fcmTokens.length });
+    return NextResponse.json({ message: 'OK', registered: true });
   } catch (e) {
     console.error('POST /api/chat/fcm-token error:', e);
     const message = e instanceof Error ? e.message : 'Server error';

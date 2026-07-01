@@ -112,8 +112,12 @@ export const api = {
     return handleApiResponse<T>(response);
   },
   
-  getCached: async <T = any>(endpoint: string, options?: { skipCache?: boolean }): Promise<T> => {
-    const response = await aksaraApi.getCached(endpoint, options);
+  getCached: async <T = any>(
+    endpoint: string,
+    options?: { params?: Record<string, any>; skipCache?: boolean }
+  ): Promise<T> => {
+    const queryString = options?.params ? buildQueryString(options.params) : '';
+    const response = await aksaraApi.getCached(`${endpoint}${queryString}`, options);
     return handleApiResponse<T>(response);
   },
   

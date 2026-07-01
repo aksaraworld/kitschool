@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
-import { canViewBk, canWriteCounseling } from '@/lib/server/bk';
+import { canWriteCounseling } from '@/lib/server/bk';
 import { counselingSessionsCollection, docToJson, usersCollection } from '@/lib/server/firebase-admin';
+import { parseLimit, DEFAULT_LIST_LIMIT } from '@/lib/server/firestore-query';
 import type { BkEnvironment } from '@/lib/types';
 
 export async function GET(req: NextRequest) {
@@ -14,12 +15,27 @@ export async function GET(req: NextRequest) {
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
     const studentId = req.nextUrl.searchParams.get('studentId');
-    const snap = await counselingSessionsCollection().where('schoolId', '==', schoolId).get();
-    let rows = snap.docs.map((d) => docToJson(d));
-    if (studentId) rows = rows.filter((r) => r.studentId === studentId);
+    const limit = parseLimit(req.nextUrl.searchParams.get('limit'), DEFAULT_LIST_LIMIT);
 
-    rows.sort((a, b) => String(b.sessionAt ?? '').localeCompare(String(a.sessionAt ?? '')));
-    return NextResponse.json(rows.slice(0, 300));
+    let snap;
+    if (studentId) {
+      snap = await counselingSessionsCollection()
+        .where('schoolId', '==', schoolId)
+        .where('studentId', '==', studentId)
+        .orderBy('sessionAt', 'desc')
+        .limit(limit)
+        .get();
+    } else {
+      snap = await counselingSessionsCollection()
+        .where('schoolId', '==', schoolId)
+        .orderBy('sessionAt', 'desc')
+        .limit(limit)
+        .get();
+    }
+
+    return NextResponse.json(snap.docs.map((d) => docToJson(d)), {
+      headers: { 'Cache-Control': 'private, max-age=30' },
+    });
   } catch (e) {
     console.error('GET /api/bk/counseling error:', e);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });

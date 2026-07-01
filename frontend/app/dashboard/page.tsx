@@ -7,6 +7,7 @@ import { UserRole, hasFullAccess, hasAnyRole, canManageBoardingClient } from '@/
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
 import { UNIT_CONTEXT_CHANGE_EVENT } from '@/context/SchoolContext';
+import ScheduleTimelineCard from '@/components/Lms/ScheduleTimelineCard';
 import {
   Users,
   Calendar,
@@ -87,7 +88,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const refresh = () => {
       if (!user || !showDashboardSummary) return;
-      api.getCached<DashboardSummary>('/dashboard/summary', { skipCache: true }).then(setSummary).catch(() => setSummary(null));
+      api.getCached<DashboardSummary>('/dashboard/summary').then(setSummary).catch(() => setSummary(null));
     };
     window.addEventListener(UNIT_CONTEXT_CHANGE_EVENT, refresh);
     return () => window.removeEventListener(UNIT_CONTEXT_CHANGE_EVENT, refresh);
@@ -172,6 +173,10 @@ export default function DashboardPage() {
             return <div key={index}>{card}</div>;
           })}
         </div>
+
+        {user?.role === UserRole.STUDENT && (
+          <ScheduleTimelineCard />
+        )}
 
         {showBoardingWidget && boarding && (
           <div className="bg-white rounded-lg shadow p-6">

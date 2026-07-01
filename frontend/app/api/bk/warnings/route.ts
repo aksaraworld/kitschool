@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
-import { canManageBk, canViewBk } from '@/lib/server/bk';
+import { canViewBk } from '@/lib/server/bk';
 import { disciplineWarningsCollection, docToJson } from '@/lib/server/firebase-admin';
+import { parseLimit, DEFAULT_LIST_LIMIT } from '@/lib/server/firestore-query';
 import { UserRole } from '@/lib/types';
 
 export async function GET(req: NextRequest) {
@@ -18,8 +19,14 @@ export async function GET(req: NextRequest) {
 
     const studentId = req.nextUrl.searchParams.get('studentId');
     const status = req.nextUrl.searchParams.get('status');
+    const limit = parseLimit(req.nextUrl.searchParams.get('limit'), DEFAULT_LIST_LIMIT);
 
-    const snap = await disciplineWarningsCollection().where('schoolId', '==', schoolId).get();
+    let query = disciplineWarningsCollection()
+      .where('schoolId', '==', schoolId)
+      .orderBy('createdAt', 'desc')
+      .limit(limit);
+
+    const snap = await query.get();
     let rows = snap.docs.map((d) => docToJson(d));
 
     if (auth.role === UserRole.PARENT) {
@@ -28,8 +35,7 @@ export async function GET(req: NextRequest) {
     if (studentId) rows = rows.filter((r) => r.studentId === studentId);
     if (status) rows = rows.filter((r) => r.status === status);
 
-    rows.sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')));
-    return NextResponse.json(rows.slice(0, 200));
+    return NextResponse.json(rows, { headers: { 'Cache-Control': 'private, max-age=30' } });
   } catch (e) {
     console.error('GET /api/bk/warnings error:', e);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });

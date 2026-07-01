@@ -16,16 +16,29 @@ export async function GET(req: NextRequest) {
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
     const status = req.nextUrl.searchParams.get('status');
-    const snap = await boardingLeaveCollection().where('schoolId', '==', schoolId).get();
+    let snap;
+    if (status) {
+      snap = await boardingLeaveCollection()
+        .where('schoolId', '==', schoolId)
+        .where('status', '==', status)
+        .orderBy('createdAt', 'desc')
+        .limit(200)
+        .get();
+    } else {
+      snap = await boardingLeaveCollection()
+        .where('schoolId', '==', schoolId)
+        .orderBy('createdAt', 'desc')
+        .limit(200)
+        .get();
+    }
     let rows = snap.docs.map((d) => docToJson(d));
-    if (status) rows = rows.filter((r) => r.status === status);
 
     if (auth.role === UserRole.PARENT) {
       rows = rows.filter((r) => r.parentId === auth.uid);
     }
 
     rows.sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')));
-    return NextResponse.json(rows);
+    return NextResponse.json(rows, { headers: { 'Cache-Control': 'private, max-age=30' } });
   } catch (e) {
     console.error('GET /api/boarding/leave error:', e);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });

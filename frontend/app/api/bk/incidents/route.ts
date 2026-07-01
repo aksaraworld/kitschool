@@ -5,11 +5,10 @@ import {
   canLogIncident,
   canLogSchoolBk,
   canViewBk,
-  computePointTotals,
   findParentId,
-  getStudentIncidents,
   getStudentWarnings,
   resolveWarningLevel,
+  syncStudentDisciplineSummary,
   validateViolation,
   buildWarningMessage,
 } from '@/lib/server/bk';
@@ -20,6 +19,7 @@ import {
   docToJson,
   usersCollection,
 } from '@/lib/server/firebase-admin';
+import { parseLimit, DEFAULT_LIST_LIMIT } from '@/lib/server/firestore-query';
 import {
   BK_VIOLATION_MAP,
   type BkEnvironment,
@@ -35,8 +35,7 @@ async function processWarnings(
   violationLabel: string,
   reporterId: string
 ) {
-  const incidents = await getStudentIncidents(schoolId, studentId);
-  const { netPoints } = computePointTotals(incidents);
+  const { netPoints } = await syncStudentDisciplineSummary(schoolId, studentId, studentName);
   const level = resolveWarningLevel(netPoints);
   if (!level) return;
 
@@ -93,10 +92,26 @@ export async function GET(req: NextRequest) {
     const to = req.nextUrl.searchParams.get('to');
     const q = req.nextUrl.searchParams.get('q')?.toLowerCase();
 
-    const snap = await disciplineIncidentsCollection().where('schoolId', '==', schoolId).get();
-    let rows = snap.docs.map((d) => docToJson(d));
+    const limit = parseLimit(req.nextUrl.searchParams.get('limit'), DEFAULT_LIST_LIMIT);
 
-    if (studentId) rows = rows.filter((r) => r.studentId === studentId);
+    let snap;
+    if (studentId) {
+      snap = await disciplineIncidentsCollection()
+        .where('schoolId', '==', schoolId)
+        .where('studentId', '==', studentId)
+        .orderBy('occurredAt', 'desc')
+        .limit(limit)
+        .get();
+    } else {
+      snap = await disciplineIncidentsCollection()
+        .where('schoolId', '==', schoolId)
+        .orderBy('occurredAt', 'desc')
+        .limit(limit)
+        .get();
+    }
+
+    let rows = snap.docs.map((d) => docToJson(d)).filter((r) => r.status === 'active');
+
     if (environment) rows = rows.filter((r) => r.environment === environment);
     if (recordType) rows = rows.filter((r) => r.recordType === recordType);
     if (from) rows = rows.filter((r) => String(r.occurredAt ?? '') >= from);
@@ -111,8 +126,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    rows.sort((a, b) => String(b.occurredAt ?? '').localeCompare(String(a.occurredAt ?? '')));
-    return NextResponse.json(rows.slice(0, 500));
+    return NextResponse.json(rows, { headers: { 'Cache-Control': 'private, max-age=30' } });
   } catch (e) {
     console.error('GET /api/bk/incidents error:', e);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });
@@ -187,6 +201,8 @@ export async function POST(req: NextRequest) {
       updatedAt: now,
     };
     await ref.set(row);
+
+    await syncStudentDisciplineSummary(schoolId, studentId, row.studentName);
 
     const parentId = await findParentId(studentId);
     if (parentId) {

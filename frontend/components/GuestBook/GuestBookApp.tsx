@@ -104,13 +104,13 @@ export default function GuestBookApp() {
   const [targetUsers, setTargetUsers] = useState<User[]>([]);
   const [targetSearch, setTargetSearch] = useState('');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (fresh = false) => {
     setLoading(true);
     try {
       const params: Record<string, string> = { date: filterDate };
       if (filterStatus) params.status = filterStatus;
       if (search.trim()) params.q = search.trim();
-      const rows = await api.get<VisitorLog[]>('/guest-book', { params, skipCache: true });
+      const rows = await api.getCached<VisitorLog[]>('/guest-book', { params, skipCache: fresh });
       setLogs(Array.isArray(rows) ? rows : []);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Gagal memuat buku tamu');
@@ -124,9 +124,10 @@ export default function GuestBookApp() {
   }, [load]);
 
   useEffect(() => {
+    if (!showForm) return;
     const role = TARGET_ROLE_MAP[form.visitTargetType];
     api
-      .get<User[]>('/users', { params: role ? { role } : {} })
+      .getCached<User[]>('/users', { params: role ? { role } : {} })
       .then((users) => {
         let list = users ?? [];
         if (form.visitTargetType === 'management') {
@@ -137,7 +138,7 @@ export default function GuestBookApp() {
         setTargetUsers(list);
       })
       .catch(() => setTargetUsers([]));
-  }, [form.visitTargetType]);
+  }, [form.visitTargetType, showForm]);
 
   const filteredTargets = useMemo(() => {
     const q = targetSearch.trim().toLowerCase();
@@ -186,7 +187,8 @@ export default function GuestBookApp() {
       });
       setMessage('Pengunjung berhasil dicatat.');
       resetForm();
-      await load();
+      api.invalidateCache('/guest-book');
+      await load(true);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Gagal menyimpan');
     } finally {
@@ -198,7 +200,8 @@ export default function GuestBookApp() {
     try {
       await api.put(`/guest-book/${id}`, { action: 'checkout' });
       setMessage('Pengunjung telah check-out.');
-      await load();
+      api.invalidateCache('/guest-book');
+      await load(true);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Gagal check-out');
     }

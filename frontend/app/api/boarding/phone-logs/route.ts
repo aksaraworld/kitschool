@@ -21,8 +21,12 @@ export async function GET(req: NextRequest) {
     const roomId = req.nextUrl.searchParams.get('roomId');
     const studentId = req.nextUrl.searchParams.get('studentId');
 
-    const snap = await boardingPhoneLogsCollection().where('schoolId', '==', schoolId).get();
-    let rows = snap.docs.map((d) => docToJson(d)).filter((r) => String(r.date).startsWith(date));
+    const snap = await boardingPhoneLogsCollection()
+      .where('schoolId', '==', schoolId)
+      .where('date', '==', date)
+      .limit(500)
+      .get();
+    let rows = snap.docs.map((d) => docToJson(d));
 
     if (roomId) rows = rows.filter((r) => r.roomId === roomId);
 

@@ -182,6 +182,11 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if false;
     }
+
+    match /disciplineStudentSummaries/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
     
     // Years collection
     match /years/{yearId} {
@@ -293,6 +298,28 @@ service cloud.firestore {
     match /resources/{docId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAdmin();
+    }
+
+    // LMS syllabus (RPS/RPP) — API writes only
+    match /lmsSyllabus/{syllabusId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+
+      match /weeks/{weekId} {
+        allow read: if isAuthenticated();
+        allow write: if false;
+      }
+    }
+
+    // LMS courses & items — API writes only
+    match /lmsCourses/{courseId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+
+      match /items/{itemId} {
+        allow read: if isAuthenticated();
+        allow write: if false;
+      }
     }
   }
 }

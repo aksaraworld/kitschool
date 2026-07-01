@@ -60,7 +60,9 @@ export class APICache {
       '/config',
       '/saas/summary',
       '/boarding/summary',
+      '/bk/bootstrap',
       '/dashboard/summary',
+      '/guest-book',
       '/public/school/',
     ];
     

@@ -91,16 +91,16 @@ export default function BoardingApp() {
   const [attScheduleId, setAttScheduleId] = useState('');
   const [attMarks, setAttMarks] = useState<Record<string, BoardingAttendanceStatus>>({});
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (fresh = false) => {
     setLoading(true);
     try {
-      const summary = await api.get<{
+      const summary = await api.getCached<{
         areas: BoardingArea[];
         rooms: BoardingRoomEnriched[];
         schedules: BoardingActivitySchedule[];
         dashboard: BoardingDashboardStats;
         boardingConfig?: BoardingSchoolConfig;
-      }>('/boarding/summary', { skipCache: true });
+      }>('/boarding/summary', { skipCache: fresh });
       setAreas(summary.areas);
       setRooms(summary.rooms);
       setSchedules(summary.schedules);
@@ -116,8 +116,8 @@ export default function BoardingApp() {
   useEffect(() => {
     load();
     if (canManage) {
-      api.get<User[]>('/users', { params: { role: 'student' } }).then(setStudents).catch(() => {});
-      api.get<User[]>('/users', { params: { role: 'staff' } }).then(setStaff).catch(() => {});
+      api.getCached<User[]>('/users', { params: { role: 'student' } }).then(setStudents).catch(() => {});
+      api.getCached<User[]>('/users', { params: { role: 'staff' } }).then(setStaff).catch(() => {});
     }
   }, [load, canManage]);
 
@@ -125,14 +125,14 @@ export default function BoardingApp() {
     if (tab === 'leave') {
       const params: Record<string, string> = {};
       if (leaveFilter.status) params.status = leaveFilter.status;
-      api.get<BoardingLeaveRequest[]>('/boarding/leave', { params, skipCache: true }).then(setLeaves).catch(() => {});
+      api.getCached<BoardingLeaveRequest[]>('/boarding/leave', { params }).then(setLeaves).catch(() => {});
     }
     if (tab === 'finance' && canManage) {
-      api.get<typeof finance>('/boarding/finance', { skipCache: true }).then(setFinance).catch(() => {});
+      api.getCached<typeof finance>('/boarding/finance').then(setFinance).catch(() => {});
     }
     if (tab === 'phone' && canManage) {
       const today = new Date().toISOString().slice(0, 10);
-      api.get<BoardingPhoneLog[]>('/boarding/phone-logs', { params: { date: today }, skipCache: true })
+      api.getCached<BoardingPhoneLog[]>('/boarding/phone-logs', { params: { date: today } })
         .then(setPhoneLogs)
         .catch(() => setPhoneLogs([]));
     }
@@ -142,9 +142,8 @@ export default function BoardingApp() {
     if (!canManage || !attRoomId) return;
     const params: Record<string, string> = { date: attDate, roomId: attRoomId, type: attType };
     api
-      .get<{ studentId: string; status: BoardingAttendanceStatus; scheduleId?: string }[]>('/boarding/attendance', {
+      .getCached<{ studentId: string; status: BoardingAttendanceStatus; scheduleId?: string }[]>('/boarding/attendance', {
         params,
-        skipCache: true,
       })
       .then((rows) => {
         const marks: Record<string, BoardingAttendanceStatus> = {};

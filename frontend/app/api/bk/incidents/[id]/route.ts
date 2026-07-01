@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
-import { canManageBk, canViewBk } from '@/lib/server/bk';
+import { canManageBk, canViewBk, syncStudentDisciplineSummary } from '@/lib/server/bk';
 import { disciplineIncidentsCollection, docToJson, usersCollection } from '@/lib/server/firebase-admin';
 
 export async function GET(
@@ -54,6 +54,8 @@ export async function PUT(
     const managerName = String((managerSnap.data() as { name?: string })?.name ?? 'Staf');
     const now = new Date();
 
+    const existingData = snap.data() as { schoolId?: string; studentId?: string; studentName?: string };
+
     if (action === 'void') {
       await ref.update({
         status: 'voided',
@@ -62,6 +64,13 @@ export async function PUT(
         overrideReason: body.reason ? String(body.reason).trim() : 'Dibatalkan',
         updatedAt: now,
       });
+      if (existingData.studentId) {
+        await syncStudentDisciplineSummary(
+          schoolId,
+          existingData.studentId,
+          existingData.studentName
+        );
+      }
       return NextResponse.json(docToJson(await ref.get()));
     }
 

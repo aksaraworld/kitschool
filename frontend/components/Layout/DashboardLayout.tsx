@@ -57,6 +57,7 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/profile', label: 'Profil', icon: User },
     { href: '/attendance', label: 'Kehadiran', icon: ClipboardCheck },
     { href: '/calendar', label: 'Kalender', icon: Calendar },
+    { href: '/lms/learn', label: 'Belajar', icon: GraduationCap },
     { href: '/reports', label: 'Laporan', icon: FileText },
   ],
   [UserRole.PARENT]: [
@@ -78,6 +79,7 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/schedules', label: 'Jadwal', icon: Calendar },
     { href: '/calendar', label: 'Kalender', icon: Calendar },
     { href: '/bk', label: 'BK & Kedisiplinan', icon: Shield },
+    { href: '/lms', label: 'LMS / Silabus', icon: GraduationCap },
     { href: '/messages', label: 'Pesan', icon: MessageSquare },
   ],
   [UserRole.HOMEROOM_TEACHER]: [
@@ -87,6 +89,7 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/classes', label: 'Kelas Saya', icon: BookOpen },
     { href: '/schedules', label: 'Jadwal', icon: Calendar },
     { href: '/bk', label: 'BK & Kedisiplinan', icon: Shield },
+    { href: '/lms', label: 'LMS / Silabus', icon: GraduationCap },
     { href: '/messages', label: 'Pesan', icon: MessageSquare },
   ],
   [UserRole.STAFF]: [

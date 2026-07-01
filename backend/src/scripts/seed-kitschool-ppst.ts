@@ -37,8 +37,41 @@ const FIRESTORE_COLLECTIONS = [
   'invoices', 'payments', 'communications', 'config', 'subjects', 'rooms',
   'feeStructures', 'exams', 'grades', 'assignments', 'submissions', 'resources',
   'boardingAreas', 'boardingRooms', 'boardingSchedules',
-  'disciplineIncidents', 'counselingSessions', 'disciplineWarnings',
+  'disciplineIncidents', 'counselingSessions', 'disciplineWarnings', 'disciplineStudentSummaries',
+  'visitorLogs', 'lmsSyllabus', 'lmsCourses',
 ];
+
+/** Demo LMS video — YouTube unlisted/embed (haQMVtwQYAw) */
+const DEMO_LMS_VIDEO_URL = 'https://www.youtube.com/watch?v=haQMVtwQYAw';
+
+function isoAt(hour: number, minute = 0, dayOffset = 0): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + dayOffset);
+  d.setUTCHours(hour, minute, 0, 0);
+  return d.toISOString();
+}
+
+async function deleteSubcollection(collectionName: string, docId: string, subName: string) {
+  const ref = firestore.collection(collectionName).doc(docId).collection(subName);
+  const BATCH = 500;
+  let snapshot = await ref.limit(BATCH).get();
+  while (!snapshot.empty) {
+    const batch = firestore.batch();
+    snapshot.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    snapshot = await ref.limit(BATCH).get();
+  }
+}
+
+async function deleteLmsCourse(courseId: string) {
+  await deleteSubcollection('lmsCourses', courseId, 'items');
+  await firestore.collection('lmsCourses').doc(courseId).delete();
+}
+
+async function deleteLmsSyllabus(syllabusId: string) {
+  await deleteSubcollection('lmsSyllabus', syllabusId, 'weeks');
+  await firestore.collection('lmsSyllabus').doc(syllabusId).delete();
+}
 
 type SeedUser = {
   email: string;
@@ -140,6 +173,18 @@ async function main() {
   if (process.env.SEED_RESET === '1') {
     console.log('1) Resetting Auth + Firestore...');
     await deleteAllAuthUsers();
+    for (const id of ['course-fiqih-w16', 'course-pai-w01']) {
+      try {
+        await deleteLmsCourse(id);
+      } catch {
+        /* ignore */
+      }
+    }
+    try {
+      await deleteLmsSyllabus('syllabus-fiqih-mts-vii-a');
+    } catch {
+      /* ignore */
+    }
     for (const name of FIRESTORE_COLLECTIONS) await deleteCollection(name);
   }
 
@@ -179,7 +224,7 @@ async function main() {
         ctaSubtitle: 'Masuk untuk staf, guru, orang tua, dan santri yang sudah terdaftar.',
         publicChatEnabled: true,
       },
-      modules: { boardingSchool: true, bkModule: true },
+      modules: { boardingSchool: true, bkModule: true, lmsModule: true },
       boardingConfig: {
         phonePolicy: {
           restrictOnSchoolDays: true,
@@ -817,6 +862,243 @@ async function main() {
     updatedAt: new Date(),
   });
 
+  await firestore.collection('disciplineStudentSummaries').doc(sampleStudent).set({
+    schoolId,
+    studentId: sampleStudent,
+    studentName: sampleStudentName,
+    totalDemerit: 35,
+    totalMerit: 0,
+    netPoints: 35,
+    updatedAt: new Date(),
+  });
+
+  const sampleStudent2 = mtsStudentIds[1];
+  const sampleStudent2Snap = await firestore.collection(USERS_COLLECTION).doc(sampleStudent2).get();
+  const sampleStudent2Name = String((sampleStudent2Snap.data() as { name?: string })?.name ?? 'Santri');
+
+  await firestore.collection('disciplineIncidents').doc('bk-sample-merit').set({
+    schoolId,
+    studentId: sampleStudent2,
+    studentName: sampleStudent2Name,
+    environment: 'school',
+    violationType: 'good_deed',
+    recordType: 'merit',
+    points: 15,
+    location: 'Halaman Sekolah',
+    description: 'Membantu membersihkan musholla sebelum kajian',
+    occurredAt: isoAt(7, 0, -2),
+    reportedBy: ids.bkCoordinator,
+    reportedByName: 'Ust. Siti Nurhaliza, S.Pd.',
+    status: 'active',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  await firestore.collection('disciplineStudentSummaries').doc(sampleStudent2).set({
+    schoolId,
+    studentId: sampleStudent2,
+    studentName: sampleStudent2Name,
+    totalDemerit: 0,
+    totalMerit: 15,
+    netPoints: -15,
+    updatedAt: new Date(),
+  });
+
+  console.log('11) Seeding buku tamu (visitor logs)...');
+  const securitySnap = await firestore.collection(USERS_COLLECTION).doc(ids.security).get();
+  const securityName = String((securitySnap.data() as { name?: string })?.name ?? 'Satpam');
+
+  await firestore.collection('visitorLogs').doc('visitor-today-parent').set({
+    schoolId,
+    visitorName: 'Bapak Suryadi',
+    visitorPhone: '+62 812 3456 7890',
+    visitorCategory: 'parent',
+    visitorOrganization: null,
+    purpose: 'Menjemput santri pulang libur',
+    visitTargetType: 'employee',
+    visitTargetUserId: ids.staffTu,
+    visitTargetName: 'Siti Aminah (TU)',
+    transportType: 'vehicle',
+    vehiclePlate: 'F 1234 AB',
+    vehicleType: 'Mobil',
+    vehicleColor: 'Hitam',
+    status: 'active',
+    checkInAt: isoAt(6, 30),
+    notes: 'Kartu identitas sudah diverifikasi',
+    recordedBy: ids.security,
+    recordedByName: securityName,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }, { merge: true });
+
+  await firestore.collection('visitorLogs').doc('visitor-yesterday-vendor').set({
+    schoolId,
+    visitorName: 'PT Berkah Catering',
+    visitorPhone: '+62 821 9999 1122',
+    visitorCategory: 'business',
+    visitorOrganization: 'Berkah Catering Bogor',
+    purpose: 'Pengiriman bahan makanan asrama',
+    visitTargetType: 'employee',
+    visitTargetUserId: ids.staff,
+    visitTargetName: 'Budi Santoso (Administrasi)',
+    transportType: 'vehicle',
+    vehiclePlate: 'B 5678 CD',
+    vehicleType: 'Truk box',
+    vehicleColor: 'Putih',
+    status: 'completed',
+    checkInAt: isoAt(9, 0, -1),
+    checkOutAt: isoAt(10, 15, -1),
+    recordedBy: ids.security,
+    recordedByName: securityName,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }, { merge: true });
+
+  await firestore.collection('visitorLogs').doc('visitor-official').set({
+    schoolId,
+    visitorName: 'Dinas Pendidikan Kota Bogor',
+    visitorPhone: '+62 251 800 1234',
+    visitorCategory: 'official',
+    visitorOrganization: 'Dinas Pendidikan Kota Bogor',
+    purpose: 'Monitoring program pesantren terpadu',
+    visitTargetType: 'management',
+    visitTargetUserId: ids.principalMts,
+    visitTargetName: 'Ust. Ahmad Fauzi, M.Pd.I (Kepala MTs)',
+    transportType: 'pedestrian',
+    status: 'completed',
+    checkInAt: isoAt(13, 0, -3),
+    checkOutAt: isoAt(15, 30, -3),
+    recordedBy: ids.security,
+    recordedByName: securityName,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }, { merge: true });
+
+  console.log('12) Seeding LMS (silabus Fiqih + jadwal mingguan + video demo)...');
+  const fiqihSubject = subjectNames.find((s) => s.code === 'FIQ');
+  const paiSubject = subjectNames.find((s) => s.code === 'PAI');
+  const syllabusId = 'syllabus-fiqih-mts-vii-a';
+  const courseFiqihId = 'course-fiqih-w16';
+  const coursePaiId = 'course-pai-w01';
+  const now = new Date();
+
+  await firestore.collection('lmsSyllabus').doc(syllabusId).set({
+    schoolId,
+    teacherId: ids.teacher,
+    teacherName: 'Ust. Muhammad Hidayat, S.Pd.I',
+    subjectId: fiqihSubject ? `${schoolId}-fiq` : null,
+    subjectName: 'Fiqih',
+    classId: mtsClassRef.id,
+    className: 'VII A',
+    yearId: yearRef.id,
+    description: 'RPS Fiqih MTs VII A — materi ibadah dan muamalah (demo LMS)',
+    totalWeeks: 16,
+    isPublished: true,
+    createdAt: now,
+    updatedAt: now,
+  }, { merge: true });
+
+  const weekTopics: Record<number, { topic: string; objectives: string; courseId?: string }> = {
+    1: {
+      topic: 'Pengenalan Fiqih & Istilah',
+      objectives: 'Memahami definisi fiqih dan sumber hukum Islam',
+      courseId: coursePaiId,
+    },
+    16: {
+      topic: 'Fikih Ibadah — Shalat',
+      objectives: 'Menjelaskan rukun, syarat, dan sifat shalat fardhu',
+      courseId: courseFiqihId,
+    },
+  };
+
+  for (let weekNumber = 1; weekNumber <= 16; weekNumber++) {
+    const meta = weekTopics[weekNumber];
+    await firestore.collection('lmsSyllabus').doc(syllabusId).collection('weeks').doc(`w${String(weekNumber).padStart(2, '0')}`).set({
+      weekNumber,
+      topic: meta?.topic ?? '',
+      learningObjectives: meta?.objectives ?? '',
+      referencedLmsCourseId: meta?.courseId ?? null,
+      updatedAt: now,
+    }, { merge: true });
+  }
+
+  await firestore.collection('lmsCourses').doc(courseFiqihId).set({
+    schoolId,
+    syllabusId,
+    weekNumber: 16,
+    title: 'Fikih Ibadah — Shalat (Video Materi)',
+    isPublished: true,
+    teacherId: ids.teacher,
+    createdAt: now,
+    updatedAt: now,
+  }, { merge: true });
+
+  await firestore.collection('lmsCourses').doc(courseFiqihId).collection('items').doc('item-video-shalat').set({
+    type: 'video',
+    title: 'Materi Video — Fikih Shalat',
+    contentUrl: DEMO_LMS_VIDEO_URL,
+    order: 0,
+    createdAt: now,
+  }, { merge: true });
+
+  await firestore.collection('lmsCourses').doc(courseFiqihId).collection('items').doc('item-quiz-shalat').set({
+    type: 'quiz',
+    title: 'Kuis Bab Shalat',
+    contentUrl: 'https://forms.gle/demo-kuis-shalat',
+    order: 1,
+    createdAt: now,
+  }, { merge: true });
+
+  await firestore.collection('lmsCourses').doc(coursePaiId).set({
+    schoolId,
+    syllabusId,
+    weekNumber: 1,
+    title: 'Pengenalan PAI — Video Pembuka',
+    isPublished: true,
+    teacherId: ids.teacher,
+    createdAt: now,
+    updatedAt: now,
+  }, { merge: true });
+
+  await firestore.collection('lmsCourses').doc(coursePaiId).collection('items').doc('item-video-pai').set({
+    type: 'video',
+    title: 'Video Pengantar Pendidikan Agama Islam',
+    contentUrl: DEMO_LMS_VIDEO_URL,
+    order: 0,
+    createdAt: now,
+  }, { merge: true });
+
+  const jsDay = new Date().getDay();
+  const weeklySlots = [
+    { id: 'mts-fiqi-thu', subject: 'Fiqih', code: 'FIQ', day: 4, start: '07:00', end: '08:30', syllabus: syllabusId },
+    { id: 'mts-pai-mon', subject: 'Pendidikan Agama Islam', code: 'PAI', day: 1, start: '07:00', end: '08:30', syllabus: syllabusId },
+    { id: 'mts-qh-tue', subject: "Al-Qur'an Hadits", code: 'QH', day: 2, start: '08:30', end: '10:00', syllabus: null },
+    { id: 'mts-arb-wed', subject: 'Bahasa Arab', code: 'ARB', day: 3, start: '10:15', end: '11:45', syllabus: null },
+    { id: 'mts-fiqi-today', subject: 'Fiqih Ibadah', code: 'FIQ', day: jsDay, start: '08:00', end: '09:30', syllabus: syllabusId },
+  ];
+
+  for (const slot of weeklySlots) {
+    await firestore.collection('schedules').doc(slot.id).set({
+      schoolId,
+      classId: mtsClassRef.id,
+      yearId: yearRef.id,
+      title: slot.subject,
+      subjectName: slot.subject,
+      type: 'weekly_lesson',
+      dayOfWeek: slot.day,
+      startTime: slot.start,
+      endTime: slot.end,
+      teacherId: ids.teacher,
+      activeSyllabusId: slot.syllabus,
+      room: 'Ruang VII A',
+      isRecurring: true,
+      isAllDay: false,
+      createdBy: ids.teacher,
+      createdAt: now,
+      updatedAt: now,
+    }, { merge: true });
+  }
+
   console.log('\n✅ Kitschool PPST Al UM seed complete.');
   console.log(`   schoolId: ${schoolId}`);
   console.log(`   SaaS admin: admin@kitshool.com / kitschool2025`);
@@ -825,6 +1107,10 @@ async function main() {
   console.log(`   Staff: principal, staff, TU, BK, musyrif, security, 1 teacher (wali kelas)`);
   console.log(`   Landing: /school/ppst-alum`);
   console.log(`   Boarding: asrama putra/putri + jadwal tadarus/kajian`);
+  console.log(`   BK: sample incidents + counseling + merit point`);
+  console.log(`   Buku tamu: 3 visitor logs (termasuk kunjungan aktif hari ini)`);
+  console.log(`   LMS: silabus Fiqih + video ${DEMO_LMS_VIDEO_URL}`);
+  console.log(`   Jadwal LMS hari ini (dayOfWeek=${new Date().getDay()}): lihat dashboard santri mts01`);
   console.log(`   See KITSCHOOL_DEMO_ACCOUNTS.md`);
 }
 

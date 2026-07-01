@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
 import {
   canViewBk,
-  computePointTotals,
   getDisciplineStatus,
   getStudentIncidents,
   getStudentWarnings,
 } from '@/lib/server/bk';
-import { usersCollection } from '@/lib/server/firebase-admin';
+import { disciplineStudentSummariesCollection, docToJson, usersCollection } from '@/lib/server/firebase-admin';
 import { UserRole } from '@/lib/types';
 
 export async function GET(
@@ -44,26 +43,34 @@ export async function GET(
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
-    const [incidents, warnings, disciplineStatus] = await Promise.all([
-      getStudentIncidents(schoolId, studentId),
-      getStudentWarnings(schoolId, studentId),
+    const [incidents, warnings, disciplineStatus, summarySnap] = await Promise.all([
+      getStudentIncidents(schoolId, studentId, 50),
+      getStudentWarnings(schoolId, studentId, 20),
       getDisciplineStatus(studentId),
+      disciplineStudentSummariesCollection().doc(studentId).get(),
     ]);
-    const { totalDemerit, totalMerit, netPoints } = computePointTotals(incidents);
+
+    const summary = summarySnap.exists ? (summarySnap.data() as { totalDemerit?: number; totalMerit?: number; netPoints?: number }) : null;
+    const totalDemerit = summary?.totalDemerit ?? 0;
+    const totalMerit = summary?.totalMerit ?? 0;
+    const netPoints = summary?.netPoints ?? 0;
     const highestWarningLevel = warnings.reduce((m, w) => Math.max(m, Number(w.level) || 0), 0);
 
-    return NextResponse.json({
-      studentId,
-      studentName: String(student.name ?? 'Siswa'),
-      totalDemerit,
-      totalMerit,
-      netPoints,
-      highestWarningLevel,
-      disciplineStatus,
-      recentIncidents: incidents.slice(0, 20),
-      activeWarnings: warnings.filter((w) => w.status !== 'meeting_completed'),
-      allWarnings: warnings,
-    });
+    return NextResponse.json(
+      {
+        studentId,
+        studentName: String(student.name ?? 'Siswa'),
+        totalDemerit,
+        totalMerit,
+        netPoints,
+        highestWarningLevel,
+        disciplineStatus,
+        recentIncidents: incidents.slice(0, 20),
+        activeWarnings: warnings.filter((w) => w.status !== 'meeting_completed'),
+        allWarnings: warnings,
+      },
+      { headers: { 'Cache-Control': 'private, max-age=30' } }
+    );
   } catch (e) {
     console.error('GET /api/bk/students/[id] error:', e);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });

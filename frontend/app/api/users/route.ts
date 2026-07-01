@@ -60,10 +60,17 @@ export async function GET(req: NextRequest) {
 
     let snapshot;
     if (schoolIdForQuery) {
-      const q = col.where('schoolId', '==', schoolIdForQuery);
-      snapshot = parentOfParam
-        ? await q.where('children', 'array-contains', parentOfParam).get()
-        : await q.get();
+      if (roleParam && !parentOfParam) {
+        snapshot = await col
+          .where('schoolId', '==', schoolIdForQuery)
+          .where('role', '==', roleParam)
+          .get();
+      } else {
+        const q = col.where('schoolId', '==', schoolIdForQuery);
+        snapshot = parentOfParam
+          ? await q.where('children', 'array-contains', parentOfParam).get()
+          : await q.get();
+      }
     } else {
       snapshot = await col.get();
     }

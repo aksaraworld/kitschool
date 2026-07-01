@@ -60,13 +60,13 @@ export default function ChildrenPage() {
 
   const fetchBk = async () => {
     try {
-      const warnings = await api.get<DisciplineWarning[]>('/bk/warnings', { skipCache: true });
+      const warnings = await api.getCached<DisciplineWarning[]>('/bk/warnings');
       setChildWarnings(Array.isArray(warnings) ? warnings : []);
       const summaries: Record<string, Record<string, unknown>> = {};
       await Promise.all(
         (user?.children ?? []).map(async (childId) => {
           try {
-            summaries[childId] = await api.get(`/bk/students/${childId}`, { skipCache: true });
+            summaries[childId] = await api.getCached(`/bk/students/${childId}`);
           } catch {
             summaries[childId] = {};
           }

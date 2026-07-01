@@ -469,6 +469,7 @@ export const ROLE_PAGES = [
   { key: 'role-management', label: 'Kelola Peran' },
   { key: 'guest-book', label: 'Buku Tamu' },
   { key: 'bk', label: 'BK & Kedisiplinan' },
+  { key: 'lms', label: 'LMS / E-Learning' },
 ] as const;
 
 /** Available resources for CRUD config. */
@@ -742,6 +743,7 @@ export interface PaymentAttempt {
 
 export interface Schedule {
   _id: string;
+  schoolId?: string;
   title: string;
   description?: string;
   startDate: string;
@@ -750,10 +752,128 @@ export interface Schedule {
   endTime?: string;
   classId?: string;
   subjectId?: string;
+  subjectName?: string;
   createdBy: string;
-  type: 'class' | 'school' | 'exam' | 'holiday' | 'event';
-  isRecurring: boolean;
-  isAllDay: boolean;
+  teacherId?: string;
+  type: 'class' | 'school' | 'exam' | 'holiday' | 'event' | 'weekly_lesson';
+  isRecurring?: boolean;
+  isAllDay?: boolean;
+  /** Weekly timetable (type = weekly_lesson) */
+  dayOfWeek?: number;
+  /** Active RPS/RPP linked to this weekly slot */
+  activeSyllabusId?: string;
+  yearId?: string;
+  majorId?: string;
+}
+
+// ─── LMS (bound to schedule + syllabus) ───────────────────────────────────
+
+export type LmsItemType = 'video' | 'document' | 'quiz';
+
+export const LMS_DEFAULT_WEEKS = 16;
+
+export const LMS_TEACHER_ROLES: UserRole[] = [
+  UserRole.TEACHER,
+  UserRole.HOMEROOM_TEACHER,
+  UserRole.GURU_PRODUKTIF,
+  UserRole.PRINCIPAL,
+  UserRole.STAFF,
+  UserRole.WAKASEK_KURIKULUM,
+];
+
+export function canManageLmsClient(user: { role?: string; roles?: string[] } | null): boolean {
+  return hasFullAccess(user) || hasAnyRole(user, LMS_TEACHER_ROLES.map(String));
+}
+
+export interface AcademicYear {
+  _id: string;
+  schoolId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  isActive?: boolean;
+}
+
+/** RPS/RPP — one per teacher × subject × class × academic year. */
+export interface LmsSyllabus {
+  _id: string;
+  schoolId: string;
+  teacherId: string;
+  teacherName?: string;
+  subjectId?: string;
+  subjectName: string;
+  classId: string;
+  className?: string;
+  yearId: string;
+  majorId?: string;
+  description?: string;
+  totalWeeks: number;
+  isPublished?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Sub-collection: lmsSyllabus/{id}/weeks */
+export interface LmsSyllabusWeek {
+  _id: string;
+  weekNumber: number;
+  topic?: string;
+  learningObjectives?: string;
+  referencedLmsCourseId?: string;
+  updatedAt?: string;
+}
+
+/** Weekly lesson materials mapped to a syllabus week. */
+export interface LmsCourse {
+  _id: string;
+  schoolId: string;
+  syllabusId: string;
+  weekNumber: number;
+  title: string;
+  isPublished: boolean;
+  teacherId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Sub-collection: lmsCourses/{id}/items */
+export interface LmsItem {
+  _id: string;
+  type: LmsItemType;
+  title: string;
+  contentUrl: string;
+  order?: number;
+  createdAt?: string;
+}
+
+/** Student dashboard — today's lesson with optional LMS link. */
+export interface LmsTodayScheduleEntry {
+  scheduleId: string;
+  subjectName: string;
+  startTime: string;
+  endTime: string;
+  teacherId?: string;
+  teacherName?: string;
+  classId: string;
+  syllabusId?: string;
+  weekNumber: number;
+  weekTopic?: string;
+  courseId?: string;
+  courseTitle?: string;
+  hasQuiz: boolean;
+  hasMaterials: boolean;
+  primaryAction: 'learn' | 'quiz' | null;
+  learnUrl?: string;
+  items: LmsItem[];
+}
+
+export interface LmsTodaySchedulePayload {
+  date: string;
+  dayOfWeek: number;
+  weekNumber: number;
+  yearId?: string;
+  yearName?: string;
+  entries: LmsTodayScheduleEntry[];
 }
 
 export interface Communication {
@@ -1020,6 +1140,7 @@ export interface SchoolLandingPage {
 export interface SchoolModules {
   boardingSchool?: boolean;
   bkModule?: boolean;
+  lmsModule?: boolean;
 }
 
 /** Phone rules for boarding students on school days. */

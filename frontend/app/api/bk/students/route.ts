@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
 import { canManageBk, canViewBk } from '@/lib/server/bk';
 import { usersCollection } from '@/lib/server/firebase-admin';
+import { parseLimit, STUDENT_PICKER_LIMIT } from '@/lib/server/firestore-query';
 import type { BkDisciplineStatus } from '@/lib/types';
 
 export async function GET(req: NextRequest) {
@@ -14,7 +15,14 @@ export async function GET(req: NextRequest) {
     if (!schoolId) return NextResponse.json({ message: 'School context required' }, { status: 400 });
 
     const q = req.nextUrl.searchParams.get('q')?.toLowerCase();
-    const snap = await usersCollection().where('schoolId', '==', schoolId).where('role', '==', 'student').get();
+    const limit = parseLimit(req.nextUrl.searchParams.get('limit'), STUDENT_PICKER_LIMIT);
+
+    const snap = await usersCollection()
+      .where('schoolId', '==', schoolId)
+      .where('role', '==', 'student')
+      .limit(limit)
+      .get();
+
     let students = snap.docs.map((d) => {
       const data = d.data() as { name?: string; classId?: string; boardingRoomId?: string };
       return { _id: d.id, name: data.name, classId: data.classId, boardingRoomId: data.boardingRoomId };
@@ -23,7 +31,7 @@ export async function GET(req: NextRequest) {
       students = students.filter((s) => String(s.name ?? '').toLowerCase().includes(q));
     }
     students.sort((a, b) => String(a.name).localeCompare(String(b.name)));
-    return NextResponse.json(students.slice(0, 100));
+    return NextResponse.json(students, { headers: { 'Cache-Control': 'private, max-age=60' } });
   } catch (e) {
     console.error('GET /api/bk/students error:', e);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });

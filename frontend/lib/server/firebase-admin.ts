@@ -284,6 +284,26 @@ export function disciplineWarningsCollection() {
   return getFirestore().collection('disciplineWarnings');
 }
 
+export function disciplineStudentSummariesCollection() {
+  return getFirestore().collection('disciplineStudentSummaries');
+}
+
+export function lmsSyllabusCollection() {
+  return getFirestore().collection('lmsSyllabus');
+}
+
+export function lmsSyllabusWeeksCollection(syllabusId: string) {
+  return lmsSyllabusCollection().doc(syllabusId).collection('weeks');
+}
+
+export function lmsCoursesCollection() {
+  return getFirestore().collection('lmsCourses');
+}
+
+export function lmsCourseItemsCollection(courseId: string) {
+  return lmsCoursesCollection().doc(courseId).collection('items');
+}
+
 export function tkDevelopmentAreasCollection() {
   return getFirestore().collection('tkDevelopmentAreas');
 }
