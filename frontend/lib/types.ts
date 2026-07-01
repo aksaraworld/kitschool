@@ -17,7 +17,8 @@ export enum UserRole {
   HOMEROOM_TEACHER = 'homeroom_teacher',     // Wali Kelas
   TEACHER = 'teacher',                       // Guru (generic)
   STAFF = 'staff',                           // Staf (generic)
-  FINANCE = 'finance'                        // Keuangan
+  FINANCE = 'finance',                       // Keuangan
+  SECURITY = 'security',                     // Sekuriti / satpam
 }
 
 /** Staff roles only – students and parents have a single role. */
@@ -37,6 +38,7 @@ export const STAFF_ROLES: UserRole[] = [
   UserRole.TEACHER,
   UserRole.STAFF,
   UserRole.FINANCE,
+  UserRole.SECURITY,
 ];
 
 /** Roles that can manage users (Pengguna page). */
@@ -66,6 +68,306 @@ export function canManageBoardingClient(user: { role?: string; roles?: string[] 
   return hasFullAccess(user) || hasAnyRole(user, BOARDING_MANAGE_ROLES.map(String));
 }
 
+/** Roles that can check-in / check-out visitors. */
+export const GUEST_BOOK_WRITE_ROLES: UserRole[] = [
+  UserRole.SECURITY,
+  UserRole.STAFF,
+  UserRole.WAKASEK_SARANA,
+];
+
+/** Roles that can view laporan buku tamu (read-only for leadership). */
+export const GUEST_BOOK_VIEW_ROLES: UserRole[] = [
+  ...GUEST_BOOK_WRITE_ROLES,
+  UserRole.PRINCIPAL,
+  UserRole.KETUA_PESANTREN,
+  UserRole.KETUA_YAYASAN,
+  UserRole.WAKASEK_KURIKULUM,
+  UserRole.WAKASEK_KESISWAAN,
+];
+
+/** @deprecated use GUEST_BOOK_VIEW_ROLES */
+export const GUEST_BOOK_ROLES = GUEST_BOOK_VIEW_ROLES;
+
+export function canViewGuestBookClient(user: { role?: string; roles?: string[] } | null): boolean {
+  return hasFullAccess(user) || hasAnyRole(user, GUEST_BOOK_VIEW_ROLES.map(String));
+}
+
+export function canWriteGuestBookClient(user: { role?: string; roles?: string[] } | null): boolean {
+  return hasAnyRole(user, GUEST_BOOK_WRITE_ROLES.map(String));
+}
+
+/** @deprecated use canWriteGuestBookClient */
+export function canManageGuestBookClient(user: { role?: string; roles?: string[] } | null): boolean {
+  return canWriteGuestBookClient(user);
+}
+
+/** Roles with full BK supervisory access (override points, suspensions, reports). */
+export const BK_MANAGE_ROLES: UserRole[] = [
+  UserRole.KOORDINATOR_BK_ESKUL,
+  UserRole.WAKASEK_KESISWAAN,
+  UserRole.PRINCIPAL,
+  UserRole.KETUA_PESANTREN,
+];
+
+/** Roles that can view BK data (read-only leadership). */
+export const BK_VIEW_ROLES: UserRole[] = [
+  ...BK_MANAGE_ROLES,
+  UserRole.KETUA_YAYASAN,
+  UserRole.WAKASEK_KURIKULUM,
+  UserRole.HOMEROOM_TEACHER,
+  UserRole.TEACHER,
+  UserRole.GURU_PRODUKTIF,
+  UserRole.STAFF,
+];
+
+/** School-hour violation logging (classroom). */
+export const BK_SCHOOL_LOG_ROLES: UserRole[] = [
+  UserRole.TEACHER,
+  UserRole.HOMEROOM_TEACHER,
+  UserRole.GURU_PRODUKTIF,
+  ...BK_MANAGE_ROLES,
+];
+
+/** Dorm / pesantren violation logging — musyrif detected server-side via room head. */
+export const BK_DORM_LOG_ROLES: UserRole[] = [
+  UserRole.KETUA_PESANTREN,
+  ...BK_MANAGE_ROLES,
+];
+
+/** Counseling session authors. */
+export const BK_COUNSELING_ROLES: UserRole[] = [
+  UserRole.KOORDINATOR_BK_ESKUL,
+  UserRole.WAKASEK_KESISWAAN,
+  UserRole.KETUA_PESANTREN,
+];
+
+export function canViewBkClient(user: { role?: string; roles?: string[] } | null): boolean {
+  return hasFullAccess(user) || hasAnyRole(user, BK_VIEW_ROLES.map(String));
+}
+
+export function canManageBkClient(user: { role?: string; roles?: string[] } | null): boolean {
+  return hasFullAccess(user) || hasAnyRole(user, BK_MANAGE_ROLES.map(String));
+}
+
+export function canLogSchoolBkClient(user: { role?: string; roles?: string[] } | null): boolean {
+  return canManageBkClient(user) || hasAnyRole(user, BK_SCHOOL_LOG_ROLES.map(String));
+}
+
+export function canLogDormBkClient(
+  user: { role?: string; roles?: string[]; boardingRoomHeadId?: string } | null
+): boolean {
+  if (!user) return false;
+  if (canManageBkClient(user) || hasAnyRole(user, BK_DORM_LOG_ROLES.map(String))) return true;
+  return Boolean(user.boardingRoomHeadId);
+}
+
+export function canWriteCounselingClient(user: { role?: string; roles?: string[]; boardingRoomHeadId?: string } | null): boolean {
+  if (!user) return false;
+  if (canManageBkClient(user) || hasAnyRole(user, BK_COUNSELING_ROLES.map(String))) return true;
+  return Boolean(user.boardingRoomHeadId);
+}
+
+export type BkEnvironment = 'school' | 'dormitory';
+export type BkRecordType = 'demerit' | 'merit';
+export type BkIncidentStatus = 'active' | 'voided' | 'overridden';
+export type BkWarningLevel = 1 | 2 | 3;
+export type BkWarningStatus = 'sent' | 'acknowledged' | 'meeting_scheduled' | 'meeting_completed';
+export type BkDisciplineStatus = 'normal' | 'suspension' | 'expulsion';
+
+export type SchoolViolationType =
+  | 'tardiness'
+  | 'skipping_class'
+  | 'uniform_violation'
+  | 'incomplete_assignment'
+  | 'property_damage'
+  | 'other_school';
+
+export type DormViolationType =
+  | 'unauthorized_leave'
+  | 'illegal_smartphone'
+  | 'skipping_prayer'
+  | 'language_violation'
+  | 'smoking_vaping'
+  | 'fighting'
+  | 'other_dorm';
+
+export type MeritType = 'achievement' | 'good_deed' | 'behavioral_improvement' | 'other_merit';
+
+export type BkViolationType = SchoolViolationType | DormViolationType | MeritType;
+
+export interface BkViolationDef {
+  key: BkViolationType;
+  label: string;
+  environment: BkEnvironment | 'both';
+  recordType: BkRecordType;
+  defaultPoints: number;
+}
+
+export const BK_VIOLATIONS: BkViolationDef[] = [
+  { key: 'tardiness', label: 'Terlambat masuk kelas', environment: 'school', recordType: 'demerit', defaultPoints: 10 },
+  { key: 'skipping_class', label: 'Bolos pelajaran', environment: 'school', recordType: 'demerit', defaultPoints: 25 },
+  { key: 'uniform_violation', label: 'Pelanggaran seragam', environment: 'school', recordType: 'demerit', defaultPoints: 10 },
+  { key: 'incomplete_assignment', label: 'Tugas tidak lengkap', environment: 'school', recordType: 'demerit', defaultPoints: 15 },
+  { key: 'property_damage', label: 'Merusak fasilitas sekolah', environment: 'school', recordType: 'demerit', defaultPoints: 25 },
+  { key: 'other_school', label: 'Pelanggaran sekolah lainnya', environment: 'school', recordType: 'demerit', defaultPoints: 10 },
+  { key: 'unauthorized_leave', label: 'Kabur / keluar tanpa izin', environment: 'dormitory', recordType: 'demerit', defaultPoints: 50 },
+  { key: 'illegal_smartphone', label: 'Membawa HP ilegal', environment: 'dormitory', recordType: 'demerit', defaultPoints: 25 },
+  { key: 'skipping_prayer', label: 'Tidak shalat berjamaah', environment: 'dormitory', recordType: 'demerit', defaultPoints: 25 },
+  { key: 'language_violation', label: 'Pelanggaran bahasa (bahasa daerah/gaul)', environment: 'dormitory', recordType: 'demerit', defaultPoints: 15 },
+  { key: 'smoking_vaping', label: 'Merokok / vaping', environment: 'dormitory', recordType: 'demerit', defaultPoints: 50 },
+  { key: 'fighting', label: 'Berkelahi', environment: 'dormitory', recordType: 'demerit', defaultPoints: 75 },
+  { key: 'other_dorm', label: 'Pelanggaran asrama lainnya', environment: 'dormitory', recordType: 'demerit', defaultPoints: 15 },
+  { key: 'achievement', label: 'Prestasi / pencapaian', environment: 'both', recordType: 'merit', defaultPoints: 10 },
+  { key: 'good_deed', label: 'Perbuatan baik', environment: 'both', recordType: 'merit', defaultPoints: 5 },
+  { key: 'behavioral_improvement', label: 'Perbaikan perilaku', environment: 'both', recordType: 'merit', defaultPoints: 10 },
+  { key: 'other_merit', label: 'Poin positif lainnya', environment: 'both', recordType: 'merit', defaultPoints: 5 },
+];
+
+export const BK_VIOLATION_MAP = Object.fromEntries(BK_VIOLATIONS.map((v) => [v.key, v])) as Record<
+  BkViolationType,
+  BkViolationDef
+>;
+
+export const BK_ENVIRONMENT_LABELS: Record<BkEnvironment, string> = {
+  school: 'Sekolah',
+  dormitory: 'Asrama / Pesantren',
+};
+
+export const BK_WARNING_LEVEL_LABELS: Record<BkWarningLevel, string> = {
+  1: 'Pemberitahuan (Level 1)',
+  2: 'Surat Peringatan 1 (SP 1)',
+  3: 'SP 2/3 — Pertemuan Wajib',
+};
+
+/** Net demerit thresholds for automated parent warnings. */
+export const BK_WARNING_THRESHOLDS: { level: BkWarningLevel; minPoints: number }[] = [
+  { level: 1, minPoints: 10 },
+  { level: 2, minPoints: 50 },
+  { level: 3, minPoints: 75 },
+];
+
+export interface DisciplineIncident {
+  _id: string;
+  schoolId: string;
+  studentId: string;
+  studentName: string;
+  environment: BkEnvironment;
+  violationType: BkViolationType;
+  recordType: BkRecordType;
+  points: number;
+  location: string;
+  description?: string;
+  occurredAt: string;
+  reportedBy: string;
+  reportedByName: string;
+  status: BkIncidentStatus;
+  overriddenBy?: string;
+  overriddenByName?: string;
+  overrideReason?: string;
+  academicYearId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CounselingSession {
+  _id: string;
+  schoolId: string;
+  studentId: string;
+  studentName: string;
+  environment?: BkEnvironment;
+  sessionAt: string;
+  location: string;
+  counselorId: string;
+  counselorName: string;
+  notes: string;
+  followUp?: string;
+  incidentIds?: string[];
+  isPrivate: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DisciplineWarning {
+  _id: string;
+  schoolId: string;
+  studentId: string;
+  studentName: string;
+  parentId?: string;
+  level: BkWarningLevel;
+  netPoints: number;
+  title: string;
+  body: string;
+  status: BkWarningStatus;
+  triggeredByIncidentId?: string;
+  acknowledgedAt?: string;
+  parentSignature?: string;
+  meetingScheduledAt?: string;
+  meetingNotes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface BkStudentSummary {
+  studentId: string;
+  studentName: string;
+  totalDemerit: number;
+  totalMerit: number;
+  netPoints: number;
+  highestWarningLevel: number;
+  disciplineStatus: BkDisciplineStatus;
+  recentIncidents: DisciplineIncident[];
+  activeWarnings: DisciplineWarning[];
+}
+
+export type VisitorCategory = 'parent' | 'friend' | 'business' | 'official' | 'other';
+
+export type VisitTargetType = 'employee' | 'management' | 'student';
+
+export type VisitorTransportType = 'vehicle' | 'pedestrian';
+
+export type VisitorLogStatus = 'active' | 'completed';
+
+export interface VisitorLog {
+  _id: string;
+  schoolId: string;
+  visitorName: string;
+  visitorPhone?: string;
+  visitorIdNumber?: string;
+  visitorCategory: VisitorCategory;
+  visitorOrganization?: string;
+  purpose?: string;
+  visitTargetType: VisitTargetType;
+  visitTargetUserId?: string;
+  visitTargetName: string;
+  transportType: VisitorTransportType;
+  vehiclePlate?: string;
+  vehicleType?: string;
+  vehicleColor?: string;
+  photoUrl?: string;
+  status: VisitorLogStatus;
+  checkInAt: string;
+  checkOutAt?: string;
+  notes?: string;
+  recordedBy: string;
+  recordedByName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const VISITOR_CATEGORY_LABELS: Record<VisitorCategory, string> = {
+  parent: 'Orang Tua / Wali',
+  friend: 'Teman / Kerabat',
+  business: 'Bisnis / Vendor',
+  official: 'Dinas / Instansi',
+  other: 'Lainnya',
+};
+
+export const VISIT_TARGET_LABELS: Record<VisitTargetType, string> = {
+  employee: 'Karyawan / Guru / Staf',
+  management: 'Pimpinan Sekolah',
+  student: 'Siswa / Santri',
+};
+
 export const ROLE_LABELS: Record<string, string> = {
   [UserRole.SAAS_ADMIN]: 'SaaS Admin',
   [UserRole.STUDENT]: 'Siswa',
@@ -85,6 +387,7 @@ export const ROLE_LABELS: Record<string, string> = {
   [UserRole.TEACHER]: 'Guru',
   [UserRole.STAFF]: 'Staf',
   [UserRole.FINANCE]: 'Keuangan',
+  [UserRole.SECURITY]: 'Sekuriti',
 };
 
 /** Returns effective roles for a user (role + roles). Students/parents have single role. */
@@ -164,6 +467,8 @@ export const ROLE_PAGES = [
   { key: 'calendar', label: 'Kalender' },
   { key: 'children', label: 'Anak Saya' },
   { key: 'role-management', label: 'Kelola Peran' },
+  { key: 'guest-book', label: 'Buku Tamu' },
+  { key: 'bk', label: 'BK & Kedisiplinan' },
 ] as const;
 
 /** Available resources for CRUD config. */
@@ -522,7 +827,7 @@ export interface ChatBackupEntry {
   createdAt: string;
 }
 
-export type AppNotificationType = 'chat' | 'communication' | 'ticket' | 'boarding';
+export type AppNotificationType = 'chat' | 'communication' | 'ticket' | 'boarding' | 'bk';
 
 export type TicketCategory =
   | 'academic'
@@ -714,6 +1019,7 @@ export interface SchoolLandingPage {
 /** Enabled optional modules per school. */
 export interface SchoolModules {
   boardingSchool?: boolean;
+  bkModule?: boolean;
 }
 
 /** Phone rules for boarding students on school days. */

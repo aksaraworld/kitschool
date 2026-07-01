@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { UserRole, User, type BoardingActivitySchedule, type BoardingLeaveRequest, type BoardingRoomEnriched } from '@/lib/types';
+import { UserRole, User, type BoardingActivitySchedule, type BoardingLeaveRequest, type BoardingRoomEnriched, type DisciplineWarning, BK_WARNING_LEVEL_LABELS } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
 import {
@@ -43,6 +43,10 @@ export default function ChildrenPage() {
   const [leaveForm, setLeaveForm] = useState({ studentId: '', leaveDate: '', expectedReturn: '', reason: '' });
   const [leaveSubmitting, setLeaveSubmitting] = useState(false);
   const [leaveMessage, setLeaveMessage] = useState('');
+  const [childBk, setChildBk] = useState<Record<string, Record<string, unknown>>>({});
+  const [childWarnings, setChildWarnings] = useState<DisciplineWarning[]>([]);
+  const [ackId, setAckId] = useState<string | null>(null);
+  const [signature, setSignature] = useState('');
 
   useEffect(() => {
     if (user?.children && user.children.length > 0) {
@@ -50,8 +54,46 @@ export default function ChildrenPage() {
       fetchPending();
       fetchBoarding();
       fetchLeaves();
+      fetchBk();
     }
   }, [user]);
+
+  const fetchBk = async () => {
+    try {
+      const warnings = await api.get<DisciplineWarning[]>('/bk/warnings', { skipCache: true });
+      setChildWarnings(Array.isArray(warnings) ? warnings : []);
+      const summaries: Record<string, Record<string, unknown>> = {};
+      await Promise.all(
+        (user?.children ?? []).map(async (childId) => {
+          try {
+            summaries[childId] = await api.get(`/bk/students/${childId}`, { skipCache: true });
+          } catch {
+            summaries[childId] = {};
+          }
+        })
+      );
+      setChildBk(summaries);
+    } catch {
+      setChildWarnings([]);
+      setChildBk({});
+    }
+  };
+
+  const acknowledgeWarning = async (warningId: string) => {
+    setAckId(warningId);
+    try {
+      await api.put(`/bk/warnings/${warningId}`, {
+        action: 'acknowledge',
+        parentSignature: signature || user?.name || 'Orang Tua',
+      });
+      setSignature('');
+      await fetchBk();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAckId(null);
+    }
+  };
 
   const fetchChildren = async () => {
     try {
@@ -225,6 +267,46 @@ export default function ChildrenPage() {
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {childWarnings.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 space-y-3">
+            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-amber-600" />
+              Peringatan Perilaku / BK
+            </h2>
+            {childWarnings.map((w) => (
+              <div key={w._id} className="border rounded-lg p-4 text-sm">
+                <p className="font-medium">{w.studentName}</p>
+                <p className="text-primary-700">{BK_WARNING_LEVEL_LABELS[w.level]}</p>
+                <p className="text-gray-700 mt-1">{w.body}</p>
+                {w.level >= 2 && w.status === 'sent' && (
+                  <div className="mt-3 flex flex-wrap gap-2 items-end">
+                    <label className="text-xs text-gray-600">
+                      Konfirmasi digital (nama)
+                      <input
+                        className="block border rounded px-2 py-1 mt-1"
+                        value={signature}
+                        onChange={(e) => setSignature(e.target.value)}
+                        placeholder={user?.name ?? 'Nama orang tua'}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      disabled={ackId === w._id}
+                      onClick={() => acknowledgeWarning(w._id)}
+                      className="px-3 py-1.5 bg-primary-600 text-white rounded-lg text-xs disabled:opacity-50"
+                    >
+                      {ackId === w._id ? 'Menyimpan...' : 'Tandatangani SP'}
+                    </button>
+                  </div>
+                )}
+                {w.status === 'acknowledged' && (
+                  <p className="text-green-700 text-xs mt-2">✓ Sudah dikonfirmasi</p>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
@@ -408,6 +490,14 @@ export default function ChildrenPage() {
                     <p className="text-sm text-emerald-700">
                       <span className="font-medium">Asrama:</span>{' '}
                       {boardingRooms[child.boardingRoomId]?.name ?? 'Kamar terdaftar'}
+                    </p>
+                  )}
+                  {childBk[child._id]?.netPoints != null && (
+                    <p className="text-sm text-amber-800">
+                      <span className="font-medium">Poin BK:</span>{' '}
+                      {String(childBk[child._id].netPoints)} net
+                      {Number(childBk[child._id].totalMerit) > 0 &&
+                        ` (+${childBk[child._id].totalMerit} merit)`}
                     </p>
                   )}
                 </div>

@@ -37,6 +37,7 @@ const FIRESTORE_COLLECTIONS = [
   'invoices', 'payments', 'communications', 'config', 'subjects', 'rooms',
   'feeStructures', 'exams', 'grades', 'assignments', 'submissions', 'resources',
   'boardingAreas', 'boardingRooms', 'boardingSchedules',
+  'disciplineIncidents', 'counselingSessions', 'disciplineWarnings',
 ];
 
 type SeedUser = {
@@ -178,7 +179,7 @@ async function main() {
         ctaSubtitle: 'Masuk untuk staf, guru, orang tua, dan santri yang sudah terdaftar.',
         publicChatEnabled: true,
       },
-      modules: { boardingSchool: true },
+      modules: { boardingSchool: true, bkModule: true },
       boardingConfig: {
         phonePolicy: {
           restrictOnSchoolDays: true,
@@ -296,6 +297,51 @@ async function main() {
     role: 'staff',
     schoolId,
     extra: { department: 'Tata Usaha', nip: '198507202015012004' },
+  });
+
+  ids.security = await upsertUser({
+    email: `sekuriti@${DOMAIN}`,
+    password: DEFAULT_PASSWORD,
+    name: 'Rudi Hartono',
+    role: 'security',
+    schoolId,
+    extra: { department: 'Keamanan / Satpam', phone: '+62 812 9000 0099' },
+  });
+
+  ids.bkCoordinator = await upsertUser({
+    email: `bk@${DOMAIN}`,
+    password: DEFAULT_PASSWORD,
+    name: 'Ust. Siti Nurhaliza, S.Pd.',
+    role: 'koordinator_bk_eskul',
+    schoolId,
+    extra: { nip: '198512102010012006', department: 'Bimbingan Konseling' },
+  });
+
+  ids.wakasekKesiswaan = await upsertUser({
+    email: `wakasek.kesiswaan@${DOMAIN}`,
+    password: DEFAULT_PASSWORD,
+    name: 'Ust. Hamid Abdullah, M.Pd.',
+    role: 'wakasek_kesiswaan',
+    schoolId,
+    extra: { nip: '197805202005011007' },
+  });
+
+  ids.musyrifPutra = await upsertUser({
+    email: `musyrif.putra@${DOMAIN}`,
+    password: DEFAULT_PASSWORD,
+    name: 'Ust. Fadhil Rahman',
+    role: 'staff',
+    schoolId,
+    extra: { department: 'Musyrif Asrama Putra', boardingRoomHeadId: 'kamar-putra-a1' },
+  });
+
+  ids.musyrifPutri = await upsertUser({
+    email: `musyrif.putri@${DOMAIN}`,
+    password: DEFAULT_PASSWORD,
+    name: 'Ustzh. Nur Aisyah',
+    role: 'staff',
+    schoolId,
+    extra: { department: 'Musyrifah Asrama Putri', boardingRoomHeadId: 'kamar-putri-b1' },
   });
 
   await schoolRef.update({
@@ -638,11 +684,13 @@ async function main() {
   await firestore.collection('boardingRooms').doc('kamar-putra-a1').set({
     schoolId, areaId: areaPutra.id, name: 'A1', gender: 'male', capacity: 6,
     roomCaptainId: putraCaptain, studentIds: putraStudents,
+    roomHeadStaffId: ids.musyrifPutra,
     floor: '1', isActive: true, createdAt: new Date(), updatedAt: new Date(),
   }, { merge: true });
   await firestore.collection('boardingRooms').doc('kamar-putri-b1').set({
     schoolId, areaId: areaPutri.id, name: 'B1', gender: 'female', capacity: 6,
     roomCaptainId: putriCaptain, studentIds: putriStudents,
+    roomHeadStaffId: ids.musyrifPutri,
     floor: '1', isActive: true, createdAt: new Date(), updatedAt: new Date(),
   }, { merge: true });
 
@@ -695,12 +743,86 @@ async function main() {
     }, { merge: true });
   }
 
+  console.log('10) Seeding BK module (sample incidents & counseling)...');
+  const sampleStudent = mtsStudentIds[0];
+  const sampleParent = parentIds[0];
+  const sampleStudentSnap = await firestore.collection(USERS_COLLECTION).doc(sampleStudent).get();
+  const sampleStudentName = String((sampleStudentSnap.data() as { name?: string })?.name ?? 'Santri');
+
+  const inc1 = firestore.collection('disciplineIncidents').doc('bk-sample-tardiness');
+  await inc1.set({
+    schoolId,
+    studentId: sampleStudent,
+    studentName: sampleStudentName,
+    environment: 'school',
+    violationType: 'tardiness',
+    recordType: 'demerit',
+    points: 10,
+    location: 'Ruang VII A',
+    description: 'Terlambat 15 menit',
+    occurredAt: new Date().toISOString(),
+    reportedBy: ids.teacher,
+    reportedByName: 'Ust. Muhammad Hidayat, S.Pd.I',
+    status: 'active',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const inc2 = firestore.collection('disciplineIncidents').doc('bk-sample-prayer');
+  await inc2.set({
+    schoolId,
+    studentId: sampleStudent,
+    studentName: sampleStudentName,
+    environment: 'dormitory',
+    violationType: 'skipping_prayer',
+    recordType: 'demerit',
+    points: 25,
+    location: 'Musholla',
+    description: 'Tidak hadir shalat isya berjamaah',
+    occurredAt: new Date(Date.now() - 86400000).toISOString(),
+    reportedBy: ids.musyrifPutra,
+    reportedByName: 'Ust. Fadhil Rahman',
+    status: 'active',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  await firestore.collection('counselingSessions').doc('bk-sample-counsel').set({
+    schoolId,
+    studentId: sampleStudent,
+    studentName: sampleStudentName,
+    environment: 'dormitory',
+    sessionAt: new Date().toISOString(),
+    location: 'Ruang BK',
+    counselorId: ids.bkCoordinator,
+    counselorName: 'Ust. Siti Nurhaliza, S.Pd.',
+    notes: 'Siswa mengakui begadang belajar; diberi motivasi dan jadwal tidur yang lebih teratur.',
+    isPrivate: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  await firestore.collection('disciplineWarnings').doc('bk-sample-warning-l1').set({
+    schoolId,
+    studentId: sampleStudent,
+    studentName: sampleStudentName,
+    parentId: sampleParent,
+    level: 1,
+    netPoints: 35,
+    title: 'Pemberitahuan Perilaku',
+    body: `Anak Anda ${sampleStudentName} mencatat pelanggaran. Total poin sanksi: 35. Mohon bimbingan di rumah.`,
+    status: 'sent',
+    triggeredByIncidentId: inc2.id,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
   console.log('\n✅ Kitschool PPST Al UM seed complete.');
   console.log(`   schoolId: ${schoolId}`);
   console.log(`   SaaS admin: admin@kitshool.com / kitschool2025`);
   console.log(`   School users password: ${DEFAULT_PASSWORD}`);
   console.log(`   MTs students: 10 | MA students: 10 | Parents: 20`);
-  console.log(`   Staff: principal, staff, TU, 1 teacher (wali kelas)`);
+  console.log(`   Staff: principal, staff, TU, BK, musyrif, security, 1 teacher (wali kelas)`);
   console.log(`   Landing: /school/ppst-alum`);
   console.log(`   Boarding: asrama putra/putri + jadwal tadarus/kajian`);
   console.log(`   See KITSCHOOL_DEMO_ACCOUNTS.md`);

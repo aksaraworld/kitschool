@@ -37,6 +37,8 @@ import {
   BedDouble,
   ClipboardList,
   Banknote,
+  BookUser,
+  Shield,
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -75,6 +77,7 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/classes', label: 'Kelas Saya', icon: BookOpen },
     { href: '/schedules', label: 'Jadwal', icon: Calendar },
     { href: '/calendar', label: 'Kalender', icon: Calendar },
+    { href: '/bk', label: 'BK & Kedisiplinan', icon: Shield },
     { href: '/messages', label: 'Pesan', icon: MessageSquare },
   ],
   [UserRole.HOMEROOM_TEACHER]: [
@@ -83,6 +86,7 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/attendance', label: 'Kehadiran Saya', icon: ClipboardCheck },
     { href: '/classes', label: 'Kelas Saya', icon: BookOpen },
     { href: '/schedules', label: 'Jadwal', icon: Calendar },
+    { href: '/bk', label: 'BK & Kedisiplinan', icon: Shield },
     { href: '/messages', label: 'Pesan', icon: MessageSquare },
   ],
   [UserRole.STAFF]: [
@@ -99,6 +103,8 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/finance/reports', label: 'Laporan Keuangan', icon: Wallet },
     { href: '/invoices', label: 'Tagihan', icon: CreditCard },
     { href: '/school-profile', label: 'Profil Sekolah', icon: Building2 },
+    { href: '/guest-book', label: 'Buku Tamu', icon: BookUser },
+    { href: '/bk', label: 'BK & Kedisiplinan', icon: Shield },
     { href: '/boarding', label: 'Asrama', icon: BedDouble },
     { href: '/messages', label: 'Pesan', icon: MessageSquare },
     { href: '/tickets', label: 'Tiket & CRM', icon: ClipboardList },
@@ -107,6 +113,8 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/users', label: 'Pengguna', icon: Users },
     { href: '/school-profile', label: 'Profil Sekolah', icon: Building2 },
+    { href: '/guest-book', label: 'Laporan Tamu', icon: BookUser },
+    { href: '/bk', label: 'BK & Kedisiplinan', icon: Shield },
     { href: '/boarding', label: 'Asrama', icon: BedDouble },
     { href: '/finance/catalog', label: 'Katalog Biaya', icon: BookOpen },
     { href: '/finance/reports', label: 'Laporan Keuangan', icon: Wallet },
@@ -118,6 +126,8 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/users', label: 'Pengguna', icon: Users },
     { href: '/school-profile', label: 'Profil Sekolah', icon: Building2 },
+    { href: '/guest-book', label: 'Laporan Tamu', icon: BookUser },
+    { href: '/bk', label: 'BK & Kedisiplinan', icon: Shield },
     { href: '/boarding', label: 'Asrama', icon: BedDouble },
     { href: '/finance/catalog', label: 'Katalog Biaya', icon: BookOpen },
     { href: '/tickets', label: 'Tiket & CRM', icon: ClipboardList },
@@ -141,10 +151,16 @@ const menuItems: Record<string, { href: string; label: string; icon: React.Compo
     { href: '/finance/reports', label: 'Laporan Keuangan', icon: Wallet },
     { href: '/cash-flow', label: 'Cash Flow', icon: Wallet },
     { href: '/reports', label: 'Laporan', icon: FileText },
+    { href: '/guest-book', label: 'Laporan Tamu', icon: BookUser },
+    { href: '/bk', label: 'BK & Kedisiplinan', icon: Shield },
     { href: '/school-profile', label: 'Profil Sekolah', icon: Building2 },
     { href: '/boarding', label: 'Asrama', icon: BedDouble },
     { href: '/messages', label: 'Pesan', icon: MessageSquare },
     { href: '/tickets', label: 'Tiket & CRM', icon: ClipboardList },
+  ],
+  [UserRole.SECURITY]: [
+    { href: '/guest-book', label: 'Buku Tamu', icon: BookUser },
+    { href: '/profile', label: 'Profil', icon: User },
   ],
   [UserRole.FINANCE]: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -170,6 +186,7 @@ const MENU_PRIORITY: UserRole[] = [
   UserRole.KOORDINATOR_LAB_PERPUS,
   UserRole.KAPRODI,
   UserRole.STAFF,
+  UserRole.SECURITY,
   UserRole.FINANCE,
   UserRole.HOMEROOM_TEACHER,
   UserRole.GURU_PRODUKTIF,

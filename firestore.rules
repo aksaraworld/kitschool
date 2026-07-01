@@ -162,6 +162,26 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if false;
     }
+
+    match /visitorLogs/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    match /disciplineIncidents/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    match /counselingSessions/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    match /disciplineWarnings/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
     
     // Years collection
     match /years/{yearId} {

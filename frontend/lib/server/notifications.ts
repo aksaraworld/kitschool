@@ -104,7 +104,7 @@ export async function getUserNotifications(
 
     notifications.push({
       id: `comm-${id}`,
-      type: String(row.category) === 'boarding' ? 'boarding' : 'communication',
+      type: String(row.category) === 'boarding' ? 'boarding' : String(row.category) === 'bk' ? 'bk' : 'communication',
       title: subject,
       body: message || 'Anda memiliki pemberitahuan baru',
       createdAt,

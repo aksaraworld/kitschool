@@ -40,6 +40,11 @@ Restart `npm run dev` after adding the file. Landing may work without it; **logi
 |------|-------|
 | Staff | `staff@ppst-alum.sch.id` |
 | Staff TU | `tu@ppst-alum.sch.id` |
+| Sekuriti | `sekuriti@ppst-alum.sch.id` |
+| Koordinator BK | `bk@ppst-alum.sch.id` |
+| Wakasek Kesiswaan | `wakasek.kesiswaan@ppst-alum.sch.id` |
+| Musyrif Putra | `musyrif.putra@ppst-alum.sch.id` |
+| Musyrifah Putri | `musyrif.putri@ppst-alum.sch.id` |
 | Guru / Wali Kelas | `guru@ppst-alum.sch.id` |
 
 ## MTs — 10 siswa + 10 orang tua (`ppst2025`)

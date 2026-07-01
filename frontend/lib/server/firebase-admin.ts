@@ -268,6 +268,22 @@ export function boardingPhoneLogsCollection() {
   return getFirestore().collection('boardingPhoneLogs');
 }
 
+export function visitorLogsCollection() {
+  return getFirestore().collection('visitorLogs');
+}
+
+export function disciplineIncidentsCollection() {
+  return getFirestore().collection('disciplineIncidents');
+}
+
+export function counselingSessionsCollection() {
+  return getFirestore().collection('counselingSessions');
+}
+
+export function disciplineWarningsCollection() {
+  return getFirestore().collection('disciplineWarnings');
+}
+
 export function tkDevelopmentAreasCollection() {
   return getFirestore().collection('tkDevelopmentAreas');
 }
