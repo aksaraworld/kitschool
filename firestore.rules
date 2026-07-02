@@ -206,11 +206,27 @@ service cloud.firestore {
       allow write: if getUserRole() == 'saas_admin';
     }
     
-    // Payment attempts (for invoices)
+    // Payment attempts (Xendit gateway log — server writes only)
     match /paymentAttempts/{paymentAttemptId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if getUserRole() in ['saas_admin', 'principal', 'finance'];
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Immutable unified ledger — server writes only
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated() && (
+        get(/databases/$(database)/documents/wallets/$(resource.data.sourceWalletId)).data.ownerId == request.auth.uid ||
+        get(/databases/$(database)/documents/wallets/$(resource.data.destinationWalletId)).data.ownerId == request.auth.uid ||
+        (resource.data.paymentAttemptId != null &&
+          get(/databases/$(database)/documents/paymentAttempts/$(resource.data.paymentAttemptId)).data.userId == request.auth.uid)
+      );
+      allow write: if false;
+    }
+
+    // Wallet balances — server writes only
+    match /wallets/{walletId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+      allow write: if false;
     }
     
     // Transaction fees (SaaS)
@@ -242,6 +258,16 @@ service cloud.firestore {
     match /feeStructures/{docId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if getUserRole() in ['saas_admin', 'principal', 'finance'];
+    }
+
+    match /priceGroups/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if getUserRole() in ['saas_admin', 'principal', 'finance', 'staff'];
+    }
+
+    match /paymentPlans/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if getUserRole() in ['saas_admin', 'principal', 'finance', 'staff'];
     }
     
     // Leave requests (staff)

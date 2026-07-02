@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import api from '@/lib/aksara-api';
+import { formatIDR } from '@aksara/formatters';
 import {
   FeeCategory,
   FeeFrequency,
@@ -13,8 +14,7 @@ import {
 } from '@/lib/types';
 import {
   PRODUCT_LINE_FILTER_OPTIONS,
-  productLineToFinanceUnit,
-  resolveProductLine,
+  resolveProductLines,
 } from '@/lib/finance-helpers';
 import { Plus, Pencil, RefreshCw, BookOpen, Info } from 'lucide-react';
 
@@ -46,20 +46,19 @@ const emptyForm = {
   amountBase: 0,
   frequency: FeeFrequency.MONTHLY,
   category: FeeCategory.MONTHLY_PESANTREN,
-  productLine: FeeProductLine.PESANTREN,
+  productLines: [FeeProductLine.PESANTREN] as FeeProductLine[],
+  kind: 'fee' as 'fee' | 'product',
   description: '',
   isActive: true,
 };
 
-function formatCurrency(n: number) {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n);
+const formatCurrency = (n: number) => formatIDR(n);
+
+function inferProductLines(fee: FeeStructure): FeeProductLine[] {
+  return resolveProductLines(fee);
 }
 
-function inferProductLine(fee: FeeStructure): FeeProductLine {
-  return resolveProductLine(fee) ?? FeeProductLine.PESANTREN;
-}
-
-export default function FinanceCatalogApp() {
+export default function FinanceCatalogApp({ embedded = false }: { embedded?: boolean }) {
   const [fees, setFees] = useState<FeeStructure[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -69,6 +68,7 @@ export default function FinanceCatalogApp() {
   const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState('');
   const [lineFilter, setLineFilter] = useState<FeeProductLine | ''>('');
+  const [kindFilter, setKindFilter] = useState<'all' | 'fee' | 'product'>('all');
 
   const load = async () => {
     try {
@@ -87,16 +87,20 @@ export default function FinanceCatalogApp() {
   }, []);
 
   const filteredFees = useMemo(() => {
-    if (!lineFilter) return fees;
-    return fees.filter((f) => inferProductLine(f) === lineFilter);
-  }, [fees, lineFilter]);
+    let list = fees;
+    if (kindFilter === 'fee') list = list.filter((f) => f.kind !== 'product');
+    if (kindFilter === 'product') list = list.filter((f) => f.kind === 'product');
+    if (!lineFilter) return list;
+    return list.filter((f) => inferProductLines(f).includes(lineFilter));
+  }, [fees, lineFilter, kindFilter]);
 
   const groupedFees = useMemo(() => {
     const groups: Partial<Record<FeeProductLine, FeeStructure[]>> = {};
     for (const fee of filteredFees) {
-      const line = inferProductLine(fee);
-      if (!groups[line]) groups[line] = [];
-      groups[line]!.push(fee);
+      const lines = inferProductLines(fee);
+      const primary = lines[0] ?? FeeProductLine.PESANTREN;
+      if (!groups[primary]) groups[primary] = [];
+      groups[primary]!.push(fee);
     }
     return PRODUCT_LINE_OPTIONS.filter((l) => groups[l]?.length).map((line) => ({
       line,
@@ -117,11 +121,20 @@ export default function FinanceCatalogApp() {
       amountBase: fee.amountBase,
       frequency: fee.frequency,
       category: fee.category ?? FeeCategory.OTHER,
-      productLine: inferProductLine(fee),
+      productLines: inferProductLines(fee),
+      kind: fee.kind === 'product' ? 'product' : 'fee',
       description: fee.description ?? '',
       isActive: fee.isActive !== false,
     });
     setModalOpen(true);
+  };
+
+  const toggleProductLine = (line: FeeProductLine) => {
+    setForm((prev) => {
+      const has = prev.productLines.includes(line);
+      const next = has ? prev.productLines.filter((l) => l !== line) : [...prev.productLines, line];
+      return { ...prev, productLines: next.length ? next : [line] };
+    });
   };
 
   const handleSave = async () => {
@@ -130,7 +143,7 @@ export default function FinanceCatalogApp() {
     try {
       const payload = {
         ...form,
-        financeUnit: productLineToFinanceUnit(form.productLine),
+        productLine: form.productLines[0],
       };
       if (editing) {
         await api.put(`/fee-structures/${editing._id}`, payload);
@@ -164,11 +177,15 @@ export default function FinanceCatalogApp() {
   };
 
   const renderFeeRow = (fee: FeeStructure) => {
-    const line = inferProductLine(fee);
+    const lines = inferProductLines(fee);
+    const primary = lines[0] ?? FeeProductLine.PESANTREN;
     return (
       <tr key={fee._id} className="hover:bg-gray-50">
         <td className="px-4 py-3">
           <p className="font-medium text-gray-900">{fee.name}</p>
+          {fee.kind === 'product' && (
+            <span className="text-xs text-orange-600 font-medium">Produk (POS)</span>
+          )}
         </td>
         <td className="px-4 py-3 text-sm text-gray-600 max-w-xs">
           {fee.description ? (
@@ -178,9 +195,16 @@ export default function FinanceCatalogApp() {
           )}
         </td>
         <td className="px-4 py-3">
-          <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${PRODUCT_LINE_BADGE[line]}`}>
-            {FEE_PRODUCT_LINE_LABELS[line]}
-          </span>
+          <div className="flex flex-wrap gap-1">
+            {lines.map((line) => (
+              <span
+                key={line}
+                className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${PRODUCT_LINE_BADGE[line]}`}
+              >
+                {FEE_PRODUCT_LINE_LABELS[line]}
+              </span>
+            ))}
+          </div>
         </td>
         <td className="px-4 py-3 text-sm text-gray-600 hidden md:table-cell">
           {FEE_CATEGORY_LABELS[fee.category as FeeCategory] ?? fee.category ?? '-'}
@@ -210,7 +234,8 @@ export default function FinanceCatalogApp() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className={embedded ? 'space-y-6' : 'space-y-6'}>
+      {!embedded && (
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Katalog Biaya</h1>
@@ -237,6 +262,18 @@ export default function FinanceCatalogApp() {
           </button>
         </div>
       </div>
+      )}
+      {embedded && (
+        <div className="flex flex-wrap gap-2 justify-end">
+          <button
+            onClick={openCreate}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Tambah ke Katalog
+          </button>
+        </div>
+      )}
 
       {/* Product line guide */}
       <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
@@ -260,8 +297,23 @@ export default function FinanceCatalogApp() {
         <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm">{message}</div>
       )}
 
-      {/* Line filter */}
-      <div className="flex flex-wrap gap-2">
+      {/* Kind + line filter */}
+      <div className="flex flex-wrap gap-2 items-center">
+        {(['all', 'fee', 'product'] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setKindFilter(k)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              kindFilter === k
+                ? 'bg-gray-900 text-white'
+                : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            {k === 'all' ? 'Semua' : k === 'fee' ? 'Biaya Berulang' : 'Produk (Seragam/Kitab)'}
+          </button>
+        ))}
+        <span className="text-gray-300">|</span>
         {PRODUCT_LINE_FILTER_OPTIONS.map((opt) => (
           <button
             key={opt.value || 'all'}
@@ -330,6 +382,32 @@ export default function FinanceCatalogApp() {
 
             <div className="space-y-3">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Jenis</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, kind: 'fee' })}
+                    className={`p-3 rounded-xl border-2 text-left ${
+                      form.kind === 'fee' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
+                    }`}
+                  >
+                    <p className="font-medium text-sm">Biaya Berulang</p>
+                    <p className="text-xs text-gray-500">SPP, iuran bulanan/tahunan — masuk jadwal tagihan</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, kind: 'product', frequency: FeeFrequency.ONE_TIME })}
+                    className={`p-3 rounded-xl border-2 text-left ${
+                      form.kind === 'product' ? 'border-orange-500 bg-orange-50' : 'border-gray-200'
+                    }`}
+                  >
+                    <p className="font-medium text-sm">Produk</p>
+                    <p className="text-xs text-gray-500">Seragam, kitab — hanya di POS, tidak dijadwal</p>
+                  </button>
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nama Produk</label>
                 <input
                   className="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5"
@@ -351,25 +429,31 @@ export default function FinanceCatalogApp() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Lini Produk</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Lini Produk <span className="text-gray-400 font-normal">(bisa pilih lebih dari satu)</span>
+                </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {PRODUCT_LINE_OPTIONS.map((line) => (
-                    <button
-                      key={line}
-                      type="button"
-                      onClick={() => setForm({ ...form, productLine: line })}
-                      className={`text-left p-3 rounded-xl border-2 transition-colors ${
-                        form.productLine === line
-                          ? 'border-primary-500 bg-primary-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${PRODUCT_LINE_BADGE[line]}`}>
-                        {FEE_PRODUCT_LINE_LABELS[line]}
-                      </span>
-                      <p className="text-xs text-gray-600 mt-1.5">{FEE_PRODUCT_LINE_DESCRIPTIONS[line]}</p>
-                    </button>
-                  ))}
+                  {PRODUCT_LINE_OPTIONS.map((line) => {
+                    const selected = form.productLines.includes(line);
+                    return (
+                      <button
+                        key={line}
+                        type="button"
+                        onClick={() => toggleProductLine(line)}
+                        className={`text-left p-3 rounded-xl border-2 transition-colors ${
+                          selected
+                            ? 'border-primary-500 bg-primary-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${PRODUCT_LINE_BADGE[line]}`}>
+                          {FEE_PRODUCT_LINE_LABELS[line]}
+                          {selected && ' ✓'}
+                        </span>
+                        <p className="text-xs text-gray-600 mt-1.5">{FEE_PRODUCT_LINE_DESCRIPTIONS[line]}</p>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

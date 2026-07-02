@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import { UserRole } from '@/lib/types';
 import api from '@/lib/aksara-api';
+import { formatIDR } from '@aksara/formatters';
 import { TrendingUp, TrendingDown, Wallet, Plus, Loader2 } from 'lucide-react';
 
 interface CashFlowEntry {
@@ -20,8 +21,7 @@ interface Summary {
   saldo: number;
 }
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n);
+const fmt = (n: number) => formatIDR(n);
 
 export default function CashFlowPage() {
   const [summary, setSummary] = useState<Summary | null>(null);

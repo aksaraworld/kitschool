@@ -1,26 +1,19 @@
 'use client';
 
+import Link from 'next/link';
 import { Invoice } from '@/lib/types';
-import { FileText, Calendar, DollarSign, CheckCircle, Clock, AlertCircle } from 'lucide-react';
-import PaymentModal from './PaymentModal';
-import { useState } from 'react';
+import { formatIDR } from '@aksara/formatters';
+import { FileText, Calendar, CreditCard, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 
 interface InvoiceCardProps {
   invoice: Invoice;
-  onPaymentSuccess: () => void;
+  /** Kept for backwards compatibility with callers; no longer triggers a modal. */
+  onPaymentSuccess?: () => void;
   showPaymentButton?: boolean;
 }
 
-export default function InvoiceCard({ invoice, onPaymentSuccess, showPaymentButton = true }: InvoiceCardProps) {
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
+export default function InvoiceCard({ invoice, showPaymentButton = true }: InvoiceCardProps) {
+  const formatCurrency = (amount: number) => formatIDR(amount);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -70,7 +63,6 @@ export default function InvoiceCard({ invoice, onPaymentSuccess, showPaymentButt
   };
 
   return (
-    <>
       <div className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-3">
@@ -120,24 +112,16 @@ export default function InvoiceCard({ invoice, onPaymentSuccess, showPaymentButt
 
         {showPaymentButton && invoice.remainingAmount > 0 && invoice.status !== 'cancelled' && (
           <div className="mt-4 pt-4 border-t">
-            <button
-              onClick={() => setShowPaymentModal(true)}
+            <Link
+              href="/finance/parent"
               className="w-full bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 flex items-center justify-center space-x-2"
             >
-              <DollarSign className="w-4 h-4" />
-              <span>Bayar Sekarang</span>
-            </button>
+              <CreditCard className="w-4 h-4" />
+              <span>Bayar via Aplikasi</span>
+            </Link>
           </div>
         )}
       </div>
-
-      <PaymentModal
-        invoice={invoice}
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        onSuccess={onPaymentSuccess}
-      />
-    </>
   );
 }
 

@@ -19,7 +19,8 @@
     "seed:firebase:reset": "tsx src/scripts/reset-and-seed-50.ts",
     "seed:firebase:modules": "tsx src/scripts/seed-new-modules.ts",
     "seed:kitschool": "tsx src/scripts/seed-kitschool-ppst.ts",
-    "seed:demo-modules": "tsx src/scripts/seed-ppst-demo-modules.ts"
+    "seed:demo-modules": "tsx src/scripts/seed-ppst-demo-modules.ts",
+    "seed:payments": "tsx src/scripts/seed-payments.ts"
   },
   "dependencies": {
     "@aksara/firebase": "file:../packages/firebase",

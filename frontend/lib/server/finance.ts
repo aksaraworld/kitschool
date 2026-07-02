@@ -37,6 +37,12 @@ import {
   billingFinanceUnit,
   resolveProductLine,
 } from '@/lib/finance-helpers';
+import { recordManualCashPayment } from '@/lib/server/ledger';
+import {
+  generateScheduleFromPlans,
+  getActiveAcademicYear,
+  getActivePaymentPlan,
+} from '@/lib/server/payment-schedule';
 
 export function canAccessPos(auth: AuthUser | null): boolean {
   return hasAnyRole(auth, FINANCE_POS_ROLES);
@@ -64,7 +70,7 @@ export async function listActiveFees(schoolId: string): Promise<FeeStructure[]> 
   const snap = await feeStructuresCollection().where('schoolId', '==', schoolId).get();
   return snap.docs
     .map((d) => docToJson(d) as unknown as FeeStructure)
-    .filter((f) => f.isActive !== false);
+    .filter((f) => f.isActive !== false && f.kind !== 'product');
 }
 
 async function nextSequenceNumber(
@@ -190,12 +196,23 @@ export async function createBillFromFee(
   return ref.id;
 }
 
-/** Generate recurring bills for all active students. */
+/** Generate recurring bills for all active students (plan-aware or legacy). */
 export async function generateBillsForSchool(
   schoolId: string,
   createdBy: string,
   opts?: { month?: number; year?: number; studentId?: string; frequency?: FeeFrequency }
 ): Promise<{ created: number; skipped: number }> {
+  const academicYear = await getActiveAcademicYear(schoolId);
+  if (academicYear) {
+    const defaultPlan = await getActivePaymentPlan(schoolId, academicYear._id);
+    if (defaultPlan) {
+      return generateScheduleFromPlans(schoolId, createdBy, {
+        studentId: opts?.studentId,
+        academicYear,
+      });
+    }
+  }
+
   const fees = await listActiveFees(schoolId);
   const targetFees = fees.filter((f) => {
     if (opts?.frequency) return f.frequency === opts.frequency;
@@ -404,6 +421,21 @@ export async function processPosCheckout(input: PosCheckoutInput): Promise<PosCh
     createdAt: now,
     updatedAt: now,
   });
+
+  // Pathway B — mirror the cash intake into the master double-entry ledger.
+  // Isolated: a ledger failure must never roll back an already-settled cash sale.
+  try {
+    await recordManualCashPayment({
+      schoolId: input.schoolId,
+      amount: subtotal,
+      referenceId: transactionNumber,
+      description: `POS ${transactionNumber} — ${studentName}`,
+      processedBy: input.processedBy,
+      invoiceIds: paidInvoiceIds,
+    });
+  } catch (e) {
+    console.error('processPosCheckout: ledger mirror failed (POS still committed):', e);
+  }
 
   return {
     transactionId: posRef.id,

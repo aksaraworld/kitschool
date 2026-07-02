@@ -19,10 +19,14 @@ export async function GET(req: NextRequest) {
     const studentId = req.nextUrl.searchParams.get('studentId');
     const month = req.nextUrl.searchParams.get('month');
     const year = req.nextUrl.searchParams.get('year');
+    const academicYearId = req.nextUrl.searchParams.get('academicYearId');
 
     let query = invoicesCollection().where('schoolId', '==', schoolId);
     if (status) query = query.where('status', '==', status) as ReturnType<typeof invoicesCollection>;
     if (studentId) query = query.where('studentId', '==', studentId) as ReturnType<typeof invoicesCollection>;
+    if (academicYearId) {
+      query = query.where('academicYearId', '==', academicYearId) as ReturnType<typeof invoicesCollection>;
+    }
 
     const snapshot = await query.get();
     let rows = snapshot.docs.map((d) => docToJson(d));

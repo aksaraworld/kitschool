@@ -160,6 +160,14 @@ export function paymentAttemptsCollection() {
   return getFirestore().collection('paymentAttempts');
 }
 
+export function walletsCollection() {
+  return getFirestore().collection('wallets');
+}
+
+export function ledgerTransactionsCollection() {
+  return getFirestore().collection('transactions');
+}
+
 export function medicalRecordsCollection() {
   return getFirestore().collection('medicalRecords');
 }
@@ -170,6 +178,14 @@ export function admissionsCollection() {
 
 export function feeStructuresCollection() {
   return getFirestore().collection('feeStructures');
+}
+
+export function paymentPlansCollection() {
+  return getFirestore().collection('paymentPlans');
+}
+
+export function priceGroupsCollection() {
+  return getFirestore().collection('priceGroups');
 }
 
 export function leaveRequestsCollection() {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import api from '@/lib/aksara-api';
+import { formatIDR } from '@aksara/formatters';
 import {
   FeeCategory,
   FinanceRevenueReport,
@@ -11,9 +12,7 @@ import {
 } from '@/lib/types';
 import { BarChart3, TrendingUp } from 'lucide-react';
 
-function formatCurrency(n: number) {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n);
-}
+const formatCurrency = (n: number) => formatIDR(n);
 
 export default function FinanceReportsApp() {
   const now = new Date();

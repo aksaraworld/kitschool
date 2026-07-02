@@ -5,6 +5,7 @@ import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import { UserRole, Invoice } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
+import { formatIDR } from '@aksara/formatters';
 import InvoiceCard from '@/components/Payment/InvoiceCard';
 import { FileText, Filter, Download } from 'lucide-react';
 
@@ -39,13 +40,7 @@ export default function InvoicesPage() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) => formatIDR(amount);
 
   const totalAmount = invoices.reduce((sum, inv) => sum + inv.amount, 0);
   const totalPaid = invoices.reduce((sum, inv) => sum + inv.paidAmount, 0);

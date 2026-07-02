@@ -7,7 +7,7 @@ import { getAuthUser, getSchoolId } from '@/lib/server/auth-helpers';
 import { feeStructuresCollection, docToJson } from '@/lib/server/firebase-admin';
 import { canManageCatalog } from '@/lib/server/finance';
 import { FeeProductLine } from '@/lib/types';
-import { productLineToFinanceUnit } from '@/lib/finance-helpers';
+import { normalizeFeeProductLines, productLineToFinanceUnit } from '@/lib/finance-helpers';
 
 export async function GET(
   req: NextRequest,
@@ -55,10 +55,17 @@ export async function PUT(
     if (body.amountBase != null) update.amountBase = Number(body.amountBase);
     if (body.frequency != null) update.frequency = body.frequency;
     if (body.category != null) update.category = body.category;
-    if (body.productLine != null) {
-      update.productLine = body.productLine as FeeProductLine;
-      update.financeUnit = productLineToFinanceUnit(body.productLine as FeeProductLine);
+    if (body.productLines != null || body.productLine != null) {
+      const { productLines, productLine } = normalizeFeeProductLines(
+        body.productLines as FeeProductLine[] | undefined,
+        body.productLine as FeeProductLine | undefined
+      );
+      const primary = productLines[0] ?? FeeProductLine.PESANTREN;
+      update.productLines = productLines;
+      update.productLine = productLine ?? primary;
+      update.financeUnit = productLineToFinanceUnit(primary);
     } else if (body.financeUnit != null) update.financeUnit = body.financeUnit;
+    if (body.kind != null) update.kind = body.kind === 'product' ? 'product' : 'fee';
     if (body.description != null) update.description = body.description;
     if (body.code != null) update.code = body.code;
     if (body.isActive != null) update.isActive = body.isActive;

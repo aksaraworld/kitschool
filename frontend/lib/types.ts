@@ -524,7 +524,9 @@ export enum InvoiceStatus {
   PARTIAL = 'partial',
   PAID = 'paid',
   OVERDUE = 'overdue',
-  CANCELLED = 'cancelled'
+  CANCELLED = 'cancelled',
+  /** Future academic period — payable in advance, excluded from "belum dibayar". */
+  SCHEDULED = 'scheduled',
 }
 
 export enum PaymentAttemptStatus {
@@ -571,6 +573,8 @@ export interface User {
   year?: number;
   major?: string;
   children?: string[];
+  /** Price tier for billing (links to /priceGroups). */
+  priceGroupId?: string;
   /** @deprecated use nip */
   teacherId?: string;
   assignedClasses?: string[];
@@ -672,6 +676,12 @@ export interface Invoice {
   feeStructureId?: string;
   month?: number;
   year?: number;
+  /** Academic year this invoice belongs to (years collection id). */
+  academicYearId?: string;
+  /** Payment plan that generated this invoice. */
+  paymentPlanId?: string;
+  /** Plan item id within the payment plan. */
+  planItemId?: string;
   createdBy: string;
   notes?: string;
   createdAt: string;
@@ -1553,10 +1563,62 @@ export interface FeeStructure {
   category: FeeCategory;
   /** Lini produk — MTs, MA, keduanya, pesantren, atau yayasan. */
   productLine?: FeeProductLine;
+  /** Multi-line product targeting (mirrors productLine[0] for legacy). */
+  productLines?: FeeProductLine[];
+  /** fee = recurring SPP/iuran; product = one-off Seragam/Kitab (POS only). */
+  kind?: 'fee' | 'product';
   financeUnit: FinanceUnit;
   description?: string;
   code?: string;
   isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Per-school price tier (e.g. standard, beasiswa, premium). */
+export interface PriceGroup {
+  _id: string;
+  schoolId: string;
+  name: string;
+  description?: string;
+  isDefault?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type PlanItemType = 'monthly' | 'yearly';
+
+/** One line in a payment plan (monthly schedule or yearly lump/split). */
+export interface PlanItem {
+  id: string;
+  name: string;
+  category: FeeCategory;
+  financeUnit: FinanceUnit;
+  feeStructureId?: string;
+  type: PlanItemType;
+  /** Base amount (yearly total or default monthly). */
+  amount: number;
+  /** Per-month amounts indexed Jul(0)..Jun(11) for custom splits. */
+  monthlyAmounts?: number[];
+  /** Which academic months this item applies (1=Jul .. 12=Jun). Default all 12. */
+  months?: number[];
+  dueDay?: number;
+}
+
+export interface PaymentPlanScope {
+  productLines?: FeeProductLine[];
+  priceGroupId?: string;
+}
+
+/** Per-school academic-year payment structure. */
+export interface PaymentPlan {
+  _id: string;
+  schoolId: string;
+  yearId: string;
+  name: string;
+  isActive: boolean;
+  scope: PaymentPlanScope;
+  items: PlanItem[];
   createdAt?: string;
   updatedAt?: string;
 }

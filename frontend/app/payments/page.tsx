@@ -5,6 +5,7 @@ import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import { UserRole, Payment, PaymentStatus, hasAnyRole } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/aksara-api';
+import { formatIDR } from '@aksara/formatters';
 import { CreditCard, CheckCircle, Clock, XCircle, DollarSign } from 'lucide-react';
 
 export default function PaymentsPage() {
@@ -67,13 +68,7 @@ export default function PaymentsPage() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) => formatIDR(amount);
 
   const canMarkAsPaid = user?.role === UserRole.PARENT || hasAnyRole(user, [UserRole.FINANCE]);
 

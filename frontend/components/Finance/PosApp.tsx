@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import api from '@/lib/aksara-api';
+import { formatIDR } from '@aksara/formatters';
 import {
   FeeStructure,
   FinanceUnit,
@@ -13,7 +14,8 @@ import {
   filterCatalogForStudent,
   JENJANG_FILTER_OPTIONS,
 } from '@/lib/finance-helpers';
-import { Search, ShoppingCart, Banknote, CheckCircle, User, Minus, Plus, X, Clock, Sparkles } from 'lucide-react';
+import { Search, ShoppingCart, Banknote, CheckCircle, User, Minus, Plus, X, Clock, Sparkles, Printer, QrCode, ExternalLink } from 'lucide-react';
+import PrintableReceipt, { ReceiptData } from '@/components/Finance/PrintableReceipt';
 
 type YearOption = { _id: string; name?: string };
 type ClassOption = {
@@ -37,9 +39,7 @@ type StudentRow = {
   isRecent?: boolean;
 };
 
-function formatCurrency(n: number) {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n);
-}
+const formatCurrency = (n: number) => formatIDR(n);
 
 function QtyStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
@@ -87,6 +87,10 @@ export default function PosApp() {
   const [loading, setLoading] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
   const [success, setSuccess] = useState<{ transactionNumber: string; change?: number } | null>(null);
+  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [digitalLoading, setDigitalLoading] = useState(false);
+  const [digitalInvoice, setDigitalInvoice] = useState<{ invoiceUrl: string; paymentAttemptId: string } | null>(null);
   const [error, setError] = useState('');
   const [showMobileCheckout, setShowMobileCheckout] = useState(false);
   const [filterJenjang, setFilterJenjang] = useState('');
@@ -120,7 +124,7 @@ export default function PosApp() {
   }, [classes, filterYearId, filterJenjang]);
 
   const catalogForStudent = useMemo(
-    () => filterCatalogForStudent(catalog, selected),
+    () => filterCatalogForStudent(catalog, selected, { productsOnly: true }),
     [catalog, selected]
   );
 
@@ -170,7 +174,18 @@ export default function PosApp() {
         params: { studentId: s._id, status: InvoiceStatus.PARTIAL },
         skipCache: true,
       });
-      setInvoices([...inv, ...partial].filter((i) => i.remainingAmount > 0));
+      const overdue = await api.get<Invoice[]>('/invoices', {
+        params: { studentId: s._id, status: InvoiceStatus.OVERDUE },
+        skipCache: true,
+      });
+      const scheduled = await api.get<Invoice[]>('/invoices', {
+        params: { studentId: s._id, status: InvoiceStatus.SCHEDULED },
+        skipCache: true,
+      });
+      const payable = [...inv, ...partial, ...overdue, ...scheduled].filter(
+        (i) => (i.remainingAmount ?? i.amount ?? 0) > 0
+      );
+      setInvoices(payable);
     } catch (e) {
       console.error(e);
     } finally {
@@ -181,7 +196,7 @@ export default function PosApp() {
   // Drop catalog qty for fees not applicable to newly selected student
   useEffect(() => {
     if (!selected) return;
-    const { shared, jenjang } = filterCatalogForStudent(catalog, selected);
+    const { shared, jenjang } = filterCatalogForStudent(catalog, selected, { productsOnly: true });
     const applicable = new Set([...shared, ...jenjang].map((f) => f._id));
     setCatalogQty((prev) => {
       const next: Record<string, number> = {};
@@ -230,6 +245,15 @@ export default function PosApp() {
     return invTotal + catTotal;
   }, [invoices, selectedInvoiceIds, catalogSelections]);
 
+  // Digital (Xendit) payment settles selected outstanding invoices only.
+  const invoiceSubtotal = useMemo(
+    () =>
+      invoices
+        .filter((i) => selectedInvoiceIds.has(i._id))
+        .reduce((s, i) => s + i.remainingAmount, 0),
+    [invoices, selectedInvoiceIds]
+  );
+
   const change = amountPaid > subtotal ? amountPaid - subtotal : 0;
 
   useEffect(() => {
@@ -253,6 +277,36 @@ export default function PosApp() {
         notes,
       });
       setSuccess(res);
+
+      // Snapshot the paid items into a printable receipt before clearing state.
+      const receiptItems = [
+        ...invoices
+          .filter((i) => selectedInvoiceIds.has(i._id))
+          .map((i) => ({
+            label: i.description || i.invoiceNumber || 'Tagihan',
+            total: i.remainingAmount ?? i.amount ?? 0,
+          })),
+        ...catalogSelections.map(({ fee, qty }) => ({
+          label: fee.name,
+          qty,
+          price: fee.amountBase,
+          total: fee.amountBase * qty,
+        })),
+      ];
+      setReceipt({
+        receiptNumber: res.transactionNumber,
+        dateISO: new Date().toISOString(),
+        payerName: selected.name,
+        studentName: selected.name,
+        className: selected.className,
+        description: 'Pembayaran tunai (over-the-counter)',
+        amount: subtotal,
+        method: 'Tunai (Cash)',
+        status: 'LUNAS / PAID',
+        items: receiptItems,
+        transactionId: res.transactionNumber,
+      });
+
       setSelectedInvoiceIds(new Set());
       setCatalogQty({});
       setShowMobileCheckout(false);
@@ -261,6 +315,38 @@ export default function PosApp() {
       setError(e instanceof Error ? e.message : 'Checkout gagal');
     } finally {
       setCheckingOut(false);
+    }
+  };
+
+  const handleDigitalCheckout = async () => {
+    if (!selected) return;
+    const ids = Array.from(selectedInvoiceIds);
+    if (ids.length === 0) {
+      setError('Pilih minimal satu tagihan untuk pembayaran digital.');
+      return;
+    }
+    setDigitalLoading(true);
+    setError('');
+    setSuccess(null);
+    try {
+      const res = await api.post<{ invoiceUrl: string; paymentAttemptId: string }>(
+        '/payments/invoice/create',
+        {
+          amount: invoiceSubtotal,
+          paymentType: 'TUITION',
+          metaData: {
+            invoiceId: ids[0],
+            invoiceIds: ids,
+            studentId: selected._id,
+            description: `POS Digital — ${selected.name ?? 'Siswa'}`,
+          },
+        }
+      );
+      setDigitalInvoice(res);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Gagal membuat pembayaran digital');
+    } finally {
+      setDigitalLoading(false);
     }
   };
 
@@ -338,6 +424,15 @@ export default function PosApp() {
           {success.change != null && success.change > 0 && (
             <p className="mt-1">Kembalian: {formatCurrency(success.change)}</p>
           )}
+          {receipt && (
+            <button
+              type="button"
+              onClick={() => setReceiptOpen(true)}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-green-300 bg-white px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-50"
+            >
+              <Printer className="h-4 w-4" /> Cetak Bukti
+            </button>
+          )}
         </div>
       )}
 
@@ -349,6 +444,24 @@ export default function PosApp() {
         <Banknote className="w-6 h-6" />
         {checkingOut ? 'Memproses...' : 'Bayar Tunai'}
       </button>
+
+      <div className="relative flex items-center py-1">
+        <div className="flex-grow border-t border-gray-200" />
+        <span className="mx-3 text-xs font-medium text-gray-400">atau</span>
+        <div className="flex-grow border-t border-gray-200" />
+      </div>
+
+      <button
+        onClick={handleDigitalCheckout}
+        disabled={!selected || invoiceSubtotal <= 0 || digitalLoading}
+        className="w-full inline-flex items-center justify-center gap-2 py-4 text-base font-semibold bg-white text-primary-700 border-2 border-primary-200 rounded-xl hover:bg-primary-50 active:bg-primary-100 disabled:opacity-50 touch-manipulation active:scale-[0.98] transition-transform"
+      >
+        <QrCode className="w-5 h-5" />
+        {digitalLoading ? 'Membuat tautan...' : 'Bayar Digital (Xendit)'}
+      </button>
+      <p className="text-[11px] leading-tight text-gray-400 text-center">
+        Digital hanya menyelesaikan tagihan terpilih ({formatCurrency(invoiceSubtotal)}). Item katalog tetap tunai.
+      </p>
     </div>
   );
 
@@ -357,7 +470,7 @@ export default function PosApp() {
       {/* Header — compact on mobile */}
       <div className="mb-4 lg:mb-6">
         <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">POS</h1>
-        <p className="text-gray-500 text-sm sm:text-base mt-0.5">Pembayaran tunai di loket</p>
+        <p className="text-gray-500 text-sm sm:text-base mt-0.5">Pembayaran tunai &amp; digital di loket</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
@@ -503,7 +616,7 @@ export default function PosApp() {
 
               {/* Outstanding invoices */}
               <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Tagihan Belum Lunas</h3>
+                <h3 className="font-semibold text-gray-900 mb-3">Tagihan Belum Lunas &amp; Bayar di Muka</h3>
                 {loading ? (
                   <p className="text-sm text-gray-500 py-4 text-center">Memuat tagihan...</p>
                 ) : invoices.length === 0 ? (
@@ -534,6 +647,7 @@ export default function PosApp() {
                             <p className="font-medium text-base">{inv.description || inv.invoiceNumber}</p>
                             <p className="text-xs text-gray-500 mt-0.5">
                               {inv.month && inv.year ? `Periode ${inv.month}/${inv.year}` : inv.invoiceNumber}
+                              {inv.status === InvoiceStatus.SCHEDULED && ' · Bayar di muka'}
                               {inv.financeUnit &&
                                 ` · ${FINANCE_UNIT_LABELS[inv.financeUnit as FinanceUnit] ?? inv.financeUnit}`}
                             </p>
@@ -548,9 +662,9 @@ export default function PosApp() {
 
               {/* Catalog — split by jenjang */}
               <div>
-                <h3 className="font-semibold text-gray-900 mb-1">Katalog untuk {selected.jenjang ?? 'Siswa'}</h3>
+                <h3 className="font-semibold text-gray-900 mb-1">Produk (Seragam / Kitab)</h3>
                 <p className="text-xs text-gray-500 mb-3">
-                  Hanya menampilkan biaya {selected.jenjang} + pesantren/yayasan. Produk MTs/MA terpisah.
+                  Pembelian sekali — terpisah dari tagihan SPP/iuran berulang.
                 </p>
 
                 {catalogForStudent.shared.length > 0 && (
@@ -669,6 +783,71 @@ export default function PosApp() {
           </div>
         )}
       </div>
+
+      <PrintableReceipt data={receipt} open={receiptOpen} onClose={() => setReceiptOpen(false)} />
+
+      {/* Digital payment (Xendit) — QR + link for the parent to pay at the desk */}
+      {digitalInvoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Pembayaran Digital</h3>
+                <p className="text-sm text-gray-500">Minta orang tua memindai QR ini</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDigitalInvoice(null)}
+                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"
+                aria-label="Tutup"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="my-4 flex justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+                  digitalInvoice.invoiceUrl
+                )}`}
+                alt="QR pembayaran Xendit"
+                width={220}
+                height={220}
+                className="rounded-xl border border-gray-100"
+              />
+            </div>
+
+            <div className="mb-4 rounded-xl bg-primary-50 p-3 text-center">
+              <p className="text-xs text-gray-600">Total</p>
+              <p className="text-2xl font-bold text-primary-700">{formatCurrency(invoiceSubtotal)}</p>
+            </div>
+
+            <a
+              href={digitalInvoice.invoiceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 py-3 font-semibold text-white hover:bg-primary-700"
+            >
+              <ExternalLink className="h-5 w-5" /> Buka Halaman Pembayaran
+            </a>
+            <p className="text-center text-[11px] leading-tight text-gray-400">
+              Setelah dibayar, tagihan otomatis berstatus LUNAS dan tercatat di Kas &amp; Bendahara.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                setDigitalInvoice(null);
+                if (selected) selectStudent(selected);
+              }}
+              className="mt-3 w-full rounded-xl border-2 border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            >
+              Selesai / Segarkan Tagihan
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
