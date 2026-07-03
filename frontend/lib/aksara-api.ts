@@ -81,6 +81,12 @@ function buildQueryString(params: Record<string, any>): string {
   return queryString ? `?${queryString}` : '';
 }
 
+// Collapse concurrent identical GETs into a single network request. This is
+// always safe (all callers get the same fresh response) and eliminates the
+// duplicate fetches from React StrictMode double-mounts and sibling components
+// requesting the same endpoint at the same time.
+const inFlightGets = new Map<string, Promise<any>>();
+
 // Convenience methods that return typed data
 export const api = {
   get: async <T = any>(
@@ -88,8 +94,22 @@ export const api = {
     options?: { params?: Record<string, any>; skipCache?: boolean }
   ): Promise<T> => {
     const queryString = options?.params ? buildQueryString(options.params) : '';
-    const response = await aksaraApi.get(`${endpoint}${queryString}`, { skipCache: options?.skipCache });
-    return handleApiResponse<T>(response);
+    const url = `${endpoint}${queryString}`;
+
+    const existing = inFlightGets.get(url);
+    if (existing) return existing as Promise<T>;
+
+    const promise = (async () => {
+      const response = await aksaraApi.get(url, { skipCache: options?.skipCache });
+      return handleApiResponse<T>(response);
+    })();
+
+    inFlightGets.set(url, promise);
+    try {
+      return await promise;
+    } finally {
+      inFlightGets.delete(url);
+    }
   },
   
   post: async <T = any>(endpoint: string, data?: any): Promise<T> => {

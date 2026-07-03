@@ -166,22 +166,24 @@ export default function PosApp() {
     setError('');
     setLoading(true);
     try {
-      const inv = await api.get<Invoice[]>('/invoices', {
-        params: { studentId: s._id, status: InvoiceStatus.PENDING },
-        skipCache: true,
-      });
-      const partial = await api.get<Invoice[]>('/invoices', {
-        params: { studentId: s._id, status: InvoiceStatus.PARTIAL },
-        skipCache: true,
-      });
-      const overdue = await api.get<Invoice[]>('/invoices', {
-        params: { studentId: s._id, status: InvoiceStatus.OVERDUE },
-        skipCache: true,
-      });
-      const scheduled = await api.get<Invoice[]>('/invoices', {
-        params: { studentId: s._id, status: InvoiceStatus.SCHEDULED },
-        skipCache: true,
-      });
+      const [inv, partial, overdue, scheduled] = await Promise.all([
+        api.get<Invoice[]>('/invoices', {
+          params: { studentId: s._id, status: InvoiceStatus.PENDING },
+          skipCache: true,
+        }),
+        api.get<Invoice[]>('/invoices', {
+          params: { studentId: s._id, status: InvoiceStatus.PARTIAL },
+          skipCache: true,
+        }),
+        api.get<Invoice[]>('/invoices', {
+          params: { studentId: s._id, status: InvoiceStatus.OVERDUE },
+          skipCache: true,
+        }),
+        api.get<Invoice[]>('/invoices', {
+          params: { studentId: s._id, status: InvoiceStatus.SCHEDULED },
+          skipCache: true,
+        }),
+      ]);
       const payable = [...inv, ...partial, ...overdue, ...scheduled].filter(
         (i) => (i.remainingAmount ?? i.amount ?? 0) > 0
       );

@@ -56,7 +56,10 @@ export function getFirestore() {
   const db = getFirebaseAdminDb();
   if (!firestoreSettingsDone) {
     try {
-      db.settings({ ignoreUndefinedProperties: true });
+      // preferRest: use HTTP/REST transport instead of gRPC. gRPC channels
+      // frequently stall for many seconds on cold/serverless/dev networks
+      // (observed 20s+ hangs); REST avoids the channel-warmup latency.
+      db.settings({ ignoreUndefinedProperties: true, preferRest: true });
     } catch {
       // settings() is only valid before first use; ignore if already configured
     }

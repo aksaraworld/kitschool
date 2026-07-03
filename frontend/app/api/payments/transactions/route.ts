@@ -91,13 +91,14 @@ export async function GET(req: NextRequest) {
     } else {
       const walletIds = new Set<string>([parentWalletId(auth.uid), studentWalletId(auth.uid)]);
 
-      const userDoc = await usersCollection().doc(auth.uid).get();
+      // Independent reads — run together instead of one after another.
+      const [userDoc, attemptsSnap] = await Promise.all([
+        usersCollection().doc(auth.uid).get(),
+        paymentAttemptsCollection().where('userId', '==', auth.uid).get(),
+      ]);
       const children = ((userDoc.data() as { children?: string[] })?.children ?? []) as string[];
       for (const childId of children) walletIds.add(studentWalletId(String(childId)));
 
-      const attemptsSnap = await paymentAttemptsCollection()
-        .where('userId', '==', auth.uid)
-        .get();
       const attemptIds = attemptsSnap.docs.map((d) => d.id);
 
       const walletIdList = Array.from(walletIds);

@@ -20,29 +20,57 @@ export async function GET(req: NextRequest) {
     const month = req.nextUrl.searchParams.get('month');
     const year = req.nextUrl.searchParams.get('year');
     const academicYearId = req.nextUrl.searchParams.get('academicYearId');
+    const limitParam = Number(req.nextUrl.searchParams.get('limit'));
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 1000) : 500;
 
-    let query = invoicesCollection().where('schoolId', '==', schoolId);
-    if (status) query = query.where('status', '==', status) as ReturnType<typeof invoicesCollection>;
-    if (studentId) query = query.where('studentId', '==', studentId) as ReturnType<typeof invoicesCollection>;
-    if (academicYearId) {
-      query = query.where('academicYearId', '==', academicYearId) as ReturnType<typeof invoicesCollection>;
-    }
+    // Apply all equality filters to a base query. Equality-only filters across
+    // multiple fields are served by Firestore's zigzag merge join (no composite
+    // index needed) and are far cheaper than fetching the whole collection.
+    const applyFilters = (q: FirebaseFirestore.Query): FirebaseFirestore.Query => {
+      let out = q;
+      if (status) out = out.where('status', '==', status);
+      if (studentId) out = out.where('studentId', '==', studentId);
+      if (academicYearId) out = out.where('academicYearId', '==', academicYearId);
+      if (month) out = out.where('month', '==', Number(month));
+      if (year) out = out.where('year', '==', Number(year));
+      return out;
+    };
 
-    const snapshot = await query.get();
-    let rows = snapshot.docs.map((d) => docToJson(d));
+    const isParent = auth.role === UserRole.PARENT;
+    const rowMap = new Map<string, Record<string, unknown>>();
 
-    // Parents only see their children's bills
-    if (auth.role === UserRole.PARENT) {
+    if (isParent) {
+      // Scope server-side to the parent's own + children's bills so a `limit`
+      // can never silently hide a child's invoice behind unrelated school rows.
       const parentDoc = await usersCollection().doc(auth.uid).get();
-      const children = ((parentDoc.data() as { children?: string[] })?.children) ?? [];
-      rows = rows.filter(
-        (r) => r.parentId === auth.uid || children.includes(String(r.studentId))
+      const children = (((parentDoc.data() as { children?: string[] })?.children) ?? []).map(String);
+
+      const queries: Promise<FirebaseFirestore.QuerySnapshot>[] = [];
+      // parentId path
+      queries.push(
+        applyFilters(invoicesCollection().where('schoolId', '==', schoolId).where('parentId', '==', auth.uid))
+          .limit(limit)
+          .get()
       );
+      // children studentId path (Firestore `in` supports up to 30 values)
+      for (let i = 0; i < children.length; i += 30) {
+        const group = children.slice(i, i + 30);
+        queries.push(
+          applyFilters(invoicesCollection().where('schoolId', '==', schoolId).where('studentId', 'in', group))
+            .limit(limit)
+            .get()
+        );
+      }
+      const snaps = await Promise.all(queries);
+      for (const snap of snaps) for (const d of snap.docs) rowMap.set(d.id, docToJson(d));
+    } else {
+      const snapshot = await applyFilters(invoicesCollection().where('schoolId', '==', schoolId))
+        .limit(limit)
+        .get();
+      for (const d of snapshot.docs) rowMap.set(d.id, docToJson(d));
     }
 
-    if (month) rows = rows.filter((r) => String(r.month) === month);
-    if (year) rows = rows.filter((r) => String(r.year) === year);
-
+    const rows = Array.from(rowMap.values());
     rows.sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')));
     return NextResponse.json(rows);
   } catch (e) {
